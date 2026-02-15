@@ -1,0 +1,138 @@
+# Machine Learning Performance Report
+
+## Executive Summary
+
+This report analyzes the performance of three different machine learning models on our dataset. We trained models A, B, and C using the same hyperparameters and evaluated them on a held-out test set.
+
+## Methodology
+
+### Data Preparation
+
+We collected 10,000 samples from production logs between January and March 2024. Each sample was preprocessed using the following pipeline:
+
+1. Text normalization (lowercase, remove special chars)
+2. Tokenization using SentencePiece
+3. Feature extraction with TF-IDF
+4. Dimensionality reduction via PCA (100 components)
+
+### Model Architecture
+
+We tested three architectures:
+
+**Model A: Logistic Regression**
+- Simple baseline model
+- L2 regularization (C=1.0)
+- Max iterations: 1000
+
+**Model B: Random Forest**
+- 100 trees
+- Max depth: 10
+- Min samples split: 5
+
+**Model C: Neural Network**
+- 3 hidden layers (256, 128, 64 neurons)
+- ReLU activation
+- Dropout: 0.3
+- Adam optimizer (lr=0.001)
+
+### Training Code
+
+Here's the training loop for the neural network:
+
+```python
+def train_model(model, train_loader, optimizer, epochs=10):
+    model.train()
+    
+    for epoch in range(epochs):
+        total_loss = 0
+        for batch_idx, (data, target) in enumerate(train_loader):
+            optimizer.zero_grad()
+            output = model(data)
+            loss = F.cross_entropy(output, target)
+            loss.backward()
+            optimizer.step()
+            
+            total_loss += loss.item()
+        
+        avg_loss = total_loss / len(train_loader)
+        print(f"Epoch {epoch+1}/{epochs}, Loss: {avg_loss:.4f}")
+    
+    return model
+```
+
+## Results
+
+### Performance Metrics
+
+| Model | Accuracy | Precision | Recall | F1 Score |
+|-------|----------|-----------|--------|----------|
+| Model A (Logistic Regression) | 0.82 | 0.80 | 0.84 | 0.82 |
+| Model B (Random Forest) | 0.87 | 0.86 | 0.88 | 0.87 |
+| Model C (Neural Network) | 0.91 | 0.90 | 0.92 | 0.91 |
+
+### Key Findings
+
+1. **Neural network achieved best performance**: 91% accuracy significantly outperforms the baseline
+2. **Random forest is a strong middle ground**: Good balance of performance and interpretability
+3. **Logistic regression is too simple**: Struggles with non-linear patterns in the data
+
+### Confusion Matrices
+
+The confusion matrices showed that Model C (Neural Network) had the fewest false positives and false negatives across all classes. This suggests it learned the most robust decision boundaries.
+
+## Recommendations
+
+Based on our analysis, we recommend:
+
+1. **Deploy Model C to production**: Highest accuracy justifies the computational cost
+2. **Monitor for drift**: Set up alerts if accuracy drops below 0.85
+3. **Retrain quarterly**: Use new production data to prevent staleness
+4. **A/B test**: Compare Model C vs current production model for 2 weeks
+
+## Conclusion
+
+The neural network architecture (Model C) demonstrated superior performance across all metrics. While it requires more computational resources than simpler models, the 9-percentage-point improvement in accuracy justifies the investment.
+
+Next steps include deploying to staging environment and conducting thorough integration testing.
+
+## Appendix A: Hyperparameters
+
+Complete hyperparameter configurations:
+
+```python
+# Model A
+logistic_config = {
+    'C': 1.0,
+    'penalty': 'l2',
+    'solver': 'lbfgs',
+    'max_iter': 1000
+}
+
+# Model B
+rf_config = {
+    'n_estimators': 100,
+    'max_depth': 10,
+    'min_samples_split': 5,
+    'random_state': 42
+}
+
+# Model C
+nn_config = {
+    'layers': [256, 128, 64],
+    'activation': 'relu',
+    'dropout': 0.3,
+    'optimizer': 'adam',
+    'learning_rate': 0.001,
+    'batch_size': 32,
+    'epochs': 50
+}
+```
+
+## Appendix B: Dataset Statistics
+
+- Total samples: 10,000
+- Training set: 7,000 (70%)
+- Validation set: 1,500 (15%)
+- Test set: 1,500 (15%)
+- Features: 100 (after PCA)
+- Classes: 3 (evenly distributed)

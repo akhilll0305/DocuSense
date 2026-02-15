@@ -1,0 +1,17 @@
+# Meeting Notes - Feb 15, 2026
+
+## Attendees
+- Alice (PM)
+- Bob (Engineer)
+- Carol (Designer)
+
+## Discussion
+We discussed the new feature rollout. Key points:
+- Launch date: March 1st
+- Need QA approval by Feb 25th
+- Design mockups ready
+
+## Action Items
+1. Bob: Complete implementation by Feb 20th
+2. Carol: Finalize UI/UX by Feb 18th
+3. Alice: Coordinate QA testing

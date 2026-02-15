@@ -10,6 +10,24 @@ This module handles:
 - Storage in SQLite
 """
 
-from docusense.ingestion.converters import DocumentConverter
+from docusense.ingestion.converters import DocumentConverter, ConversionResult
+from docusense.ingestion.image_processor import ImageProcessor, ImageDescription, VisionProvider
+from docusense.ingestion.preprocessor import TextPreprocessor, PreprocessResult, preprocess_text
+from docusense.ingestion.chunker import SemanticChunker, Chunk
+from docusense.ingestion.pipeline import DocumentPipeline, PipelineResult, process_document
 
-__all__ = ["DocumentConverter"]
+__all__ = [
+    "DocumentConverter",
+    "ConversionResult",
+    "ImageProcessor",
+    "ImageDescription",
+    "VisionProvider",
+    "TextPreprocessor",
+    "PreprocessResult",
+    "preprocess_text",
+    "SemanticChunker",
+    "Chunk",
+    "DocumentPipeline",
+    "PipelineResult",
+    "process_document",
+]
