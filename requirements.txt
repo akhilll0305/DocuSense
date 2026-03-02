@@ -55,17 +55,17 @@ tqdm>=4.66.0                  # Progress bars
 uuid>=1.30                    # Unique ID generation
 
 # ==================== Phase 2: Embeddings & Vector Store (FREE) ====================
-# (Will be added in Phase 2)
-# sentence-transformers>=2.2.2  # FREE local embeddings
-# faiss-cpu>=1.7.4              # FREE vector search
-# numpy>=1.24.0
-# chromadb>=0.4.18              # Alternative to FAISS
+sentence-transformers>=5.2.3  # FREE local embeddings (all-MiniLM-L6-v2)
+qdrant-client>=1.17.0         # Qdrant vector database
+torch>=2.10.0                 # PyTorch for embeddings
+numpy>=1.24.0                 # Array operations
+# faiss-cpu>=1.7.4            # Alternative: FAISS vector search
+# chromadb>=0.4.18            # Alternative: ChromaDB
 
 # ==================== Phase 3: Hybrid Retrieval ====================
-# (Will be added in Phase 3)
-# rank-bm25>=0.2.2
-# nltk>=3.8.1
-# scikit-learn>=1.3.2
+rank-bm25>=0.2.2              # BM25 keyword search (FREE)
+# nltk>=3.8.1                 # Natural language processing
+# scikit-learn>=1.3.2         # ML utilities
 
 # ==================== Phase 4: Query Processing ====================
 # (Will be added in Phase 4)
