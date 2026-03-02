@@ -19,9 +19,20 @@ from .query_processor import (
     process_query
 )
 
+from .hybrid_search import (
+    HybridSearch,
+    HybridSearchResult,
+    hybrid_search
+)
+
 __all__ = [
+    # Query Processing
     "QueryProcessor",
     "ProcessedQuery", 
     "QueryIntent",
-    "process_query"
+    "process_query",
+    # Hybrid Search
+    "HybridSearch",
+    "HybridSearchResult",
+    "hybrid_search"
 ]
