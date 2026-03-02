@@ -25,6 +25,12 @@ from .hybrid_search import (
     hybrid_search
 )
 
+from .reranker import (
+    Reranker,
+    RankedResult,
+    rerank
+)
+
 __all__ = [
     # Query Processing
     "QueryProcessor",
@@ -34,5 +40,9 @@ __all__ = [
     # Hybrid Search
     "HybridSearch",
     "HybridSearchResult",
-    "hybrid_search"
+    "hybrid_search",
+    # Reranking
+    "Reranker",
+    "RankedResult",
+    "rerank"
 ]
