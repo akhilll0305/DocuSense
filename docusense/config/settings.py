@@ -51,14 +51,18 @@ class Settings(BaseSettings):
     default_chat_model: str = "llama3.2:3b"  # FREE: Fast, good quality
     default_smart_model: str = "llama3.2:3b"  # FREE: Can upgrade to llama3.1:8b for better quality
     
-    # ==================== Embedding Settings ====================
+    # ==================== Embedding Settings (Phase 2) ====================
     # FREE OPTIONS ONLY
     embedding_provider: str = "sentence-transformers"  # FREE: Local embeddings
-    embedding_model: str = "all-MiniLM-L6-v2"  # FREE: Fast, 384 dim
-    # Alternative: "all-mpnet-base-v2" (768 dim, better quality, slower)
+    embedding_model: str = "all-MiniLM-L6-v2"  # FREE: Fast, 384 dim, good quality
+    # Alternative models:
+    # - "all-mpnet-base-v2" (768 dim, better quality, slower)
+    # - "paraphrase-MiniLM-L6-v2" (384 dim, optimized for semantic similarity)
+    # - "multi-qa-MiniLM-L6-cos-v1" (384 dim, optimized for Q&A)
     embedding_dimension: int = 384  # all-MiniLM-L6-v2
     embedding_batch_size: int = 32
     embedding_device: str = "cpu"  # "cuda" if GPU available
+    embedding_normalize: bool = True  # Normalize vectors for cosine similarity
     
     # ==================== Document Processing (Phase 1) ====================
     # File handling
@@ -94,12 +98,31 @@ class Settings(BaseSettings):
     preserve_tables: bool = True  # Keep tables together
     overlap_strategy: Literal["token", "sentence"] = "sentence"
     
-    # ==================== Retrieval Settings ====================
+    # ==================== Vector Store Settings (Phase 2) ====================
+    
+    # Qdrant configuration
+    vector_store_type: Literal["qdrant", "faiss", "chroma"] = "qdrant"
+    qdrant_mode: Literal["memory", "disk", "server"] = "disk"  # memory=testing, disk=local, server=remote
+    qdrant_path: Path = PROJECT_ROOT / "data" / "qdrant"  # For disk mode
+    qdrant_url: Optional[str] = None  # For server mode: http://localhost:6333
+    qdrant_api_key: Optional[str] = None  # For cloud Qdrant
+    qdrant_collection_name: str = "docusense_chunks"
+    
+    # Distance metric for similarity evaluation
+    distance_metric: Literal["COSINE", "EUCLIDEAN", "DOT"] = "COSINE"
     
     # Vector search
-    vector_store_type: Literal["faiss", "chroma", "milvus"] = "faiss"
     top_k_results: int = 5
     similarity_threshold: float = 0.7
+    use_score_threshold: bool = True  # Filter by similarity score
+    
+    # Auto-detect server mode when credentials are provided
+    @property
+    def effective_qdrant_mode(self) -> str:
+        """Return 'server' mode if credentials provided, else use configured mode."""
+        if self.qdrant_url and self.qdrant_api_key:
+            return "server"
+        return self.qdrant_mode
     
     # Hybrid retrieval
     use_hybrid_search: bool = True
