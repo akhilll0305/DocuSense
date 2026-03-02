@@ -31,6 +31,13 @@ from .reranker import (
     rerank
 )
 
+from .retrieval_pipeline import (
+    RetrievalPipeline,
+    RetrievalResult,
+    RetrievalMetrics,
+    retrieve
+)
+
 __all__ = [
     # Query Processing
     "QueryProcessor",
@@ -44,5 +51,10 @@ __all__ = [
     # Reranking
     "Reranker",
     "RankedResult",
-    "rerank"
+    "rerank",
+    # Retrieval Pipeline (Main Interface)
+    "RetrievalPipeline",
+    "RetrievalResult",
+    "RetrievalMetrics",
+    "retrieve"
 ]
