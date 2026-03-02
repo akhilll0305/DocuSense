@@ -1,1 +1,27 @@
-"""Vector stores, chunking, and search implementations."""
+"""
+Retrieval Module - Advanced query processing and hybrid search.
+
+Phase 3: Query Processing & Retrieval
+
+Components:
+-----------
+1. QueryProcessor: Query rewriting and expansion (Gemini-powered)
+2. HybridSearch: Vector + BM25 keyword search fusion
+3. Reranker: Cross-encoder for result re-scoring
+4. ContextBuilder: Assemble retrieved chunks into context
+5. RetrievalPipeline: End-to-end orchestration
+"""
+
+from .query_processor import (
+    QueryProcessor,
+    ProcessedQuery,
+    QueryIntent,
+    process_query
+)
+
+__all__ = [
+    "QueryProcessor",
+    "ProcessedQuery", 
+    "QueryIntent",
+    "process_query"
+]
