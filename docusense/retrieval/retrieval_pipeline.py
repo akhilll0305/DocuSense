@@ -249,6 +249,23 @@ class RetrievalPipeline:
                 metrics.num_queries_generated = len(processed_query.get_all_queries())
                 stages_used.append("query_processing")
                 logger.info(f"  Query processed: {metrics.num_queries_generated} variations")
+                
+                # NEW: Merge academic filters from query processing
+                academic_filters = processed_query.metadata.get("academic_filters", {})
+                if academic_filters:
+                    logger.info(f"  📚 Academic filters detected: {list(academic_filters.keys())}")
+                    if filters is None:
+                        filters = {}
+                    filters.update(academic_filters)
+                
+                # NEW: Apply section-based filtering
+                section_intent = processed_query.metadata.get("section_intent")
+                if section_intent:
+                    logger.info(f"  📊 Section filter: {section_intent}")
+                    if filters is None:
+                        filters = {}
+                    filters["section_type"] = section_intent
+                
             except Exception as e:
                 logger.warning(f"Query processing failed: {e}")
         
