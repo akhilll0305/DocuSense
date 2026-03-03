@@ -7,6 +7,7 @@ This module handles:
 - Image extraction and processing
 - Text preprocessing
 - Semantic chunking
+- Research paper metadata extraction (NEW)
 - Storage in SQLite
 """
 
@@ -14,6 +15,13 @@ from docusense.ingestion.converters import DocumentConverter, ConversionResult
 from docusense.ingestion.image_processor import ImageProcessor, ImageDescription, VisionProvider
 from docusense.ingestion.preprocessor import TextPreprocessor, PreprocessResult, preprocess_text
 from docusense.ingestion.chunker import SemanticChunker, Chunk
+from docusense.ingestion.paper_metadata import (
+    PaperMetadataExtractor, 
+    PaperMetadata, 
+    PaperSection,
+    Citation,
+    extract_paper_metadata
+)
 from docusense.ingestion.pipeline import DocumentPipeline, PipelineResult, process_document
 
 __all__ = [
@@ -27,6 +35,11 @@ __all__ = [
     "preprocess_text",
     "SemanticChunker",
     "Chunk",
+    "PaperMetadataExtractor",
+    "PaperMetadata",
+    "PaperSection",
+    "Citation",
+    "extract_paper_metadata",
     "DocumentPipeline",
     "PipelineResult",
     "process_document",

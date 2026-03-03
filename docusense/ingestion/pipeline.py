@@ -25,6 +25,11 @@ from docusense.ingestion.converters import DocumentConverter, ConversionResult
 from docusense.ingestion.image_processor import ImageProcessor, ImageDescription
 from docusense.ingestion.preprocessor import TextPreprocessor
 from docusense.ingestion.chunker import SemanticChunker, Chunk
+from docusense.ingestion.paper_metadata import (
+    PaperMetadataExtractor, 
+    PaperMetadata,
+    extract_paper_metadata
+)
 from docusense.storage import (
     ChunkStorage,
     DocumentRecord,
@@ -51,6 +56,7 @@ class PipelineResult:
     conversion_result: Optional[ConversionResult] = None
     chunks: List[Chunk] = field(default_factory=list)
     images: List[ImageDescription] = field(default_factory=list)
+    paper_metadata: Optional[PaperMetadata] = None  # NEW: Research paper metadata
     
     # Error info
     error: Optional[str] = None
@@ -59,9 +65,12 @@ class PipelineResult:
     def __str__(self) -> str:
         """Human-readable summary."""
         if self.success:
+            paper_info = ""
+            if self.paper_metadata and self.paper_metadata.is_research_paper():
+                paper_info = f" [Research Paper: {self.paper_metadata.confidence:.1%}]"
             return (
                 f"✅ {self.filename}: {self.total_chunks} chunks, "
-                f"{self.total_images} images ({self.processing_time_seconds:.1f}s)"
+                f"{self.total_images} images ({self.processing_time_seconds:.1f}s){paper_info}"
             )
         else:
             return f"❌ {self.filename}: Failed at {self.error_stage} - {self.error}"
@@ -103,7 +112,9 @@ class DocumentPipeline:
         image_processor: Optional[ImageProcessor] = None,
         preprocessor: Optional[TextPreprocessor] = None,
         chunker: Optional[SemanticChunker] = None,
-        enable_images: bool = True
+        paper_metadata_extractor: Optional[PaperMetadataExtractor] = None,  # NEW
+        enable_images: bool = True,
+        enable_paper_extraction: bool = True  # NEW
     ):
         """
         Initialize the pipeline with all components.
@@ -114,7 +125,9 @@ class DocumentPipeline:
             image_processor: ImageProcessor instance (creates new if None)
             preprocessor: TextPreprocessor instance (creates new if None)
             chunker: SemanticChunker instance (creates new if None)
+            paper_metadata_extractor: PaperMetadataExtractor instance (creates new if None)
             enable_images: Whether to process images (default True)
+            enable_paper_extraction: Whether to extract research paper metadata (default True)
         """
         logger.info("Initializing DocumentPipeline...")
         
@@ -124,12 +137,15 @@ class DocumentPipeline:
         self.image_processor = image_processor or ImageProcessor() if enable_images else None
         self.preprocessor = preprocessor or TextPreprocessor()
         self.chunker = chunker or SemanticChunker()
+        self.paper_metadata_extractor = paper_metadata_extractor or PaperMetadataExtractor() if enable_paper_extraction else None
         
         self.enable_images = enable_images
+        self.enable_paper_extraction = enable_paper_extraction
         
         logger.success("✅ DocumentPipeline initialized")
         logger.info(f"  Components: Converter, Preprocessor, Chunker, Storage")
         logger.info(f"  Image processing: {'Enabled' if enable_images else 'Disabled'}")
+        logger.info(f"  Paper metadata extraction: {'Enabled' if enable_paper_extraction else 'Disabled'}")
     
     def process_document(
         self,
@@ -213,6 +229,38 @@ class DocumentPipeline:
                 logger.info("⏭️ Stage 2/5: Skipping image processing (disabled or no images)")
             
             # ================================================================
+            # STAGE 2.5: RESEARCH PAPER METADATA EXTRACTION (NEW!)
+            # ================================================================
+            paper_metadata = None
+            if self.enable_paper_extraction and self.paper_metadata_extractor:
+                logger.info("📚 Stage 2.5/5: Extracting research paper metadata...")
+                try:
+                    paper_metadata = self.paper_metadata_extractor.extract_from_markdown(
+                        conversion_result.markdown,
+                        file_path if file_path.suffix.lower() == '.pdf' else None
+                    )
+                    result.paper_metadata = paper_metadata
+                    
+                    if paper_metadata.is_research_paper():
+                        logger.success(
+                            f"✅ Research paper detected (confidence: {paper_metadata.confidence:.1%})"
+                        )
+                        logger.info(f"   Title: {paper_metadata.title[:60] if paper_metadata.title else 'Unknown'}...")
+                        logger.info(f"   Authors: {len(paper_metadata.authors)} detected")
+                        logger.info(f"   Year: {paper_metadata.year}")
+                        logger.info(f"   Sections: {len(paper_metadata.sections)}")
+                    else:
+                        logger.info(
+                            f"⏭️ Not a research paper (confidence: {paper_metadata.confidence:.1%}), "
+                            "treating as generic document"
+                        )
+                except Exception as e:
+                    logger.warning(f"⚠️ Paper metadata extraction failed: {e}")
+                    paper_metadata = None
+            else:
+                logger.info("⏭️ Stage 2.5/5: Skipping paper metadata extraction (disabled)")
+            
+            # ================================================================
             # STAGE 3: TEXT PREPROCESSING
             # ================================================================
             logger.info("🧹 Stage 3/5: Preprocessing text...")
@@ -231,6 +279,11 @@ class DocumentPipeline:
             # ================================================================
             logger.info("✂️ Stage 4/5: Chunking into semantic pieces...")
             chunks = self.chunker.chunk(cleaned_text, doc_id=document_id)
+            
+            # Enrich chunks with paper metadata if available
+            if paper_metadata and paper_metadata.is_research_paper():
+                logger.info("📊 Enriching chunks with research paper metadata...")
+                chunks = self.chunker.enrich_with_paper_metadata(chunks, paper_metadata)
             
             result.chunks = chunks
             result.total_chunks = len(chunks)
@@ -254,6 +307,14 @@ class DocumentPipeline:
                 'preprocessed': True,
                 'images_processed': len(image_descriptions)
             })
+            
+            # Add paper metadata if this is a research paper
+            if paper_metadata and paper_metadata.is_research_paper():
+                doc_metadata['paper_metadata'] = paper_metadata.to_dict()
+                doc_metadata['is_research_paper'] = True
+                logger.info(f"  📚 Stored research paper metadata")
+            else:
+                doc_metadata['is_research_paper'] = False
             
             document_record = DocumentRecord(
                 document_id=document_id,
