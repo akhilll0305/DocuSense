@@ -192,6 +192,20 @@ class QueryProcessor:
         if not expanded and not self.gemini_model:
             expanded = self._basic_expansion(query)
         
+        # 5. ACADEMIC ENHANCEMENTS (NEW!)
+        # Detect section-specific intent
+        section_intent = self.detect_section_intent(query)
+        
+        # Extract academic filters (year, author, venue)
+        academic_filters = self.extract_academic_filters(query)
+        
+        # Add academic term expansions
+        academic_expansions = self.expand_with_academic_terms(rewritten)
+        if academic_expansions:
+            expanded.extend(academic_expansions)
+            # Remove duplicates
+            expanded = list(set(expanded))
+        
         result = ProcessedQuery(
             original_query=query,
             rewritten_query=rewritten,
@@ -199,7 +213,10 @@ class QueryProcessor:
             intent=intent,
             metadata={
                 "context_provided": context is not None,
-                "gemini_available": self.gemini_model is not None
+                "gemini_available": self.gemini_model is not None,
+                "section_intent": section_intent,  # NEW
+                "academic_filters": academic_filters,  # NEW
+                "is_academic_query": bool(section_intent or academic_filters)  # NEW
             }
         )
         
@@ -307,6 +324,236 @@ Strategy: [recommended retrieval strategy]"""
             description=f"Query classified as {intent_type}",
             suggested_strategy=strategy
         )
+    
+    def detect_section_intent(self, query: str) -> Optional[str]:
+        """
+        Detect if query targets a specific research paper section.
+        
+        ACADEMIC QUERY ROUTING:
+        -----------------------
+        Analyzes query to determine which section(s) of research papers
+        are most relevant. This enables section-specific retrieval!
+        
+        Examples:
+        - "How did they train the model?" → methodology
+        - "What accuracy did BERT achieve?" → results
+        - "Why is this approach better?" → discussion
+        - "What is Transformer architecture?" → introduction/abstract
+        
+        Returns:
+            Section type string or None if no specific section detected
+        """
+        query_lower = query.lower()
+        
+        # Methodology indicators
+        methodology_patterns = [
+            r'\bhow (did|do) (they|we|you|the authors)?\s*(implement|train|build|design|develop)',
+            r'\b(methodology|method|approach|technique|algorithm)\b',
+            r'\bwhat (algorithm|model|architecture|framework)\b',
+            r'\b(implementation|experimental setup|training process)\b'
+        ]
+        
+        # Results indicators
+        results_patterns = [
+            r'\b(accuracy|precision|recall|f1|performance|score|metric)\b',
+            r'\b(achieve|report|obtain|show|demonstrate|outperform)\b.*\b(result)',
+            r'\bwhat (accuracy|performance|results?)\b',
+            r'\b(benchmark|evaluation|comparison)\b'
+        ]
+        
+        # Discussion/Analysis indicators
+        discussion_patterns = [
+            r'\bwhy (does|is|did)\b',
+            r'\b(advantage|disadvantage|limitation|benefit|drawback)\b',
+            r'\b(analysis|discussion|interpretation|insight)\b',
+            r'\b(compare|comparison|versus|vs\.?)\b'
+        ]
+        
+        # Abstract/Introduction indicators
+        intro_patterns = [
+            r'\bwhat is\b',
+            r'\bdefin(e|ition)\b',
+            r'\bintroduc(e|tion)\b',
+            r'\boverview\b',
+            r'\b(summary|abstract|background)\b'
+        ]
+        
+        # Conclusion indicators
+        conclusion_patterns = [
+            r'\b(conclusion|future work|summary|takeaway)\b',
+            r'\bwhat (next|are the implications)\b'
+        ]
+        
+        # Check patterns in priority order
+        for pattern in methodology_patterns:
+            if re.search(pattern, query_lower):
+                logger.info(f"📊 Section routing: METHODOLOGY detected")
+                return "methodology"
+        
+        for pattern in results_patterns:
+            if re.search(pattern, query_lower):
+                logger.info(f"📊 Section routing: RESULTS detected")
+                return "results"
+        
+        for pattern in discussion_patterns:
+            if re.search(pattern, query_lower):
+                logger.info(f"📊 Section routing: DISCUSSION detected")
+                return "discussion"
+        
+        for pattern in intro_patterns:
+            if re.search(pattern, query_lower):
+                logger.info(f"📊 Section routing: ABSTRACT/INTRODUCTION detected")
+                return "abstract"
+        
+        for pattern in conclusion_patterns:
+            if re.search(pattern, query_lower):
+                logger.info(f"📊 Section routing: CONCLUSION detected")
+                return "conclusion"
+        
+        logger.info(f"📊 Section routing: NO specific section detected")
+        return None
+    
+    def extract_academic_filters(self, query: str) -> Dict[str, Any]:
+        """
+        Extract research paper filters from query.
+        
+        ACADEMIC METADATA EXTRACTION:
+        -----------------------------
+        Detects year ranges, authors, venues in natural language queries.
+        
+        Examples:
+        - "papers from 2020-2023" → {"year": {"$gte": 2020, "$lte": 2023}}
+        - "by Yoshua Bengio" → {"authors": "Yoshua Bengio"}
+        - "NeurIPS papers about transformers" → {"venue": "NeurIPS"}
+        - "recent BERT papers" → {"year": {"$gte": current_year - 2}}
+        
+        Returns:
+            Dictionary of Qdrant filters
+        """
+        filters = {}
+        query_lower = query.lower()
+        
+        # Extract year or year range
+        # Pattern: "2020", "2020-2023", "from 2020 to 2023", "in 2021"
+        year_match = re.search(r'\b(20\d{2})\s*(?:-|to)\s*(20\d{2})\b', query)
+        if year_match:
+            start_year = int(year_match.group(1))
+            end_year = int(year_match.group(2))
+            filters["year"] = {"$gte": start_year, "$lte": end_year}
+            logger.info(f"🗓️ Year filter: {start_year}-{end_year}")
+        else:
+            # Single year
+            single_year = re.search(r'\b(20\d{2})\b', query)
+            if single_year:
+                year = int(single_year.group(1))
+                filters["year"] = year
+                logger.info(f"🗓️ Year filter: {year}")
+        
+        # Extract "recent" (last 2-3 years)
+        if re.search(r'\b(recent|latest|new)\b', query_lower):
+            from datetime import datetime
+            current_year = datetime.now().year
+            filters["year"] = {"$gte": current_year - 2}
+            logger.info(f"🗓️ Recent filter: >= {current_year - 2}")
+        
+        # Extract author names
+        # Pattern: "by [Author Name]", "[Author Name] paper"
+        author_match = re.search(r'\bby\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)', query)
+        if author_match:
+            author = author_match.group(1)
+            filters["authors"] = author
+            logger.info(f"👤 Author filter: {author}")
+        
+        # Extract venue/conference
+        venues = [
+            "NeurIPS", "ICML", "ICLR", "CVPR", "ICCV", "ECCV", "ACL", "EMNLP",
+            "NAACL", "AAAI", "IJCAI", "KDD", "WWW", "SIGIR", "ICSE", "FSE",
+            "IEEE", "ACM", "Nature", "Science", "arXiv"
+        ]
+        for venue in venues:
+            if re.search(r'\b' + re.escape(venue) + r'\b', query, re.IGNORECASE):
+                filters["venue"] = venue
+                logger.info(f"📍 Venue filter: {venue}")
+                break
+        
+        # Extract paper type
+        if re.search(r'\barxiv\b', query_lower):
+            filters["paper_type"] = "arxiv"
+            logger.info(f"📄 Paper type: arxiv")
+        elif re.search(r'\b(conference|workshop) paper', query_lower):
+            filters["paper_type"] = "conference"
+            logger.info(f"📄 Paper type: conference")
+        elif re.search(r'\bjournal (paper|article)', query_lower):
+            filters["paper_type"] = "journal"
+            logger.info(f"📄 Paper type: journal")
+        
+        return filters
+    
+    def expand_with_academic_terms(self, query: str) -> List[str]:
+        """
+        Expand query with academic synonyms and related terms.
+        
+        ACADEMIC QUERY EXPANSION:
+        -------------------------
+        Adds research paper terminology to improve retrieval.
+        
+        Examples:
+        - "transformer" → ["transformer", "attention mechanism", "self-attention"]
+        - "accuracy" → ["accuracy", "F1 score", "precision", "recall"]
+        - "training" → ["training", "fine-tuning", "optimization"]
+        
+        Returns:
+            List of expanded query variations
+        """
+        # Academic term mappings
+        academic_expansions = {
+            # Models/Architectures
+            "transformer": ["transformer", "attention mechanism", "self-attention", "multi-head attention"],
+            "bert": ["BERT", "bidirectional encoder", "masked language model"],
+            "gpt": ["GPT", "generative pre-trained transformer", "autoregressive model"],
+            "cnn": ["CNN", "convolutional neural network", "convolution"],
+            "rnn": ["RNN", "recurrent neural network", "LSTM", "GRU"],
+            
+            # Metrics
+            "accuracy": ["accuracy", "F1 score", "precision", "recall", "performance metric"],
+            "loss": ["loss function", "objective function", "cost function"],
+            "perplexity": ["perplexity", "language model evaluation", "PPL"],
+            
+            # Training
+            "training": ["training", "fine-tuning", "optimization", "learning"],
+            "learning rate": ["learning rate", "LR", "step size", "optimizer"],
+            "batch size": ["batch size", "mini-batch", "training batch"],
+            
+            # Tasks
+            "classification": ["classification", "categorization", "prediction"],
+            "generation": ["generation", "text generation", "synthesis"],
+            "translation": ["translation", "machine translation", "MT"],
+            
+            # General
+            "model": ["model", "network", "architecture", "system"],
+            "dataset": ["dataset", "corpus", "benchmark"],
+            "baseline": ["baseline", "comparison method", "reference model"]
+        }
+        
+        query_lower = query.lower()
+        expanded_queries = [query]  # Start with original
+        
+        # Find matching terms and add expansions
+        for term, expansions in academic_expansions.items():
+            if term in query_lower:
+                # Replace term with each expansion
+                for expansion in expansions[:2]:  # Limit to 2 expansions per term
+                    expanded = query_lower.replace(term, expansion)
+                    if expanded != query_lower:
+                        expanded_queries.append(expanded)
+        
+        # Remove duplicates and limit
+        expanded_queries = list(set(expanded_queries))[:4]
+        
+        if len(expanded_queries) > 1:
+            logger.info(f"🔬 Academic expansion: {len(expanded_queries)} variations")
+        
+        return expanded_queries
     
     def _basic_expansion(self, query: str) -> List[str]:
         """Basic query expansion without Gemini (fallback)."""
