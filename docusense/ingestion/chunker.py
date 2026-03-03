@@ -89,6 +89,17 @@ class Chunk:
         chunk_id: Unique identifier
         text: The chunk content
         metadata: Rich metadata for retrieval and citation
+        
+    RESEARCH PAPER METADATA (when available):
+        - paper_title: Title of the research paper
+        - authors: List of authors
+        - year: Publication year
+        - venue: Conference/journal name
+        - section_type: Type of section (abstract, methodology, results, etc.)
+        - page_number: Page number in original paper
+        - doi: Digital Object Identifier
+        - has_equations: Contains mathematical equations
+        - has_citations: Contains in-text citations
     """
     chunk_id: str
     text: str
@@ -103,6 +114,13 @@ class Chunk:
             # Calculate token count if not provided
             encoder = tiktoken.get_encoding("cl100k_base")
             self.metadata['token_count'] = len(encoder.encode(self.text))
+    
+    def is_research_paper_chunk(self) -> bool:
+        """Check if this chunk is from a research paper."""
+        return (
+            self.metadata.get('paper_title') is not None or 
+            self.metadata.get('paper_confidence', 0) > 0.5
+        )
 
 
 class SemanticChunker:
@@ -278,10 +296,12 @@ class SemanticChunker:
             'level': 0,
             'lines': [],
             'has_code': False,
-            'has_tables': False
+            'has_tables': False,
+            'start_char': 0  # NEW: Track character position
         }
         
         in_code_block = False
+        char_position = 0  # NEW: Track position in document
         
         for line in lines:
             # Track code blocks
@@ -300,6 +320,7 @@ class SemanticChunker:
                 # Found a header - save current section if it has content
                 if current_section['lines']:
                     current_section['text'] = '\n'.join(current_section['lines'])
+                    current_section['end_char'] = char_position  # NEW: Mark end position
                     sections.append(current_section)
                 
                 # Start new section
@@ -311,15 +332,19 @@ class SemanticChunker:
                     'level': level,
                     'lines': [line],  # Include header in section
                     'has_code': False,
-                    'has_tables': False
+                    'has_tables': False,
+                    'start_char': char_position  # NEW: Mark start position
                 }
             else:
                 # Add line to current section
                 current_section['lines'].append(line)
+            
+            char_position += len(line) + 1  # +1 for newline character
         
         # Add final section
         if current_section['lines']:
             current_section['text'] = '\n'.join(current_section['lines'])
+            current_section['end_char'] = char_position  # NEW: Mark end position
             sections.append(current_section)
         
         return sections
@@ -364,6 +389,8 @@ class SemanticChunker:
                     'token_count': token_count,
                     'has_code': section['has_code'],
                     'has_tables': section['has_tables'],
+                    'start_char': section.get('start_char', 0),  # NEW: Position tracking
+                    'end_char': section.get('end_char', 0),  # NEW: Position tracking
                     **doc_metadata
                 }
             )]
@@ -377,6 +404,7 @@ class SemanticChunker:
         chunks = []
         current_text = ''
         current_tokens = 0
+        char_offset = section.get('start_char', 0)  # NEW: Track position within section
         
         for para in paragraphs:
             para_tokens = self._count_tokens(para)
@@ -384,6 +412,8 @@ class SemanticChunker:
             # If adding this paragraph exceeds target, create chunk
             if current_tokens + para_tokens > self.target_chunk_tokens and current_text:
                 chunk_id = f"{doc_id}_chunk_{str(uuid.uuid4())[:8]}"
+                chunk_start = char_offset
+                chunk_end = char_offset + len(current_text)
                 chunks.append(Chunk(
                     chunk_id=chunk_id,
                     text=current_text.strip(),
@@ -394,9 +424,12 @@ class SemanticChunker:
                         'token_count': current_tokens,
                         'has_code': '```' in current_text,
                         'has_tables': '|' in current_text,
+                        'start_char': chunk_start,  # NEW: Position tracking
+                        'end_char': chunk_end,  # NEW: Position tracking
                         **doc_metadata
                     }
                 ))
+                char_offset = chunk_end
                 current_text = ''
                 current_tokens = 0
             
@@ -417,6 +450,8 @@ class SemanticChunker:
                     'token_count': current_tokens,
                     'has_code': '```' in current_text,
                     'has_tables': '|' in current_text,
+                    'start_char': char_offset,  # NEW: Position tracking
+                    'end_char': char_offset + len(current_text),  # NEW: Position tracking
                     **doc_metadata
                 }
             ))
@@ -602,6 +637,64 @@ class SemanticChunker:
             overlapped_chunks.append(overlapped_chunk)
         
         return overlapped_chunks
+    
+    def enrich_with_paper_metadata(self, chunks: List[Chunk], paper_metadata) -> List[Chunk]:
+        """
+        Enrich chunks with research paper metadata.
+        
+        This transforms generic RAG chunks into ACADEMIC-GRADE chunks!
+        
+        Args:
+            chunks: List of chunks to enrich
+            paper_metadata: PaperMetadata object
+            
+        Returns:
+            Enriched chunks with paper-specific metadata
+        """
+        from docusense.ingestion.paper_metadata import PaperMetadata
+        
+        if not isinstance(paper_metadata, PaperMetadata):
+            logger.warning("paper_metadata is not PaperMetadata instance, skipping enrichment")
+            return chunks
+        
+        if not paper_metadata.is_research_paper():
+            logger.info(f"Document confidence too low ({paper_metadata.confidence:.2f}), not a research paper")
+            return chunks
+        
+        logger.info(f"Enriching {len(chunks)} chunks with paper metadata")
+        
+        enriched_chunks = []
+        for chunk in chunks:
+            # Add paper-level metadata
+            chunk.metadata['paper_title'] = paper_metadata.title
+            chunk.metadata['authors'] = paper_metadata.authors
+            chunk.metadata['year'] = paper_metadata.year
+            chunk.metadata['venue'] = paper_metadata.venue
+            chunk.metadata['doi'] = paper_metadata.doi
+            chunk.metadata['arxiv_id'] = paper_metadata.arxiv_id
+            chunk.metadata['paper_type'] = paper_metadata.paper_type
+            chunk.metadata['paper_confidence'] = paper_metadata.confidence
+            
+            # Determine section type based on chunk position
+            chunk_start = chunk.metadata.get('start_char', 0)
+            section_type = paper_metadata.get_section_type(chunk_start)
+            chunk.metadata['section_type'] = section_type
+            
+            # Check for equations and citations in chunk text
+            has_equations = bool(re.search(r'\$\$|\$[^$]+\$', chunk.text))
+            has_citations = bool(re.search(r'\[\d+\]|\([A-Z][a-z]+ et al\.,? \d{4}\)', chunk.text))
+            
+            chunk.metadata['has_equations'] = has_equations
+            chunk.metadata['has_citations'] = has_citations
+            
+            # Add abstract text if this chunk contains it
+            if paper_metadata.abstract and section_type == 'abstract':
+                chunk.metadata['is_abstract'] = True
+            
+            enriched_chunks.append(chunk)
+        
+        logger.success(f"✅ Enriched {len(enriched_chunks)} chunks with paper metadata")
+        return enriched_chunks
     
     def _count_tokens(self, text: str) -> int:
         """
