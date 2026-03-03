@@ -294,8 +294,72 @@ class QdrantVectorStore:
             field_name="text",
             field_schema=PayloadSchemaType.TEXT
         )
+        
+        # ================================================================
+        # RESEARCH PAPER INDEXES (NEW!)
+        # ================================================================
+        logger.info("Creating research paper payload indexes...")
+        
+        # Index for paper_title (keyword for exact/prefix matching)
+        self.client.create_payload_index(
+            collection_name=self.collection_name,
+            field_name="paper_title",
+            field_schema=PayloadSchemaType.KEYWORD
+        )
+        
+        # Index for authors (keyword array for filtering by author)
+        self.client.create_payload_index(
+            collection_name=self.collection_name,
+            field_name="authors",
+            field_schema=PayloadSchemaType.KEYWORD
+        )
+        
+        # Index for year (integer for range queries: 2020-2024)
+        self.client.create_payload_index(
+            collection_name=self.collection_name,
+            field_name="year",
+            field_schema=PayloadSchemaType.INTEGER
+        )
+        
+        # Index for section_type (keyword: abstract, methodology, results, etc.)
+        self.client.create_payload_index(
+            collection_name=self.collection_name,
+            field_name="section_type",
+            field_schema=PayloadSchemaType.KEYWORD
+        )
+        
+        # Index for venue (keyword: conference/journal name)
+        self.client.create_payload_index(
+            collection_name=self.collection_name,
+            field_name="venue",
+            field_schema=PayloadSchemaType.KEYWORD
+        )
+        
+        # Index for paper_type (keyword: conference, journal, arxiv)
+        self.client.create_payload_index(
+            collection_name=self.collection_name,
+            field_name="paper_type",
+            field_schema=PayloadSchemaType.KEYWORD
+        )
+        
+        # Index for has_equations (bool for filtering chunks with math)
+        self.client.create_payload_index(
+            collection_name=self.collection_name,
+            field_name="has_equations",
+            field_schema=PayloadSchemaType.BOOL
+        )
+        
+        # Index for has_citations (bool for filtering chunks with references)
+        self.client.create_payload_index(
+            collection_name=self.collection_name,
+            field_name="has_citations",
+            field_schema=PayloadSchemaType.BOOL
+        )
 
-        logger.success(f"✅ Collection '{self.collection_name}' created with payload indexes")
+        logger.success(
+            f"✅ Collection '{self.collection_name}' created with "
+            f"standard + research paper payload indexes"
+        )
     
     def add_chunks(
         self,
