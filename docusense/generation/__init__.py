@@ -23,6 +23,11 @@ from .citation_formatter import (
     format_citation
 )
 
+from .generation_pipeline import (
+    GenerationPipeline,
+    PipelineResponse
+)
+
 __all__ = [
     # Answer Generation
     "AnswerGenerator",
@@ -33,4 +38,7 @@ __all__ = [
     "CitationStyle",
     "FormattedCitation",
     "format_citation",
+    # Pipeline
+    "GenerationPipeline",
+    "PipelineResponse",
 ]
