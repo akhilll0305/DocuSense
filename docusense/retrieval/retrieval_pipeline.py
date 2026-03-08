@@ -319,6 +319,47 @@ class RetrievalPipeline:
         metrics.search_time = time.time() - search_start
         metrics.num_initial_results = len(search_results)
         
+        if not search_results and filters and "section_type" in filters:
+            # Retry without section filter (papers may not have section metadata)
+            logger.warning("No results with section filter, retrying without it...")
+            fallback_filters = {k: v for k, v in filters.items() if k != "section_type"}
+            fallback_filters = fallback_filters or None
+
+            if self.hybrid_search and self.enable_hybrid_search:
+                try:
+                    search_results = self.hybrid_search.search(
+                        query=search_query,
+                        top_k=top_k * 4,
+                        filters=fallback_filters
+                    )
+                    logger.info(f"  Fallback hybrid search: {len(search_results)} results")
+                except Exception as e:
+                    logger.warning(f"Fallback hybrid search failed: {e}")
+            elif self.vector_store:
+                try:
+                    vector_results = self.vector_store.search(
+                        query=search_query,
+                        top_k=top_k * 4,
+                        filters=fallback_filters
+                    )
+                    search_results = [
+                        type('Result', (), {
+                            'chunk_id': r.chunk_id,
+                            'document_id': r.document_id,
+                            'text': r.text,
+                            'vector_score': r.score,
+                            'bm25_score': 0.0,
+                            'fusion_score': r.score,
+                            'metadata': r.metadata
+                        })()
+                        for r in vector_results
+                    ]
+                    logger.info(f"  Fallback vector search: {len(search_results)} results")
+                except Exception as e:
+                    logger.error(f"Fallback vector search failed: {e}")
+
+            metrics.num_initial_results = len(search_results)
+
         if not search_results:
             logger.warning("No search results found")
             metrics.total_time = time.time() - start_time
