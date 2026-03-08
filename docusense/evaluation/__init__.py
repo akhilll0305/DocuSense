@@ -8,6 +8,8 @@ Components:
 1. RetrievalMetrics: MRR, NDCG, Precision@K, Recall@K, MAP
 2. AnswerMetrics: ROUGE, citation accuracy, completeness
 3. RAGEvaluator: End-to-end evaluation orchestrator
+4. QASPERLoader: QASPER benchmark dataset loader
+5. BenchmarkRunner: Benchmark execution and reporting
 """
 
 from .retrieval_metrics import (
@@ -26,6 +28,18 @@ from .evaluator import (
     EvaluationSample
 )
 
+from .qasper_loader import (
+    QASPERLoader,
+    QASPERQuestion,
+    QASPERPaper
+)
+
+from .benchmark_runner import (
+    BenchmarkRunner,
+    BenchmarkConfig,
+    BenchmarkReport
+)
+
 __all__ = [
     "RetrievalMetrics",
     "RetrievalMetricsResult",
@@ -34,4 +48,11 @@ __all__ = [
     "RAGEvaluator",
     "EvaluationResult",
     "EvaluationSample",
+    "QASPERLoader",
+    "QASPERQuestion",
+    "QASPERPaper",
+    "BenchmarkRunner",
+    "BenchmarkConfig",
+    "BenchmarkReport",
 ]
+
