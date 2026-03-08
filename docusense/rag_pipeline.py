@@ -47,6 +47,13 @@ from loguru import logger
 
 from docusense.config.settings import settings
 
+import uuid
+
+try:
+    from qdrant_client.models import PointStruct
+except ImportError:
+    PointStruct = None
+
 
 @dataclass
 class IngestResult:
@@ -278,6 +285,11 @@ class DocuSenseRAG:
         logger.info(f"🗄️ Storing {len(embeddings)} vectors in Qdrant...")
 
         try:
+            # Ensure collection exists
+            self.qdrant_store.create_collection()
+
+            # Build all points
+            points = []
             for i, chunk in enumerate(chunks):
                 payload = {
                     "text": chunk.text,
@@ -302,11 +314,26 @@ class DocuSenseRAG:
                         "has_citations": chunk.metadata.get("has_citations", False),
                     })
 
-                self.qdrant_store.add_vector(
-                    vector=embeddings[i].tolist(),
-                    payload=payload,
-                    point_id=chunk.chunk_id
-                )
+                if PointStruct is not None:
+                    points.append(PointStruct(
+                        id=str(uuid.uuid4()),
+                        vector=embeddings[i].tolist(),
+                        payload=payload
+                    ))
+                else:
+                    # Fallback for environments without qdrant_client
+                    # (should only happen in mocked tests)
+                    points.append({
+                        "id": str(uuid.uuid4()),
+                        "vector": embeddings[i].tolist(),
+                        "payload": payload
+                    })
+
+            # Batch upsert
+            self.qdrant_store.client.upsert(
+                collection_name=self.qdrant_store.collection_name,
+                points=points
+            )
 
             logger.success(f"✅ Stored {len(embeddings)} vectors in Qdrant")
         except Exception as e:
