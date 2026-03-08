@@ -258,7 +258,7 @@ class ChunkStorage:
         cursor = self.conn.cursor()
         
         cursor.execute("""
-            INSERT INTO documents (
+            INSERT OR REPLACE INTO documents (
                 document_id, filename, file_path, file_type,
                 total_chunks, processing_date, metadata
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
