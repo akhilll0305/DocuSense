@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="DocuSense — Upload research papers, ask questions, get cited answers instantly. AI-powered academic paper analysis.">
+  <title>DocuSense — Understand Research Papers in Seconds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+  <link rel="stylesheet" href="/static/css/landing.css">
+</head>
+<body>
+
+  <!-- ===== NAVIGATION ===== -->
+  <nav class="nav glass" id="navbar" role="navigation" aria-label="Main navigation">
+    <div class="nav__inner container">
+      <a href="/" class="nav__logo" aria-label="DocuSense home">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect width="28" height="28" rx="8" fill="url(#logo-grad)"/>
+          <path d="M8 9h8a3 3 0 013 3v0a3 3 0 01-3 3H8V9z" fill="white" opacity="0.9"/>
+          <path d="M8 15h10a3 3 0 013 3v0a3 3 0 01-3 3H8v-6z" fill="white" opacity="0.6"/>
+          <defs><linearGradient id="logo-grad" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#6c5ce7"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
+        </svg>
+        <span>DocuSense</span>
+      </a>
+      <div class="nav__links">
+        <a href="#features" class="nav__link">Features</a>
+        <a href="#how-it-works" class="nav__link">How it Works</a>
+        <a href="/static/auth.html" class="btn btn-secondary btn-sm">Log in</a>
+        <a href="/static/auth.html#signup" class="btn btn-primary btn-sm">Get Started</a>
+      </div>
+      <button class="nav__hamburger btn-icon" id="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><rect y="3" width="20" height="2" rx="1"/><rect y="9" width="20" height="2" rx="1"/><rect y="15" width="20" height="2" rx="1"/></svg>
+      </button>
+    </div>
+    <!-- Mobile menu -->
+    <div class="nav__mobile" id="mobile-menu" role="menu">
+      <a href="#features" class="nav__mobile-link" role="menuitem">Features</a>
+      <a href="#how-it-works" class="nav__mobile-link" role="menuitem">How it Works</a>
+      <a href="/static/auth.html" class="nav__mobile-link" role="menuitem">Log in</a>
+      <a href="/static/auth.html#signup" class="btn btn-primary" style="width:100%;margin-top:var(--space-2)" role="menuitem">Get Started</a>
+    </div>
+  </nav>
+
+  <!-- ===== HERO SECTION ===== -->
+  <section class="hero" id="hero">
+    <div class="hero__bg" aria-hidden="true">
+      <div class="hero__orb hero__orb--1"></div>
+      <div class="hero__orb hero__orb--2"></div>
+      <div class="hero__orb hero__orb--3"></div>
+      <div class="hero__grid"></div>
+    </div>
+    <div class="hero__content container">
+      <div class="hero__badge reveal">
+        <span class="hero__badge-dot"></span>
+        AI-Powered Research Analysis
+      </div>
+      <h1 class="hero__title reveal delay-1">
+        Understand Research<br>Papers <span class="gradient-text">in Seconds</span>
+      </h1>
+      <p class="hero__subtitle reveal delay-2">
+        Upload any academic paper, ask questions in natural language,<br class="hide-mobile">
+        and get precise answers with inline citations.
+      </p>
+      <div class="hero__actions reveal delay-3">
+        <a href="/static/auth.html#signup" class="btn btn-primary btn-lg">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          Try DocuSense Free
+        </a>
+        <a href="#how-it-works" class="btn btn-secondary btn-lg">
+          See How it Works
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </a>
+      </div>
+      <div class="hero__stats reveal delay-4">
+        <div class="hero__stat">
+          <span class="hero__stat-num">55+</span>
+          <span class="hero__stat-label">Chunks per paper</span>
+        </div>
+        <div class="hero__stat-divider"></div>
+        <div class="hero__stat">
+          <span class="hero__stat-num">384d</span>
+          <span class="hero__stat-label">Embedding vectors</span>
+        </div>
+        <div class="hero__stat-divider"></div>
+        <div class="hero__stat">
+          <span class="hero__stat-num">&lt;3s</span>
+          <span class="hero__stat-label">Answer time</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FEATURES ===== -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-tag">Features</span>
+        <h2>Everything you need to<br><span class="gradient-text">master any paper</span></h2>
+        <p>Three simple steps from PDF to insight.</p>
+      </div>
+
+      <div class="features__grid">
+        <!-- Card 1 -->
+        <div class="feature-card glass reveal delay-1" id="feature-upload">
+          <div class="feature-card__icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <h4>Drop Any PDF</h4>
+          <p>Upload research papers in PDF, DOCX, or plain text. Our pipeline converts, chunks, and embeds them automatically.</p>
+          <div class="feature-card__tag">Ingestion</div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="feature-card glass reveal delay-2" id="feature-ask">
+          <div class="feature-card__icon feature-card__icon--purple">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          </div>
+          <h4>Ask Anything</h4>
+          <p>Natural language questions with multi-turn conversation. Compare findings across papers or detect conflicts.</p>
+          <div class="feature-card__tag">Chat</div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="feature-card glass reveal delay-3" id="feature-cite">
+          <div class="feature-card__icon feature-card__icon--pink">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </div>
+          <h4>Get Cited Answers</h4>
+          <p>Every answer includes inline citations, source references, and confidence scores you can trust.</p>
+          <div class="feature-card__tag">Citations</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== HOW IT WORKS ===== -->
+  <section class="how-it-works" id="how-it-works">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-tag">How it Works</span>
+        <h2>From PDF to insight<br><span class="gradient-text">in three steps</span></h2>
+      </div>
+
+      <div class="steps">
+        <div class="step reveal-left">
+          <div class="step__number">01</div>
+          <div class="step__content">
+            <h4>Upload Your Paper</h4>
+            <p>Drag and drop any research paper. DocuSense converts it to structured markdown, extracts metadata, and detects academic sections (abstract, methodology, results).</p>
+          </div>
+          <div class="step__visual">
+            <div class="step__mockup glass-strong">
+              <div class="mockup-file">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-solid)" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <div>
+                  <div class="mockup-filename">transformer_attention.pdf</div>
+                  <div class="mockup-meta">2.4 MB • 12 pages</div>
+                </div>
+                <div class="mockup-badge">✓</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step reveal-right">
+          <div class="step__number">02</div>
+          <div class="step__content">
+            <h4>Ask a Question</h4>
+            <p>Type your question in plain English. Our retrieval pipeline uses hybrid search (semantic + keyword) to find the most relevant passages across all your uploaded papers.</p>
+          </div>
+          <div class="step__visual">
+            <div class="step__mockup glass-strong">
+              <div class="mockup-chat">
+                <div class="mockup-msg mockup-msg--user">What F1 score did BERT achieve?</div>
+                <div class="mockup-msg mockup-msg--bot">
+                  <div class="mockup-typing">
+                    <span></span><span></span><span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step reveal-left">
+          <div class="step__number">03</div>
+          <div class="step__content">
+            <h4>Get Cited Answers</h4>
+            <p>Receive precise answers with inline citations like [1], source references, and confidence scores. Every claim is traceable back to the original paper.</p>
+          </div>
+          <div class="step__visual">
+            <div class="step__mockup glass-strong">
+              <div class="mockup-answer">
+                <p>BERT achieved <strong>93.5% F1</strong> on SST-2 <span class="mockup-cite">[1]</span> and <strong>92.1% F1</strong> on MRPC <span class="mockup-cite">[1]</span>.</p>
+                <div class="mockup-ref">
+                  <span class="mockup-cite">[1]</span> Devlin et al. "BERT: Pre-training of Deep Bidirectional Transformers" (2018)
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== CTA ===== -->
+  <section class="cta">
+    <div class="container">
+      <div class="cta__card glass-strong reveal">
+        <div class="cta__orb" aria-hidden="true"></div>
+        <h2>Ready to understand<br>papers <span class="gradient-text">faster</span>?</h2>
+        <p>Start analyzing research papers with AI-powered citations and insights.</p>
+        <a href="/static/auth.html#signup" class="btn btn-primary btn-lg">
+          Get Started — It's Free
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__inner">
+        <div class="footer__brand">
+          <span class="footer__logo gradient-text">DocuSense</span>
+          <p>AI-powered research paper analysis.</p>
+        </div>
+        <div class="footer__links">
+          <a href="#features">Features</a>
+          <a href="#how-it-works">How it Works</a>
+          <a href="/docs" target="_blank">API Docs</a>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <p>&copy; 2026 DocuSense. Built with Ollama, Qdrant & love.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/static/js/animations.js"></script>
+  <script>
+    // Mobile nav toggle
+    const toggle = document.getElementById('nav-toggle');
+    const menu = document.getElementById('mobile-menu');
+    toggle?.addEventListener('click', () => {
+      const open = menu.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', open);
+    });
+
+    // Navbar scroll effect
+    const nav = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      nav.classList.toggle('nav--scrolled', window.scrollY > 40);
+    }, { passive: true });
+
+    // Close mobile menu on link click
+    menu?.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', () => {
+        menu.classList.remove('open');
+        toggle.setAttribute('aria-expanded', 'false');
+      });
+    });
+  </script>
+</body>
+</html>

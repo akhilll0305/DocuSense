@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocuSense — Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+  <link rel="stylesheet" href="/static/css/chat.css">
+</head>
+<body>
+
+  <div class="app" id="app">
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar glass-strong" id="sidebar" role="complementary" aria-label="Conversations and documents">
+      <div class="sidebar__header">
+        <a href="/static/index.html" class="sidebar__logo" aria-label="DocuSense home">
+          <svg width="24" height="24" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+            <rect width="28" height="28" rx="8" fill="url(#slg)"/>
+            <path d="M8 9h8a3 3 0 013 3v0a3 3 0 01-3 3H8V9z" fill="white" opacity="0.9"/>
+            <path d="M8 15h10a3 3 0 013 3v0a3 3 0 01-3 3H8v-6z" fill="white" opacity="0.6"/>
+            <defs><linearGradient id="slg" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#6c5ce7"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
+          </svg>
+          <span>DocuSense</span>
+        </a>
+        <button class="btn btn-icon sidebar__close" id="sidebar-close" aria-label="Close sidebar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- New Chat -->
+      <button class="btn btn-primary sidebar__new" id="new-chat-btn" style="width:100%">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Chat
+      </button>
+
+      <!-- Conversations -->
+      <div class="sidebar__section">
+        <div class="sidebar__section-title">Conversations</div>
+        <div class="sidebar__list" id="chat-list" role="list" aria-label="Conversations">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Documents -->
+      <div class="sidebar__section">
+        <div class="sidebar__section-title">
+          Documents
+          <span class="sidebar__badge" id="doc-count">0</span>
+        </div>
+        <div class="sidebar__list" id="doc-list" role="list" aria-label="Documents">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Upload -->
+      <div class="sidebar__upload">
+        <div class="upload-zone" id="upload-zone" role="button" tabindex="0" aria-label="Upload a document">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span>Drop PDF here or <strong>browse</strong></span>
+          <input type="file" id="file-input" accept=".pdf,.docx,.txt,.md" class="sr-only">
+        </div>
+        <div class="upload-progress" id="upload-progress" style="display:none">
+          <div class="upload-progress__bar"><div class="upload-progress__fill" id="upload-fill"></div></div>
+          <span class="upload-progress__text" id="upload-text">Uploading...</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ===== MAIN CHAT AREA ===== -->
+    <main class="chat" role="main">
+      <!-- Top bar -->
+      <header class="chat__header glass">
+        <button class="btn btn-icon chat__menu" id="sidebar-toggle" aria-label="Toggle sidebar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="chat__title" id="chat-title">New Conversation</div>
+        <div class="chat__header-actions">
+          <button class="btn btn-ghost btn-icon" id="mode-toggle" aria-label="Toggle mode" title="Switch mode">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Messages -->
+      <div class="chat__messages" id="messages" role="log" aria-live="polite" aria-label="Chat messages">
+        <!-- Welcome state -->
+        <div class="chat__welcome" id="welcome">
+          <div class="chat__welcome-icon">
+            <svg width="48" height="48" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+              <rect width="28" height="28" rx="8" fill="url(#wlg)"/>
+              <path d="M8 9h8a3 3 0 013 3v0a3 3 0 01-3 3H8V9z" fill="white" opacity="0.9"/>
+              <path d="M8 15h10a3 3 0 013 3v0a3 3 0 01-3 3H8v-6z" fill="white" opacity="0.6"/>
+              <defs><linearGradient id="wlg" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#6c5ce7"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
+            </svg>
+          </div>
+          <h3>How can I help with your research?</h3>
+          <p>Upload a paper and ask me anything about it.</p>
+          <div class="chat__suggestions" id="suggestions">
+            <button class="chat__suggestion" data-query="Summarize the key findings of this paper">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Summarize key findings
+            </button>
+            <button class="chat__suggestion" data-query="What methodology did the authors use?">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              What methodology was used?
+            </button>
+            <button class="chat__suggestion" data-query="Compare the results across all uploaded papers">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              Compare paper results
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input bar -->
+      <div class="chat__input-area">
+        <div class="chat__input-bar glass-strong">
+          <button class="btn btn-icon chat__attach" id="attach-btn" aria-label="Attach file" title="Upload a document">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          <textarea
+            id="query-input"
+            class="chat__textarea"
+            placeholder="Ask about your papers..."
+            rows="1"
+            aria-label="Type your question"
+          ></textarea>
+          <button class="btn btn-primary chat__send" id="send-btn" aria-label="Send message" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+        <p class="chat__disclaimer">DocuSense can make mistakes. Verify citations with original papers.</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/chat.js"></script>
+</body>
+</html>
