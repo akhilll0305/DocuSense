@@ -76,6 +76,7 @@
     // New chat
     $('#new-chat-btn').addEventListener('click', startNewChat);
     $('#logout-btn')?.addEventListener('click', () => API.logout());
+    initTheme();
 
     // File upload
     uploadZone.addEventListener('click', () => fileInput.click());
@@ -111,6 +112,51 @@
         handleSend();
       });
     });
+  }
+
+  // ── Theme ──
+  /**
+   * Light and dark reading. The choice is remembered per browser; with no
+   * stored choice the CSS follows the system setting on its own.
+   */
+  function initTheme() {
+    const toggle = $('#mode-toggle');
+    if (!toggle) return;
+
+    const stored = safeGet('docusense_theme');
+    if (stored === 'light' || stored === 'dark') {
+      document.documentElement.setAttribute('data-theme', stored);
+    }
+
+    const label = () => {
+      const dark = currentTheme() === 'dark';
+      toggle.setAttribute('aria-label', dark ? 'Switch to light reading' : 'Switch to dark reading');
+    };
+
+    label();
+
+    toggle.addEventListener('click', () => {
+      const next = currentTheme() === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      safeSet('docusense_theme', next);
+      label();
+    });
+  }
+
+  /** The theme in effect, whether chosen explicitly or inherited from the OS. */
+  function currentTheme() {
+    const explicit = document.documentElement.getAttribute('data-theme');
+    if (explicit) return explicit;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  // Storage throws in private mode and when site data is blocked.
+  function safeGet(key) {
+    try { return localStorage.getItem(key); } catch { return null; }
+  }
+
+  function safeSet(key, value) {
+    try { localStorage.setItem(key, value); } catch { /* preference is per-session */ }
   }
 
   // ── Sidebar ──
@@ -166,7 +212,7 @@
 
   async function switchConversation(id) {
     currentConversationId = id;
-    chatTitle.textContent = 'Loading...';
+    chatTitle.textContent = 'Loading…';
     closeSidebar();
 
     // Mark active
@@ -194,7 +240,7 @@
 
   async function startNewChat() {
     currentConversationId = null;
-    chatTitle.textContent = 'New Conversation';
+    chatTitle.textContent = 'New enquiry';
     clearMessages();
     showWelcome();
     closeSidebar();
@@ -210,16 +256,12 @@
     w.className = 'chat__welcome';
     w.id = 'welcome';
     w.innerHTML = `
-      <div class="chat__welcome-icon">
-        <svg width="56" height="56" viewBox="0 0 28 28" fill="none">
-          <rect width="28" height="28" rx="8" fill="url(#wlg2)"/>
-          <path d="M8 9h8a3 3 0 013 3v0a3 3 0 01-3 3H8V9z" fill="white" opacity="0.9"/>
-          <path d="M8 15h10a3 3 0 013 3v0a3 3 0 01-3 3H8v-6z" fill="white" opacity="0.6"/>
-          <defs><linearGradient id="wlg2" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#6c5ce7"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
-        </svg>
-      </div>
-      <h3>How can I help with your research?</h3>
-      <p>Upload a paper and ask me anything about it.</p>
+      <p class="eyebrow">The reading room</p>
+      <h2 class="chat__welcome-title">What would you like to know?</h2>
+      <p class="chat__welcome-lede">
+        Add a paper to your shelf, then ask in your own words. Answers come
+        back with the section and citation they came from.
+      </p>
     `;
     messages.appendChild(w);
   }
@@ -245,10 +287,9 @@
   function botAvatarHtml() {
     return `
       <div class="message__avatar">
-        <svg width="18" height="18" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="8" fill="url(#blg)"/>
-        <path d="M8 9h8a3 3 0 013 3v0a3 3 0 01-3 3H8V9z" fill="white" opacity="0.9"/>
-        <path d="M8 15h10a3 3 0 013 3v0a3 3 0 01-3 3H8v-6z" fill="white" opacity="0.6"/>
-        <defs><linearGradient id="blg" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#6c5ce7"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs></svg>
+        <svg width="16" height="16" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+          <path d="M6 7.5h9M6 11h14M6 14.5h14M6 18h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"/>
+        </svg>
       </div>`;
   }
 
@@ -275,13 +316,34 @@
   }
 
   function referencesHtml(data) {
-    if (!data.reference_list || !data.reference_list.length) return '';
-    const refs = Array.isArray(data.reference_list)
-      ? data.reference_list
-      : String(data.reference_list).split('\n').filter(l => l.trim());
+    const raw = data.reference_list;
+    if (!raw) return '';
+
+    const lines = Array.isArray(raw) ? raw : String(raw).split(/\r?\n/);
+
+    const refs = lines
+      .map(l => l.trim())
+      .filter(Boolean)
+      // Drop the block's own heading, which would otherwise be numbered as [1].
+      .filter(l => !/^references:?$/i.test(l))
+      // A source with no bibliographic data yields a placeholder that tells the
+      // reader nothing; the inline text already says where the answer came from.
+      .filter(l => !/unknown document/i.test(l))
+      .map(l => {
+        // Entries usually arrive already numbered — keep that number rather
+        // than stacking a second one in front of it.
+        const m = l.match(/^\[(\d+)\]\s*(.*)$/);
+        return m ? { num: m[1], text: m[2] } : { num: null, text: l };
+      });
+
+    if (!refs.length) return '';
+
     return `<div class="message__refs">${
-      refs.map((ref, i) =>
-        `<div class="message__ref"><span class="message__ref-num">[${i+1}]</span><span>${escHtml(ref)}</span></div>`
+      refs.map((r, i) =>
+        `<div class="message__ref">
+           <span class="message__ref-num">[${r.num || i + 1}]</span>
+           <span>${escHtml(r.text)}</span>
+         </div>`
       ).join('')
     }</div>`;
   }
@@ -361,11 +423,9 @@
 
   function addSystemMessage(text) {
     const el = document.createElement('div');
-    el.className = 'message message--bot';
-    el.innerHTML = `
-      <div class="message__avatar">!</div>
-      <div class="message__bubble" style="border-color:var(--error);opacity:0.8">${escHtml(text)}</div>
-    `;
+    el.className = 'chat__system';
+    el.setAttribute('role', 'status');
+    el.textContent = text;
     messages.appendChild(el);
     scrollToBottom();
   }
@@ -583,8 +643,19 @@
     text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     // Italic: *text*
     text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    // Citations: [1], [2], etc.
+    // Citations. Answers carry author-year forms, in two renderings:
+    //   parenthetical  "(Saadi et al., 2025, methodology)"
+    //   narrative      "Saadi et al. (2025)"
+    // Both are set in the accent colour; bare [1] markers are handled too.
     text = text.replace(/\[(\d+)\]/g, '<span class="message__cite">[$1]</span>');
+    text = text.replace(
+      /\((?:[A-Z][^()]{0,120}?)(?:\d{4}|n\.d\.)[^()]{0,60}?\)/g,
+      m => `<span class="message__cite">${m}</span>`
+    );
+    text = text.replace(
+      /([A-Z][A-Za-z'-]+(?:\s+(?:et al\.?|and\s+[A-Z][A-Za-z'-]+))?\s*\((?:\d{4}|n\.d\.)[^()]{0,60}?\))/g,
+      '<span class="message__cite">$1</span>'
+    );
     // Bullet points
     text = text.replace(/^• (.+)$/gm, '<div style="padding-left:1em">• $1</div>');
     // Line breaks

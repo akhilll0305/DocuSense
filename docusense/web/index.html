@@ -3,267 +3,358 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="DocuSense — Upload research papers, ask questions, get cited answers instantly. AI-powered academic paper analysis.">
-  <title>DocuSense — Understand Research Papers in Seconds</title>
+  <title>DocuSense — Read papers the way a researcher does</title>
+  <meta name="description" content="A retrieval system that understands the structure of a research paper: sections, authors, venues, citations. Ask a question, get an answer with the receipts.">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/design-system.css">
   <link rel="stylesheet" href="/static/css/landing.css">
+
+  <script>
+    // Opt in to scroll-reveal only when scripting is available to undo it.
+    document.documentElement.classList.add('js-reveal');
+  </script>
 </head>
 <body>
+  <a href="#main" class="skip-link">Skip to content</a>
 
-  <!-- ===== NAVIGATION ===== -->
-  <nav class="nav glass" id="navbar" role="navigation" aria-label="Main navigation">
-    <div class="nav__inner container">
-      <a href="/" class="nav__logo" aria-label="DocuSense home">
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-          <rect width="28" height="28" rx="8" fill="url(#logo-grad)"/>
-          <path d="M8 9h8a3 3 0 013 3v0a3 3 0 01-3 3H8V9z" fill="white" opacity="0.9"/>
-          <path d="M8 15h10a3 3 0 013 3v0a3 3 0 01-3 3H8v-6z" fill="white" opacity="0.6"/>
-          <defs><linearGradient id="logo-grad" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#6c5ce7"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
-        </svg>
-        <span>DocuSense</span>
+  <!-- ══ Masthead ══════════════════════════════════════════════ -->
+  <header class="masthead" id="masthead">
+    <div class="shell masthead__inner">
+      <a href="/" class="wordmark" aria-label="DocuSense home">
+        <span class="wordmark__mark" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+            <rect x="0.5" y="0.5" width="25" height="25" rx="2" stroke="currentColor" stroke-width="1"/>
+            <path d="M6 7.5h9M6 11h14M6 14.5h14M6 18h7" stroke="currentColor" stroke-width="1.25" stroke-linecap="square"/>
+            <path d="M15.5 17.5l4.5-4.5" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="square"/>
+          </svg>
+        </span>
+        <span class="wordmark__text">DocuSense</span>
       </a>
-      <div class="nav__links">
-        <a href="#features" class="nav__link">Features</a>
-        <a href="#how-it-works" class="nav__link">How it Works</a>
-        <a href="/static/auth.html" class="btn btn-secondary btn-sm">Log in</a>
-        <a href="/static/auth.html#signup" class="btn btn-primary btn-sm">Get Started</a>
+
+      <nav class="masthead__nav" aria-label="Primary">
+        <a href="#difference" class="rule-link">The difference</a>
+        <a href="#method" class="rule-link">Method</a>
+        <a href="/docs" class="rule-link">API</a>
+      </nav>
+
+      <div class="masthead__actions">
+        <a href="/static/auth.html" class="btn btn-quiet btn-sm">Sign in</a>
+        <a href="/static/auth.html#signup" class="btn btn-primary btn-sm">Open a shelf</a>
       </div>
-      <button class="nav__hamburger btn-icon" id="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><rect y="3" width="20" height="2" rx="1"/><rect y="9" width="20" height="2" rx="1"/><rect y="15" width="20" height="2" rx="1"/></svg>
+
+      <button class="btn btn-icon masthead__toggle" id="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16"/>
+        </svg>
       </button>
     </div>
-    <!-- Mobile menu -->
-    <div class="nav__mobile" id="mobile-menu" role="menu">
-      <a href="#features" class="nav__mobile-link" role="menuitem">Features</a>
-      <a href="#how-it-works" class="nav__mobile-link" role="menuitem">How it Works</a>
-      <a href="/static/auth.html" class="nav__mobile-link" role="menuitem">Log in</a>
-      <a href="/static/auth.html#signup" class="btn btn-primary" style="width:100%;margin-top:var(--space-2)" role="menuitem">Get Started</a>
+
+    <div class="masthead__mobile" id="mobile-nav" hidden>
+      <a href="#difference">The difference</a>
+      <a href="#method">Method</a>
+      <a href="/docs">API</a>
+      <a href="/static/auth.html">Sign in</a>
+      <a href="/static/auth.html#signup" class="btn btn-primary" style="width:100%">Open a shelf</a>
     </div>
-  </nav>
+  </header>
 
-  <!-- ===== HERO SECTION ===== -->
-  <section class="hero" id="hero">
-    <div class="hero__bg" aria-hidden="true">
-      <div class="hero__orb hero__orb--1"></div>
-      <div class="hero__orb hero__orb--2"></div>
-      <div class="hero__orb hero__orb--3"></div>
-      <div class="hero__grid"></div>
-    </div>
-    <div class="hero__content container">
-      <div class="hero__badge reveal">
-        <span class="hero__badge-dot"></span>
-        AI-Powered Research Analysis
-      </div>
-      <h1 class="hero__title reveal delay-1">
-        Understand Research<br>Papers <span class="gradient-text">in Seconds</span>
-      </h1>
-      <p class="hero__subtitle reveal delay-2">
-        Upload any academic paper, ask questions in natural language,<br class="hide-mobile">
-        and get precise answers with inline citations.
-      </p>
-      <div class="hero__actions reveal delay-3">
-        <a href="/static/auth.html#signup" class="btn btn-primary btn-lg">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-          Try DocuSense Free
-        </a>
-        <a href="#how-it-works" class="btn btn-secondary btn-lg">
-          See How it Works
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-        </a>
-      </div>
-      <div class="hero__stats reveal delay-4">
-        <div class="hero__stat">
-          <span class="hero__stat-num">55+</span>
-          <span class="hero__stat-label">Chunks per paper</span>
-        </div>
-        <div class="hero__stat-divider"></div>
-        <div class="hero__stat">
-          <span class="hero__stat-num">384d</span>
-          <span class="hero__stat-label">Embedding vectors</span>
-        </div>
-        <div class="hero__stat-divider"></div>
-        <div class="hero__stat">
-          <span class="hero__stat-num">&lt;3s</span>
-          <span class="hero__stat-label">Answer time</span>
-        </div>
-      </div>
-    </div>
-  </section>
+  <main id="main">
 
-  <!-- ===== FEATURES ===== -->
-  <section class="features" id="features">
-    <div class="container">
-      <div class="section-header reveal">
-        <span class="section-tag">Features</span>
-        <h2>Everything you need to<br><span class="gradient-text">master any paper</span></h2>
-        <p>Three simple steps from PDF to insight.</p>
-      </div>
+    <!-- ══ Hero ═══════════════════════════════════════════════ -->
+    <section class="hero">
+      <div class="shell hero__grid">
 
-      <div class="features__grid">
-        <!-- Card 1 -->
-        <div class="feature-card glass reveal delay-1" id="feature-upload">
-          <div class="feature-card__icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <div class="hero__copy">
+          <p class="eyebrow" data-reveal>Retrieval for research papers</p>
+
+          <h1 data-reveal style="--reveal-delay:80ms">
+            Most tools read a paper as
+            <em>one flat page.</em>
+            This one reads it as
+            <span class="mark" data-mark>a paper.</span>
+          </h1>
+
+          <p class="lede" data-reveal style="--reveal-delay:180ms">
+            Sections, authors, venue, year, citations — parsed on the way in, then
+            used at the moment you ask. Questions about method search the methodology.
+            Questions about numbers search the results.
+          </p>
+
+          <div class="hero__actions" data-reveal style="--reveal-delay:260ms">
+            <a href="/static/auth.html#signup" class="btn btn-primary btn-lg">
+              Start reading
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6"/>
+              </svg>
+            </a>
+            <a href="#difference" class="btn btn-quiet btn-lg">See a real answer</a>
           </div>
-          <h4>Drop Any PDF</h4>
-          <p>Upload research papers in PDF, DOCX, or plain text. Our pipeline converts, chunks, and embeds them automatically.</p>
-          <div class="feature-card__tag">Ingestion</div>
+
+          <p class="hero__note" data-reveal style="--reveal-delay:340ms">
+            Runs on local models. Your papers never leave the machine.
+          </p>
         </div>
 
-        <!-- Card 2 -->
-        <div class="feature-card glass reveal delay-2" id="feature-ask">
-          <div class="feature-card__icon feature-card__icon--purple">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-          </div>
-          <h4>Ask Anything</h4>
-          <p>Natural language questions with multi-turn conversation. Compare findings across papers or detect conflicts.</p>
-          <div class="feature-card__tag">Chat</div>
-        </div>
+        <!-- Specimen: a paper being marked up, which is literally what the
+             product does. Annotations animate in sequence on load. -->
+        <figure class="specimen" data-reveal style="--reveal-delay:200ms">
+          <figcaption class="specimen__caption">
+            <span class="folio">Fig. 1</span>
+            <span>A page, annotated</span>
+          </figcaption>
 
-        <!-- Card 3 -->
-        <div class="feature-card glass reveal delay-3" id="feature-cite">
-          <div class="feature-card__icon feature-card__icon--pink">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          </div>
-          <h4>Get Cited Answers</h4>
-          <p>Every answer includes inline citations, source references, and confidence scores you can trust.</p>
-          <div class="feature-card__tag">Citations</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== HOW IT WORKS ===== -->
-  <section class="how-it-works" id="how-it-works">
-    <div class="container">
-      <div class="section-header reveal">
-        <span class="section-tag">How it Works</span>
-        <h2>From PDF to insight<br><span class="gradient-text">in three steps</span></h2>
-      </div>
-
-      <div class="steps">
-        <div class="step reveal-left">
-          <div class="step__number">01</div>
-          <div class="step__content">
-            <h4>Upload Your Paper</h4>
-            <p>Drag and drop any research paper. DocuSense converts it to structured markdown, extracts metadata, and detects academic sections (abstract, methodology, results).</p>
-          </div>
-          <div class="step__visual">
-            <div class="step__mockup glass-strong">
-              <div class="mockup-file">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-solid)" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                <div>
-                  <div class="mockup-filename">transformer_attention.pdf</div>
-                  <div class="mockup-meta">2.4 MB • 12 pages</div>
-                </div>
-                <div class="mockup-badge">✓</div>
-              </div>
+          <div class="sheet" id="sheet">
+            <div class="sheet__runninghead">
+              <span>Journal of Big Data</span>
+              <span>(2025) 12:84</span>
             </div>
-          </div>
-        </div>
 
-        <div class="step reveal-right">
-          <div class="step__number">02</div>
-          <div class="step__content">
-            <h4>Ask a Question</h4>
-            <p>Type your question in plain English. Our retrieval pipeline uses hybrid search (semantic + keyword) to find the most relevant passages across all your uploaded papers.</p>
-          </div>
-          <div class="step__visual">
-            <div class="step__mockup glass-strong">
-              <div class="mockup-chat">
-                <div class="mockup-msg mockup-msg--user">What F1 score did BERT achieve?</div>
-                <div class="mockup-msg mockup-msg--bot">
-                  <div class="mockup-typing">
-                    <span></span><span></span><span></span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+            <h2 class="sheet__title">A survey of reinforcement learning for coordination in traffic light control</h2>
+            <p class="sheet__byline">Saadi, Abghour, Chiba, Moussaid &amp; Ali</p>
 
-        <div class="step reveal-left">
-          <div class="step__number">03</div>
-          <div class="step__content">
-            <h4>Get Cited Answers</h4>
-            <p>Receive precise answers with inline citations like [1], source references, and confidence scores. Every claim is traceable back to the original paper.</p>
+            <div class="sheet__rule"></div>
+
+            <p class="sheet__section-label">3. Methodology</p>
+
+            <p class="sheet__body">
+              Each agent observes queue length and phase duration at its own
+              intersection.
+              <span class="sheet__hl" data-seq="1">We train a multi-agent deep
+              Q-network with a shared replay buffer</span>, optimising with Adam
+              at a learning rate of 0.0003 for 500 episodes.
+            </p>
+
+            <p class="sheet__body">
+              Coordination emerges without a central controller
+              <span class="sheet__cite" data-seq="3">(Saadi et al., 2025)</span>.
+            </p>
+
+            <aside class="sheet__margin" data-seq="2" aria-hidden="true">
+              <span class="sheet__margin-arrow"></span>
+              matched: <strong>methodology</strong>
+            </aside>
           </div>
-          <div class="step__visual">
-            <div class="step__mockup glass-strong">
-              <div class="mockup-answer">
-                <p>BERT achieved <strong>93.5% F1</strong> on SST-2 <span class="mockup-cite">[1]</span> and <strong>92.1% F1</strong> on MRPC <span class="mockup-cite">[1]</span>.</p>
-                <div class="mockup-ref">
-                  <span class="mockup-cite">[1]</span> Devlin et al. "BERT: Pre-training of Deep Bidirectional Transformers" (2018)
-                </div>
-              </div>
-            </div>
+
+          <div class="specimen__answer" data-seq="4">
+            <p class="specimen__q">“How was it trained?”</p>
+            <p class="specimen__a">
+              A multi-agent deep Q-network with a shared replay buffer, Adam at
+              0.0003 for 500 episodes
+              <span class="specimen__ref">(Saadi et al., 2025, methodology)</span>
+            </p>
           </div>
+        </figure>
+
+      </div>
+
+      <div class="shell">
+        <hr class="hairline">
+      </div>
+    </section>
+
+    <!-- ══ The difference ═════════════════════════════════════ -->
+    <section class="section" id="difference">
+      <div class="shell">
+        <header class="section__head" data-reveal>
+          <p class="eyebrow">§ 01 — The difference</p>
+          <h2>The same question, asked two ways</h2>
+          <p class="lede">
+            Generic retrieval chunks a PDF and hopes the right paragraph floats up.
+            It usually gets close. Close is not a citation.
+          </p>
+        </header>
+
+        <div class="compare">
+          <article class="compare__col compare__col--before" data-reveal>
+            <p class="compare__label">Flat retrieval</p>
+            <blockquote class="compare__quote">
+              BERT achieved around 93–94% on SST-2.
+            </blockquote>
+            <ul class="compare__notes">
+              <li>No section awareness — the number could be from related work</li>
+              <li>No source you can check</li>
+              <li>Nothing to paste into a literature review</li>
+            </ul>
+          </article>
+
+          <div class="compare__divider" aria-hidden="true">
+            <span class="compare__divider-line"></span>
+            <span class="compare__divider-glyph">vs</span>
+            <span class="compare__divider-line"></span>
+          </div>
+
+          <article class="compare__col compare__col--after" data-reveal style="--reveal-delay:120ms">
+            <p class="compare__label compare__label--gold">DocuSense</p>
+            <blockquote class="compare__quote">
+              BERT achieved 93.5% F1 on SST-2
+              <span class="compare__ref">(Devlin et al., 2018, results)</span>
+            </blockquote>
+            <ul class="compare__notes">
+              <li>Retrieved from the results section, because the question asked for a number</li>
+              <li>Citation checked against the source before it is shown</li>
+              <li>Reference list and BibTeX come with it</li>
+            </ul>
+          </article>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ===== CTA ===== -->
-  <section class="cta">
-    <div class="container">
-      <div class="cta__card glass-strong reveal">
-        <div class="cta__orb" aria-hidden="true"></div>
-        <h2>Ready to understand<br>papers <span class="gradient-text">faster</span>?</h2>
-        <p>Start analyzing research papers with AI-powered citations and insights.</p>
-        <a href="/static/auth.html#signup" class="btn btn-primary btn-lg">
-          Get Started — It's Free
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    <!-- ══ Capabilities ═══════════════════════════════════════ -->
+    <section class="section section--sunk" id="capabilities">
+      <div class="shell">
+        <header class="section__head" data-reveal>
+          <p class="eyebrow">§ 02 — What it knows</p>
+          <h2>Structure, not just text</h2>
+        </header>
+
+        <div class="ledger">
+          <article class="ledger__row" data-reveal>
+            <span class="folio ledger__num">01</span>
+            <h3 class="ledger__title">It finds the paper inside the PDF</h3>
+            <p class="ledger__body">
+              Title, authors, venue, year, DOI, abstract, twenty section types, and
+              citations in both numbered and author–year form — with a confidence
+              score, so a lecture handout is not treated as a journal article.
+            </p>
+          </article>
+
+          <article class="ledger__row" data-reveal>
+            <span class="folio ledger__num">02</span>
+            <h3 class="ledger__title">It sends the question to the right section</h3>
+            <p class="ledger__body">
+              “How did they train it?” searches methodology. “What accuracy?” searches
+              results. “Why is this better?” searches discussion. The routing is
+              pattern-based, so it works whether or not an LLM is reachable.
+            </p>
+          </article>
+
+          <article class="ledger__row" data-reveal>
+            <span class="folio ledger__num">03</span>
+            <h3 class="ledger__title">It reads your filters out of plain English</h3>
+            <p class="ledger__body">
+              “Papers from 2020–2023 by Bengio” becomes a year range and an author
+              filter applied inside the vector search, before ranking — not bolted on
+              afterwards where it would quietly break the top results.
+            </p>
+          </article>
+
+          <article class="ledger__row" data-reveal>
+            <span class="folio ledger__num">04</span>
+            <h3 class="ledger__title">It keeps exact terms exact</h3>
+            <p class="ledger__body">
+              Embeddings think <em>BERT-base</em> and <em>RoBERTa</em> are neighbours.
+              BM25 knows they are not. Both rankings are fused, so meaning and
+              precision survive together.
+            </p>
+          </article>
+
+          <article class="ledger__row" data-reveal>
+            <span class="folio ledger__num">05</span>
+            <h3 class="ledger__title">It deletes citations it cannot prove</h3>
+            <p class="ledger__body">
+              Small models invent plausible references even when told not to. Every
+              citation is checked against the retrieved sources by author and year.
+              Unsupported ones are removed rather than shown to you.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ Method ═════════════════════════════════════════════ -->
+    <section class="section" id="method">
+      <div class="shell">
+        <header class="section__head" data-reveal>
+          <p class="eyebrow">§ 03 — Method</p>
+          <h2>Three steps, no configuration</h2>
+        </header>
+
+        <ol class="method">
+          <li class="method__step" data-reveal>
+            <span class="method__num">1</span>
+            <h3>Drop in a PDF</h3>
+            <p>
+              It is converted, cleaned, parsed for structure, split along section
+              boundaries, embedded, and indexed. A 30-page survey takes about half
+              a minute.
+            </p>
+          </li>
+          <li class="method__step" data-reveal style="--reveal-delay:100ms">
+            <span class="method__num">2</span>
+            <h3>Ask in your own words</h3>
+            <p>
+              Your phrasing decides where it looks and what it filters on. Follow-up
+              questions inherit the thread, so “what about its accuracy?” resolves
+              against whatever you were just discussing.
+            </p>
+          </li>
+          <li class="method__step" data-reveal style="--reveal-delay:200ms">
+            <span class="method__num">3</span>
+            <h3>Read the answer with its receipts</h3>
+            <p>
+              Text arrives as it is written, each claim tied to the chunk it came
+              from, with an APA reference list and BibTeX export underneath.
+            </p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ══ Close ══════════════════════════════════════════════ -->
+    <section class="close">
+      <div class="shell close__inner" data-reveal>
+        <p class="eyebrow">Open a shelf</p>
+        <h2 class="close__title">
+          Your papers, <span class="mark" data-mark>actually searchable.</span>
+        </h2>
+        <p class="lede close__lede">
+          Free, local, and private. Nothing is uploaded anywhere you did not put it.
+        </p>
+        <a href="/static/auth.html#signup" class="btn btn-accent btn-lg">
+          Create an account
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6"/>
+          </svg>
         </a>
       </div>
-    </div>
-  </section>
+    </section>
+  </main>
 
-  <!-- ===== FOOTER ===== -->
-  <footer class="footer">
-    <div class="container">
-      <div class="footer__inner">
-        <div class="footer__brand">
-          <span class="footer__logo gradient-text">DocuSense</span>
-          <p>AI-powered research paper analysis.</p>
+  <!-- ══ Colophon ═════════════════════════════════════════════ -->
+  <footer class="colophon">
+    <div class="shell">
+      <hr class="hairline">
+      <div class="colophon__grid">
+        <div class="colophon__brand">
+          <span class="wordmark__text">DocuSense</span>
+          <p>Retrieval that respects how research is written.</p>
         </div>
-        <div class="footer__links">
-          <a href="#features">Features</a>
-          <a href="#how-it-works">How it Works</a>
-          <a href="/docs" target="_blank">API Docs</a>
+
+        <nav class="colophon__links" aria-label="Footer">
+          <p class="colophon__heading">Read</p>
+          <a href="#difference" class="rule-link">The difference</a>
+          <a href="#capabilities" class="rule-link">What it knows</a>
+          <a href="#method" class="rule-link">Method</a>
+        </nav>
+
+        <nav class="colophon__links" aria-label="Build">
+          <p class="colophon__heading">Build</p>
+          <a href="/docs" class="rule-link">API reference</a>
+          <a href="/static/auth.html" class="rule-link">Sign in</a>
+        </nav>
+
+        <div class="colophon__meta">
+          <p class="colophon__heading">Set in</p>
+          <p>Crimson Pro &amp; Atkinson Hyperlegible</p>
+          <p class="folio">Qdrant · BM25 · Ollama</p>
         </div>
-      </div>
-      <div class="footer__bottom">
-        <p>&copy; 2026 DocuSense. Built with Ollama, Qdrant & love.</p>
       </div>
     </div>
   </footer>
 
   <script src="/static/js/animations.js"></script>
-  <script>
-    // Mobile nav toggle
-    const toggle = document.getElementById('nav-toggle');
-    const menu = document.getElementById('mobile-menu');
-    toggle?.addEventListener('click', () => {
-      const open = menu.classList.toggle('open');
-      toggle.setAttribute('aria-expanded', open);
-    });
-
-    // Navbar scroll effect
-    const nav = document.getElementById('navbar');
-    window.addEventListener('scroll', () => {
-      nav.classList.toggle('nav--scrolled', window.scrollY > 40);
-    }, { passive: true });
-
-    // Close mobile menu on link click
-    menu?.querySelectorAll('a').forEach(a => {
-      a.addEventListener('click', () => {
-        menu.classList.remove('open');
-        toggle.setAttribute('aria-expanded', 'false');
-      });
-    });
-  </script>
 </body>
 </html>

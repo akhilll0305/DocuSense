@@ -166,6 +166,29 @@ via `Depends`. Components inside it are lazily initialized, so heavy models (emb
 reranker) load on first use rather than at boot. The web UI is dependency-free
 HTML/CSS/JS served as static files from the same origin, so no CORS or build step.
 
+#### Visual design — "The Reading Room"
+
+The interface is styled as an academic journal rather than a dark SaaS product: warm paper
+stock, hairline rules, Crimson Pro for display and Atkinson Hyperlegible (designed for low
+vision) for UI, scholarly navy for structure, and a single citation-gold accent used the way
+a reader's pen would be. Tokens live in `web/css/design-system.css`; light is the primary
+palette, with a warm dark mode for night reading and a per-browser toggle.
+
+Motion is hand-written (IntersectionObserver plus CSS transitions, no animation library) and
+is meant to carry meaning: the landing hero annotates a paper in reading order — highlight
+the method sentence, note the matched section in the margin, rule under the citation, then
+show the answer that falls out of it.
+
+Two rules the implementation enforces:
+
+- **Content never depends on JS to be visible.** Scroll-reveal is scoped to a `.js-reveal`
+  class set by an inline head script, and a watchdog reveals everything after 4s. A
+  throttled or backgrounded tab can delay IntersectionObserver indefinitely; without these
+  guards the page renders blank, which was observed during development.
+- **Contrast is measured, not eyeballed.** Every text/background pair in both themes was
+  computed against WCAG AA. That found `--ink-faint` failing at 2.99:1 on sunk paper and the
+  auth panel's gold at 3.61:1 on navy; both were darkened until every pair cleared 4.5:1.
+
 ---
 
 ## Design decisions

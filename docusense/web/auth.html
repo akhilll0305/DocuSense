@@ -3,128 +3,147 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DocuSense — Sign In</title>
+  <title>Sign in — DocuSense</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/design-system.css">
   <link rel="stylesheet" href="/static/css/auth.css">
 </head>
-<body>
+<body class="auth-body">
 
   <div class="auth">
-    <!-- Left: Branding Panel -->
-    <div class="auth__brand">
-      <div class="auth__brand-bg" aria-hidden="true">
-        <div class="auth__orb auth__orb--1"></div>
-        <div class="auth__orb auth__orb--2"></div>
-      </div>
-      <div class="auth__brand-content">
-        <a href="/static/index.html" class="auth__logo">
-          <svg width="32" height="32" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-            <rect width="28" height="28" rx="8" fill="url(#lg)"/>
-            <path d="M8 9h8a3 3 0 013 3v0a3 3 0 01-3 3H8V9z" fill="white" opacity="0.9"/>
-            <path d="M8 15h10a3 3 0 013 3v0a3 3 0 01-3 3H8v-6z" fill="white" opacity="0.6"/>
-            <defs><linearGradient id="lg" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#6c5ce7"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
+
+    <!-- ══ Left: the reading room ══════════════════════════════ -->
+    <aside class="auth__aside">
+      <a href="/" class="wordmark auth__brand">
+        <span class="wordmark__mark" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+            <rect x="0.5" y="0.5" width="25" height="25" rx="2" stroke="currentColor" stroke-width="1"/>
+            <path d="M6 7.5h9M6 11h14M6 14.5h14M6 18h7" stroke="currentColor" stroke-width="1.25" stroke-linecap="square"/>
+            <path d="M15.5 17.5l4.5-4.5" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="square"/>
           </svg>
-          DocuSense
-        </a>
-        <div class="auth__brand-hero">
-          <h1>Research papers,<br><span class="gradient-text">decoded.</span></h1>
-          <p>Upload any academic paper and get precise, cited answers to your questions in seconds.</p>
-        </div>
-        <div class="auth__brand-features">
-          <div class="auth__feature">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>Inline citations with every answer</span>
-          </div>
-          <div class="auth__feature">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>Multi-paper comparison mode</span>
-          </div>
-          <div class="auth__feature">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>Runs locally — your data stays private</span>
-          </div>
-        </div>
+        </span>
+        <span class="wordmark__text">DocuSense</span>
+      </a>
+
+      <div class="auth__aside-body">
+        <p class="eyebrow">Your shelf</p>
+        <h1 class="auth__headline">
+          Every paper you add stays <em>yours.</em>
+        </h1>
+
+        <blockquote class="auth__quote">
+          <p>
+            Documents, vectors, and conversations are scoped to your account.
+            Another reader on the same instance cannot see them, search them,
+            or discover that they exist.
+          </p>
+        </blockquote>
+
+        <ul class="auth__facts">
+          <li><span class="folio">01</span> Answers cite the section they came from</li>
+          <li><span class="folio">02</span> Citations are verified before you see them</li>
+          <li><span class="folio">03</span> Generation runs locally — nothing is sent out</li>
+        </ul>
       </div>
-    </div>
 
-    <!-- Right: Form Panel -->
-    <div class="auth__form-panel">
-      <div class="auth__form-wrapper">
+      <p class="auth__foot folio">Set in Crimson Pro &amp; Atkinson Hyperlegible</p>
+    </aside>
 
-        <!-- Login Form -->
-        <div class="auth__card" id="login-card">
-          <h2>Welcome back</h2>
-          <p class="auth__subtitle">Sign in to continue your research</p>
+    <!-- ══ Right: the card ════════════════════════════════════ -->
+    <main class="auth__main">
+      <div class="auth__panel">
+
+        <!-- Sign in -->
+        <section class="auth__card" id="login-card" aria-labelledby="login-heading">
+          <p class="eyebrow">Return</p>
+          <h2 id="login-heading" class="auth__title">Welcome back</h2>
+          <p class="auth__sub">Pick up where your reading left off.</p>
 
           <form id="login-form" class="auth__form" novalidate>
-            <div class="input-group">
-              <input type="email" id="login-email" placeholder=" " required autocomplete="email" aria-label="Email address">
+            <div class="field">
               <label for="login-email">Email address</label>
+              <input type="email" id="login-email" required autocomplete="email"
+                     placeholder="you@university.edu">
             </div>
 
-            <div class="input-group">
-              <input type="password" id="login-password" placeholder=" " required autocomplete="current-password" aria-label="Password">
+            <div class="field">
               <label for="login-password">Password</label>
-              <button type="button" class="input-toggle" id="toggle-login-pw" aria-label="Show password">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
+              <div class="field__wrap">
+                <input type="password" id="login-password" required
+                       autocomplete="current-password" placeholder="••••••••">
+                <button type="button" class="input-toggle" aria-label="Show password">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <p class="auth__error" id="login-error" role="alert" hidden></p>
 
-            <button type="submit" class="btn btn-primary btn-lg auth__submit" style="width:100%">
-              <span class="auth__submit-text">Sign In</span>
-              <div class="auth__spinner" aria-hidden="true"></div>
+            <button type="submit" class="btn btn-primary btn-lg auth__submit">
+              <span class="auth__submit-text">Sign in</span>
+              <span class="auth__spinner" aria-hidden="true"></span>
             </button>
           </form>
 
           <p class="auth__switch">
-            Don't have an account? <button type="button" id="show-signup" class="auth__switch-btn">Sign up</button>
+            No account yet?
+            <button type="button" id="show-signup" class="rule-link auth__switch-btn">Open a shelf</button>
           </p>
-        </div>
+        </section>
 
-        <!-- Signup Form -->
-        <div class="auth__card auth__card--hidden" id="signup-card">
-          <h2>Create account</h2>
-          <p class="auth__subtitle">Start analyzing papers for free</p>
+        <!-- Register -->
+        <section class="auth__card auth__card--hidden" id="signup-card" aria-labelledby="signup-heading">
+          <p class="eyebrow">Begin</p>
+          <h2 id="signup-heading" class="auth__title">Open a shelf</h2>
+          <p class="auth__sub">Free, local, and private to you.</p>
 
           <form id="signup-form" class="auth__form" novalidate>
-            <div class="input-group">
-              <input type="text" id="signup-name" placeholder=" " required autocomplete="name" aria-label="Full name">
-              <label for="signup-name">Full name</label>
+            <div class="field">
+              <label for="signup-name">Name</label>
+              <input type="text" id="signup-name" autocomplete="name" placeholder="Ada Lovelace">
             </div>
 
-            <div class="input-group">
-              <input type="email" id="signup-email" placeholder=" " required autocomplete="email" aria-label="Email address">
+            <div class="field">
               <label for="signup-email">Email address</label>
+              <input type="email" id="signup-email" required autocomplete="email"
+                     placeholder="you@university.edu">
             </div>
 
-            <div class="input-group">
-              <input type="password" id="signup-password" placeholder=" " required minlength="8" autocomplete="new-password" aria-label="Password">
+            <div class="field">
               <label for="signup-password">Password</label>
-              <button type="button" class="input-toggle" id="toggle-signup-pw" aria-label="Show password">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
+              <div class="field__wrap">
+                <input type="password" id="signup-password" required minlength="8"
+                       autocomplete="new-password" placeholder="At least 8 characters">
+                <button type="button" class="input-toggle" aria-label="Show password">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
+              <p class="field__hint">Stored as a bcrypt hash. Never in plain text.</p>
             </div>
 
             <p class="auth__error" id="signup-error" role="alert" hidden></p>
 
-            <button type="submit" class="btn btn-primary btn-lg auth__submit" style="width:100%">
-              <span class="auth__submit-text">Create Account</span>
-              <div class="auth__spinner" aria-hidden="true"></div>
+            <button type="submit" class="btn btn-primary btn-lg auth__submit">
+              <span class="auth__submit-text">Create account</span>
+              <span class="auth__spinner" aria-hidden="true"></span>
             </button>
           </form>
 
           <p class="auth__switch">
-            Already have an account? <button type="button" id="show-login" class="auth__switch-btn">Sign in</button>
+            Already have one?
+            <button type="button" id="show-login" class="rule-link auth__switch-btn">Sign in</button>
           </p>
-        </div>
+        </section>
 
       </div>
-    </div>
+    </main>
   </div>
 
   <script src="/static/js/api.js"></script>
@@ -137,14 +156,22 @@
     const loginCard = document.getElementById('login-card');
     const signupCard = document.getElementById('signup-card');
 
+    /** Swap the visible card and move focus to its first field. */
+    function showCard(toShow, toHide) {
+      toHide.classList.add('auth__card--hidden');
+      toShow.classList.remove('auth__card--hidden');
+      const first = toShow.querySelector('input');
+      if (first) first.focus();
+    }
+
     document.getElementById('show-signup')?.addEventListener('click', () => {
-      loginCard.classList.add('auth__card--hidden');
-      signupCard.classList.remove('auth__card--hidden');
+      showCard(signupCard, loginCard);
+      history.replaceState(null, '', '#signup');
     });
 
     document.getElementById('show-login')?.addEventListener('click', () => {
-      signupCard.classList.add('auth__card--hidden');
-      loginCard.classList.remove('auth__card--hidden');
+      showCard(loginCard, signupCard);
+      history.replaceState(null, '', ' ');
     });
 
     if (window.location.hash === '#signup') {
@@ -152,7 +179,7 @@
       signupCard.classList.remove('auth__card--hidden');
     }
 
-    // Password visibility toggle
+    // Password visibility
     document.querySelectorAll('.input-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
         const input = btn.previousElementSibling;
@@ -160,6 +187,7 @@
         const show = input.type === 'password';
         input.type = show ? 'text' : 'password';
         btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        btn.classList.toggle('is-on', show);
       });
     });
 
@@ -174,7 +202,7 @@
     }
 
     /**
-     * Wire a form to an auth call, handling the loading and error states.
+     * Wire a form to an auth call, handling loading and error states.
      * `submit` returns a promise; on success we land in the app.
      */
     function wireForm(formId, errorId, submit) {
@@ -187,7 +215,7 @@
         clearError(errorEl);
 
         const btn = form.querySelector('.auth__submit');
-        btn.classList.add('loading');
+        btn.classList.add('is-loading');
         btn.disabled = true;
 
         try {
@@ -195,7 +223,7 @@
           window.location.href = '/static/chat.html';
         } catch (err) {
           showError(errorEl, err.message || 'Something went wrong. Please try again.');
-          btn.classList.remove('loading');
+          btn.classList.remove('is-loading');
           btn.disabled = false;
         }
       });

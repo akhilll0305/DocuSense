@@ -59,7 +59,7 @@ conversation history.
 ingestion with paper metadata extraction · section-tagged chunking · hybrid vector + BM25
 retrieval with RRF · section routing and academic filters · cross-encoder reranking ·
 cited answer generation with fabricated-citation filtering · streamed responses (SSE) ·
-multi-turn chat · REST API · web UI
+multi-turn chat · REST API · editorial web UI in light and dark
 
 **Not built yet:** token revocation, password reset, and published benchmark numbers. See [Known limitations](docs/ARCHITECTURE.md#known-limitations).
 
