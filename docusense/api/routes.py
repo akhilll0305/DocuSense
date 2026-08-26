@@ -30,6 +30,9 @@ from typing import Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from loguru import logger
 
+from docusense.api.deps import get_current_user, get_rag
+from docusense.auth import User
+
 from docusense.api.schemas import (
     IngestResponse,
     AskRequest,
@@ -46,23 +49,6 @@ from docusense.api.schemas import (
     StatsResponse,
 )
 
-# Global RAG instance (initialized in app.py)
-_rag_instance = None
-
-
-def get_rag():
-    """Dependency to get the RAG instance."""
-    if _rag_instance is None:
-        raise HTTPException(status_code=503, detail="RAG system not initialized")
-    return _rag_instance
-
-
-def set_rag_instance(rag):
-    """Set the global RAG instance."""
-    global _rag_instance
-    _rag_instance = rag
-
-
 router = APIRouter(prefix="/api", tags=["DocuSense"])
 
 
@@ -73,7 +59,8 @@ router = APIRouter(prefix="/api", tags=["DocuSense"])
 @router.post("/ingest", response_model=IngestResponse)
 async def ingest_document(
     file: UploadFile = File(...),
-    rag=Depends(get_rag)
+    rag=Depends(get_rag),
+    user: User = Depends(get_current_user),
 ):
     """
     Upload and ingest a document (PDF, DOCX, TXT).
@@ -90,7 +77,7 @@ async def ingest_document(
         tmp_path = tmp.name
 
     try:
-        result = rag.ingest(tmp_path)
+        result = rag.ingest(tmp_path, user_id=user.user_id)
 
         return IngestResponse(
             success=result.success,
@@ -117,7 +104,8 @@ async def ingest_document(
 @router.post("/ask", response_model=AskResponse)
 async def ask_question(
     request: AskRequest,
-    rag=Depends(get_rag)
+    rag=Depends(get_rag),
+    user: User = Depends(get_current_user),
 ):
     """
     Ask a question and get an answer with citations.
@@ -135,6 +123,7 @@ async def ask_question(
             top_k=request.top_k,
             filters=request.filters,
             mode=request.mode,
+            user_id=user.user_id,
         )
 
         return AskResponse(
@@ -159,10 +148,11 @@ async def ask_question(
 @router.post("/chat/start", response_model=StartChatResponse)
 async def start_chat(
     request: StartChatRequest,
-    rag=Depends(get_rag)
+    rag=Depends(get_rag),
+    user: User = Depends(get_current_user),
 ):
     """Start a new conversation."""
-    conv_id = rag.start_chat(request.title)
+    conv_id = rag.start_chat(request.title, user_id=user.user_id)
     return StartChatResponse(conversation_id=conv_id, title=request.title)
 
 
@@ -170,10 +160,14 @@ async def start_chat(
 async def chat(
     conversation_id: str,
     request: ChatRequest,
-    rag=Depends(get_rag)
+    rag=Depends(get_rag),
+    user: User = Depends(get_current_user),
 ):
     """Send a message in a conversation."""
     logger.info(f"💬 API: Chat {conversation_id}: '{request.query}'")
+
+    if not rag.owns_conversation(conversation_id, user.user_id):
+        raise HTTPException(status_code=404, detail="Conversation not found")
 
     try:
         response = rag.chat(
@@ -181,6 +175,7 @@ async def chat(
             request.query,
             mode=request.mode,
             top_k=request.top_k,
+            user_id=user.user_id,
         )
 
         return ChatResponse(
@@ -202,10 +197,14 @@ async def chat(
 @router.get("/chat/{conversation_id}", response_model=ChatHistoryResponse)
 async def get_chat_history(
     conversation_id: str,
-    rag=Depends(get_rag)
+    rag=Depends(get_rag),
+    user: User = Depends(get_current_user),
 ):
     """Get all messages in a conversation."""
-    messages = rag.get_chat_history(conversation_id)
+    if not rag.owns_conversation(conversation_id, user.user_id):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    messages = rag.get_chat_history(conversation_id, user_id=user.user_id)
     return ChatHistoryResponse(
         conversation_id=conversation_id,
         messages=[
@@ -221,9 +220,12 @@ async def get_chat_history(
 
 
 @router.get("/chats", response_model=list[ConversationListItem])
-async def list_chats(rag=Depends(get_rag)):
-    """List recent conversations."""
-    convs = rag.list_chats()
+async def list_chats(
+    rag=Depends(get_rag),
+    user: User = Depends(get_current_user),
+):
+    """List the authenticated user's recent conversations."""
+    convs = rag.list_chats(user_id=user.user_id)
     return [
         ConversationListItem(
             conversation_id=c.conversation_id,
@@ -240,9 +242,12 @@ async def list_chats(rag=Depends(get_rag)):
 # ==============================================================================
 
 @router.get("/documents", response_model=DocumentListResponse)
-async def list_documents(rag=Depends(get_rag)):
-    """List all ingested documents."""
-    docs = rag.list_documents()
+async def list_documents(
+    rag=Depends(get_rag),
+    user: User = Depends(get_current_user),
+):
+    """List the authenticated user's ingested documents."""
+    docs = rag.list_documents(user_id=user.user_id)
     return DocumentListResponse(
         documents=[DocumentInfo(**d) for d in docs],
         total=len(docs)
@@ -252,11 +257,14 @@ async def list_documents(rag=Depends(get_rag)):
 @router.delete("/documents/{document_id}")
 async def delete_document(
     document_id: str,
-    rag=Depends(get_rag)
+    rag=Depends(get_rag),
+    user: User = Depends(get_current_user),
 ):
-    """Delete a document and its vectors."""
-    deleted = rag.delete_document(document_id)
+    """Delete one of the authenticated user's documents and its vectors."""
+    deleted = rag.delete_document(document_id, user_id=user.user_id)
     if not deleted:
+        # Also the response when the document belongs to someone else, so the
+        # endpoint cannot be used to probe for other tenants' document ids.
         raise HTTPException(status_code=404, detail="Document not found")
     return {"message": f"Document {document_id} deleted", "success": True}
 
@@ -277,7 +285,10 @@ async def health_check(rag=Depends(get_rag)):
 
 
 @router.get("/stats", response_model=StatsResponse)
-async def get_stats(rag=Depends(get_rag)):
+async def get_stats(
+    rag=Depends(get_rag),
+    user: User = Depends(get_current_user),
+):
     """Get query statistics."""
     status = rag.get_status()
     stats = status.get("query_stats", {})

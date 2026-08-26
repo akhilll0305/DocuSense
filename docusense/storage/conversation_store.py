@@ -129,6 +129,16 @@ class ConversationStore:
             )
         """)
 
+        # Migration: conversations created before multi-tenancy have no owner.
+        existing = {r["name"] for r in cursor.execute("PRAGMA table_info(conversations)")}
+        if "user_id" not in existing:
+            cursor.execute("ALTER TABLE conversations ADD COLUMN user_id TEXT")
+            logger.info("Migrated conversations table: added user_id column")
+
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)"
+        )
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS messages (
                 message_id TEXT PRIMARY KEY,
@@ -177,10 +187,16 @@ class ConversationStore:
     def create_conversation(
         self,
         title: str = "New Conversation",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None
     ) -> str:
         """
         Create a new conversation.
+
+        Args:
+            title: Display title
+            metadata: Arbitrary JSON metadata
+            user_id: Owning user; conversations are listed per owner
 
         Returns:
             conversation_id
@@ -189,9 +205,10 @@ class ConversationStore:
         now = datetime.now().isoformat()
 
         self.conn.execute(
-            "INSERT INTO conversations (conversation_id, title, created_at, updated_at, metadata) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (conv_id, title, now, now, json.dumps(metadata or {}))
+            "INSERT INTO conversations "
+            "(conversation_id, title, created_at, updated_at, metadata, user_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (conv_id, title, now, now, json.dumps(metadata or {}), user_id)
         )
         self.conn.commit()
 
@@ -216,12 +233,21 @@ class ConversationStore:
             metadata=json.loads(row["metadata"]) if row["metadata"] else {}
         )
 
-    def list_conversations(self, limit: int = 20) -> List[Conversation]:
-        """List recent conversations."""
-        rows = self.conn.execute(
-            "SELECT * FROM conversations ORDER BY updated_at DESC LIMIT ?",
-            (limit,)
-        ).fetchall()
+    def list_conversations(
+        self, limit: int = 20, user_id: Optional[str] = None
+    ) -> List[Conversation]:
+        """List recent conversations, optionally scoped to one owner."""
+        if user_id is None:
+            rows = self.conn.execute(
+                "SELECT * FROM conversations ORDER BY updated_at DESC LIMIT ?",
+                (limit,)
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                "SELECT * FROM conversations WHERE user_id = ? "
+                "ORDER BY updated_at DESC LIMIT ?",
+                (user_id, limit)
+            ).fetchall()
 
         return [
             Conversation(
@@ -233,6 +259,14 @@ class ConversationStore:
             )
             for row in rows
         ]
+
+    def get_conversation_owner(self, conversation_id: str) -> Optional[str]:
+        """Return the user_id owning a conversation, or None if unowned/missing."""
+        row = self.conn.execute(
+            "SELECT user_id FROM conversations WHERE conversation_id = ?",
+            (conversation_id,)
+        ).fetchone()
+        return row["user_id"] if row else None
 
     def delete_conversation(self, conversation_id: str) -> bool:
         """Delete a conversation and all its messages."""

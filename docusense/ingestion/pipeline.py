@@ -151,7 +151,8 @@ class DocumentPipeline:
         self,
         file_path: str | Path,
         document_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None
     ) -> PipelineResult:
         """
         Process a single document through the entire pipeline.
@@ -323,7 +324,8 @@ class DocumentPipeline:
                 file_type=file_path.suffix.lstrip('.'),
                 total_chunks=len(chunks),
                 processing_date=datetime.now().isoformat(),
-                metadata=doc_metadata
+                metadata=doc_metadata,
+                user_id=user_id
             )
             
             # Store document

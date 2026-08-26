@@ -95,15 +95,21 @@ class ConversationManager:
     def start_conversation(
         self,
         title: str = "New Conversation",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None
     ) -> str:
         """
         Start a new conversation.
 
+        Args:
+            title: Display title
+            metadata: Arbitrary JSON metadata
+            user_id: Owning user
+
         Returns:
             conversation_id
         """
-        conv_id = self.store.create_conversation(title, metadata)
+        conv_id = self.store.create_conversation(title, metadata, user_id=user_id)
         logger.info(f"💬 Started conversation: {conv_id} ({title})")
         return conv_id
 
@@ -233,9 +239,15 @@ class ConversationManager:
         """Get conversation message history."""
         return self.store.get_messages(conversation_id, limit)
 
-    def list_conversations(self, limit: int = 20) -> List[Conversation]:
-        """List recent conversations."""
-        return self.store.list_conversations(limit)
+    def list_conversations(
+        self, limit: int = 20, user_id: Optional[str] = None
+    ) -> List[Conversation]:
+        """List recent conversations, optionally scoped to one owner."""
+        return self.store.list_conversations(limit, user_id=user_id)
+
+    def get_owner(self, conversation_id: str) -> Optional[str]:
+        """Return the user_id owning a conversation."""
+        return self.store.get_conversation_owner(conversation_id)
 
     def delete_conversation(self, conversation_id: str) -> bool:
         """Delete a conversation."""

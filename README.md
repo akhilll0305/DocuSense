@@ -22,13 +22,14 @@ PDF / DOCX / TXT
       |            Markitdown        cleaning     title/authors/    semantic,
       |                                           sections/cites    section-tagged
       v
-[ Storage ]        SQLite (documents, chunks, conversations)
+[ Storage ]        SQLite (users, documents, chunks, conversations)
+      |            every row scoped to its owning user
       |
       v
 [ Embeddings ]     all-MiniLM-L6-v2 (384-dim, local)
       |
       v
-[ Vector Store ]   Qdrant + 8 academic payload indexes
+[ Vector Store ]   Qdrant + user_id tenant index + 8 academic payload indexes
       |                    (paper_title, authors, year, section_type,
       |                     venue, paper_type, has_equations, has_citations)
       v
@@ -41,7 +42,7 @@ PDF / DOCX / TXT
                    Ollama llama3.2      APA / references / BibTeX
       |
       v
-[ API + Web UI ]   FastAPI (11 endpoints) + vanilla HTML/CSS/JS
+[ API + Web UI ]   FastAPI (14 endpoints, JWT-protected) + vanilla HTML/CSS/JS
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module-level detail.
@@ -54,15 +55,15 @@ The pipeline runs end to end: ingest a paper, ask a question, get a grounded ans
 inline citations and an APA reference list. Multi-turn chat resolves pronouns against
 conversation history.
 
-**Working:** ingestion with paper metadata extraction · section-tagged chunking ·
-hybrid vector + BM25 retrieval with RRF · section routing and academic filters ·
-cross-encoder reranking · cited answer generation · multi-turn chat · REST API · web UI
+**Working:** email/password accounts with bcrypt + JWT · per-user document isolation ·
+ingestion with paper metadata extraction · section-tagged chunking · hybrid vector + BM25
+retrieval with RRF · section routing and academic filters · cross-encoder reranking ·
+cited answer generation · multi-turn chat · REST API · web UI
 
-**Not built yet:** real authentication (the login page is a mockup), multi-tenancy,
-streaming responses, and published benchmark numbers. See
-[Known limitations](docs/ARCHITECTURE.md#known-limitations).
+**Not built yet:** streaming responses, token revocation, password reset, and published
+benchmark numbers. See [Known limitations](docs/ARCHITECTURE.md#known-limitations).
 
-Tests: 136 passing (129 unit, 7 integration), 73% coverage.
+Tests: 153 passing (unit + integration), 75% coverage.
 Run `python scripts/doctor.py` to check your environment before reporting a problem.
 
 ---
@@ -77,6 +78,7 @@ Run `python scripts/doctor.py` to check your environment before reporting a prob
 | **Hybrid retrieval** | Vector search for meaning + BM25 for exact terms (`BERT-base` shouldn't match `RoBERTa`), fused with Reciprocal Rank Fusion |
 | **Cross-encoder reranking** | Retrieves a wide candidate set, then reranks for precision |
 | **Grounded citations** | Every claim is traced to a source chunk; exports APA reference lists and BibTeX |
+| **Per-user isolation** | Documents, vectors, BM25 corpora, and conversations are all scoped to their owner; cross-tenant reads return 404 rather than revealing that an id exists |
 
 ---
 
@@ -114,6 +116,18 @@ uvicorn docusense.api.app:app --reload
 - Web UI — http://localhost:8000
 - API docs — http://localhost:8000/docs
 
+### Sign in
+
+Open http://localhost:8000 and create an account. Documents you upload are visible
+only to you.
+
+For production, set a signing key — the app refuses to start without one when
+`ENVIRONMENT=prod`:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"   # -> JWT_SECRET_KEY
+```
+
 ### Ingest documents
 
 ```bash
@@ -125,7 +139,7 @@ python scripts/ingest.py --reset data/papers/    # wipe the vector store first
 ### Test
 
 ```bash
-pytest                          # everything (136 tests)
+pytest                          # everything (153 tests)
 pytest -m integration           # real components, no mocks
 pytest -m "not integration"     # unit tests only
 python scripts/doctor.py        # check Qdrant / Ollama / Gemini / embeddings
@@ -153,7 +167,8 @@ The ones that matter most:
 
 ```
 docusense/
-├── api/            FastAPI app, routes, Pydantic schemas
+├── api/            FastAPI app, routes, dependencies, Pydantic schemas
+├── auth/           Password hashing, JWT, user store
 ├── config/         Centralized pydantic-settings configuration
 ├── ingestion/      Converters, preprocessing, paper metadata, chunking
 ├── embeddings/     sentence-transformers wrapper
@@ -165,7 +180,7 @@ docusense/
 ├── web/            Landing page, auth page, chat UI
 └── rag_pipeline.py Top-level orchestrator (ingest / ask / chat)
 
-tests/              Unit tests
+tests/              Unit + integration tests (test_integration.py, test_auth.py)
 docs/               Architecture notes; docs/archive/ holds the original course plan
 data/               Local documents, SQLite DB, vector store (gitignored)
 scripts/            Development and operations utilities

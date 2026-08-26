@@ -149,6 +149,19 @@ class Settings(BaseSettings):
     temperature: float = 0.0
     include_citations: bool = True
     
+    # ==================== Authentication ====================
+    # Origins allowed to call the API from a browser. The bundled UI is served
+    # same-origin, so "*" is only a convenience for external clients in dev.
+    cors_allow_origins: list[str] = ["*"]
+
+    # Leave jwt_secret_key unset in development: a random per-process key is
+    # generated, which simply means sessions do not survive a restart.
+    # Production refuses to start without an explicit key (_validate_auth_config).
+    jwt_secret_key: str = ""
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
+    min_password_length: int = 8
+
     # ==================== System Settings ====================
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_file: str = "logs/docusense.log"
@@ -211,6 +224,33 @@ class Settings(BaseSettings):
         
         if self.cache_enabled:
             Path(self.cache_dir).mkdir(parents=True, exist_ok=True)
+
+        self._validate_auth_config()
+
+    def _validate_auth_config(self) -> None:
+        """
+        Ensure a usable JWT signing key.
+
+        A hardcoded fallback secret would let anyone forge tokens against a
+        deployed instance, so production requires an explicit key and
+        development gets an ephemeral random one.
+        """
+        if self.jwt_secret_key:
+            return
+
+        if self.is_production:
+            raise ValueError(
+                "JWT_SECRET_KEY must be set when ENVIRONMENT=prod. "
+                "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+            )
+
+        import secrets
+
+        self.jwt_secret_key = secrets.token_urlsafe(48)
+        print(
+            "[DocuSense] No JWT_SECRET_KEY set; using a random development key. "
+            "Sessions will not survive a restart."
+        )
     
     @property
     def is_production(self) -> bool:

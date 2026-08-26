@@ -592,3 +592,56 @@
   display: block;
   animation: fadeIn 0.2s var(--ease-out);
 }
+
+/* ── Sidebar account footer ───────────────────────────────────────── */
+.sidebar__account {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+}
+
+.sidebar__account-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  flex: 1;
+}
+
+.sidebar__avatar {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--accent, #6366f1), var(--accent-2, #8b5cf6));
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.sidebar__account-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sidebar__account-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar__account-email {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -225,3 +225,23 @@
   .auth__logo { margin-bottom: var(--space-8); }
   .auth__brand-hero p { margin-bottom: 0; }
 }
+
+/* Inline form error (invalid credentials, duplicate email, validation) */
+.auth__error {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md, 10px);
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  color: #dc2626;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+@media (prefers-color-scheme: dark) {
+  .auth__error {
+    background: rgba(248, 113, 113, 0.1);
+    border-color: rgba(248, 113, 113, 0.3);
+    color: #f87171;
+  }
+}

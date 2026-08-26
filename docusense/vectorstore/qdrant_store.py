@@ -284,6 +284,14 @@ class QdrantVectorStore:
         # This enables efficient filtering by document_id, chunk_id, etc.
         logger.info("Creating payload indexes...")
         
+        # Index for user_id — the tenant key. Every multi-tenant search filters
+        # on this, so it is the most important index in the collection.
+        self.client.create_payload_index(
+            collection_name=self.collection_name,
+            field_name="user_id",
+            field_schema=PayloadSchemaType.KEYWORD
+        )
+
         # Index for document_id (keyword for exact matching)
         self.client.create_payload_index(
             collection_name=self.collection_name,

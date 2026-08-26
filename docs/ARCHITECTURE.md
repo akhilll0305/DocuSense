@@ -105,6 +105,32 @@ happens inside Qdrant rather than in Python:
 SQLite via `chunk_store.py` (documents, chunks, images) and `conversation_store.py`
 (conversations, messages, query history). Chosen for zero-setup local persistence.
 
+### `auth/`
+| File | Responsibility |
+|---|---|
+| `security.py` | bcrypt password hashing and JWT issue/verify. Rejects passwords over bcrypt's 72-byte limit rather than silently truncating them |
+| `store.py` | SQLite user accounts, sharing the application database so document ownership is a plain foreign-key relationship |
+
+### Multi-tenancy
+
+Every document, chunk, and conversation belongs to a user, and the tenant key is
+enforced at all three storage layers:
+
+| Layer | Enforcement |
+|---|---|
+| SQLite documents | `user_id` column, indexed; `get_all_documents(user_id=...)` |
+| SQLite conversations | `user_id` column, indexed; ownership checked before read or write |
+| Qdrant | `user_id` in every point payload, indexed, and added to the filter of every search |
+| BM25 | Per-user in-memory index built only from that user's chunks |
+
+BM25 is the reason `RetrievalPipeline` and `GenerationPipeline` are cached per user rather
+than shared: the index lives in memory and holds raw chunk text, so a single shared corpus
+would let one tenant's keyword query score against another's documents. The vector store is
+shared because Qdrant can filter server-side.
+
+Cross-tenant access returns **404, not 403**, so the API cannot be used to probe for another
+user's document or conversation ids.
+
 ### `api/` and `web/`
 FastAPI with a lifespan hook that constructs one `DocuSenseRAG` and injects it into routes
 via `Depends`. Components inside it are lazily initialized, so heavy models (embeddings,
@@ -139,10 +165,10 @@ means no per-query cost, no rate limits, and documents never leave the machine.
 
 Tracked honestly rather than hidden — see the README for current status.
 
-- **Authentication is a UI mockup.** `web/auth.html` posts nothing; there is no user model,
-  session handling, or password storage. All data is effectively single-tenant.
-- **No multi-tenancy.** One SQLite database and one Qdrant collection are shared globally,
-  so every user would see every document.
+- **No token revocation.** JWTs are stateless, so a token stays valid until it expires;
+  there is no logout-everywhere or blocklist. Logout clears the client's copy only.
+- **No password reset or email verification.** Accounts are email plus password, and
+  nothing confirms the address is real.
 - **Health check is shallow.** `/api/health` reports whether components have been lazily
   constructed, not whether Qdrant and Ollama are actually reachable. `scripts/doctor.py`
   does the real check in the meantime.

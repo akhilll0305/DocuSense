@@ -110,17 +110,33 @@ def mock_rag():
 
 @pytest.fixture
 def client(mock_rag):
-    """Create test client with mocked RAG."""
+    """
+    Test client with a mocked RAG backend and a stubbed authenticated user.
+
+    These tests cover endpoint wiring, not authentication; get_current_user is
+    overridden so they exercise the handlers directly. Real credential handling
+    and tenant isolation are covered in tests/test_auth.py.
+    """
     from fastapi.testclient import TestClient
-    from docusense.api.routes import router, get_rag
+    from docusense.api.routes import router
+    from docusense.api.deps import get_rag, get_current_user
+    from docusense.auth import User
 
     # Build a minimal app that doesn't run the real lifespan
     from fastapi import FastAPI
     test_app = FastAPI()
     test_app.include_router(router)
 
-    # Override the dependency
+    test_user = User(
+        user_id="usr_test",
+        email="test@example.com",
+        name="Test",
+        password_hash="",
+        created_at="2026-01-01T00:00:00",
+    )
+
     test_app.dependency_overrides[get_rag] = lambda: mock_rag
+    test_app.dependency_overrides[get_current_user] = lambda: test_user
 
     with TestClient(test_app) as c:
         yield c

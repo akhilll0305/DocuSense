@@ -98,9 +98,11 @@ class TestDocuSenseRAG:
         assert rag._ingestion_pipeline is None
         assert rag._embedding_generator is None
         assert rag._qdrant_store is None
-        assert rag._retrieval_pipeline is None
-        assert rag._generation_pipeline is None
-        assert rag._conversation_manager is None
+        # Retrieval, generation, and conversation state are per-user caches,
+        # empty until a scope is first used.
+        assert rag._retrieval_pipelines == {}
+        assert rag._generation_pipelines == {}
+        assert rag._conversation_managers == {}
 
     def test_get_status(self):
         """Test status report shows uninitialized components."""
@@ -159,7 +161,7 @@ class TestDocuSenseRAG:
         assert result.success is False
         assert "File not found" in result.error
 
-    @patch("docusense.rag_pipeline.DocuSenseRAG.generation_pipeline", new_callable=PropertyMock)
+    @patch("docusense.rag_pipeline.DocuSenseRAG._generation_for")
     def test_ask(self, mock_gen):
         """Test asking a question."""
         from docusense.rag_pipeline import DocuSenseRAG
@@ -174,7 +176,7 @@ class TestDocuSenseRAG:
         assert "93.5%" in response.answer
         mock_pipeline.generate.assert_called_once()
 
-    @patch("docusense.rag_pipeline.DocuSenseRAG.generation_pipeline", new_callable=PropertyMock)
+    @patch("docusense.rag_pipeline.DocuSenseRAG._generation_for")
     def test_compare(self, mock_gen):
         """Test compare mode."""
         from docusense.rag_pipeline import DocuSenseRAG
@@ -190,7 +192,7 @@ class TestDocuSenseRAG:
         assert call_args.kwargs.get("mode") == "compare"
         assert call_args.kwargs.get("top_k") == 10
 
-    @patch("docusense.rag_pipeline.DocuSenseRAG.conversation_manager", new_callable=PropertyMock)
+    @patch("docusense.rag_pipeline.DocuSenseRAG._conversations_for")
     def test_start_chat(self, mock_conv):
         """Test starting a chat."""
         from docusense.rag_pipeline import DocuSenseRAG
@@ -203,9 +205,9 @@ class TestDocuSenseRAG:
         conv_id = rag.start_chat("BERT Chat")
 
         assert conv_id == "conv_abc123"
-        mock_mgr.start_conversation.assert_called_once_with("BERT Chat")
+        mock_mgr.start_conversation.assert_called_once_with("BERT Chat", user_id=None)
 
-    @patch("docusense.rag_pipeline.DocuSenseRAG.conversation_manager", new_callable=PropertyMock)
+    @patch("docusense.rag_pipeline.DocuSenseRAG._conversations_for")
     def test_chat(self, mock_conv):
         """Test chat with conversation."""
         from docusense.rag_pipeline import DocuSenseRAG
@@ -217,7 +219,7 @@ class TestDocuSenseRAG:
         rag.chat("conv_abc123", "What is BERT?")
 
         mock_mgr.chat.assert_called_once_with(
-            "conv_abc123", "What is BERT?", mode="answer", top_k=5
+            "conv_abc123", "What is BERT?", mode="answer", top_k=5, filters=None
         )
 
     @patch("docusense.rag_pipeline.DocuSenseRAG.ingestion_pipeline", new_callable=PropertyMock)

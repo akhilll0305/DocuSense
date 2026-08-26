@@ -13,6 +13,11 @@ fastapi>=0.115.0              # REST API framework
 uvicorn[standard]>=0.30.0     # ASGI server
 python-multipart>=0.0.9       # Required by FastAPI for file uploads
 
+# ==================== Authentication ====================
+bcrypt>=4.1.0                 # Password hashing
+PyJWT>=2.8.0                  # Access tokens
+email-validator>=2.1.0        # Pydantic EmailStr validation
+
 # ==================== LLM Providers ====================
 ollama>=0.1.0                 # Local LLM inference (answer generation)
 google-generativeai>=0.3.0    # Gemini API (query rewriting, vision)

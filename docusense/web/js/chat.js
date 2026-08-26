@@ -4,6 +4,14 @@
 (function() {
   'use strict';
 
+  // ── Auth guard ──
+  // Every /api call here needs a token; bounce to sign-in before the UI paints
+  // rather than letting each request fail on its own.
+  if (!API.isAuthenticated()) {
+    window.location.replace('/static/auth.html');
+    return;
+  }
+
   // ── State ──
   let currentConversationId = null;
   let isProcessing = false;
@@ -28,9 +36,25 @@
   const chatTitle   = $('#chat-title');
 
   // ── Init ──
+  renderAccount();
   loadChats();
   loadDocuments();
   setupEventListeners();
+
+  /** Show who is signed in, from the session cached at login. */
+  function renderAccount() {
+    const user = API.getUser();
+    if (!user) return;
+
+    const nameEl = $('#user-name');
+    const emailEl = $('#user-email');
+    const avatarEl = $('#user-avatar');
+
+    const displayName = user.name || user.email.split('@')[0];
+    if (nameEl) nameEl.textContent = displayName;
+    if (emailEl) emailEl.textContent = user.email;
+    if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
+  }
 
   function setupEventListeners() {
     // Send message
@@ -51,6 +75,7 @@
 
     // New chat
     $('#new-chat-btn').addEventListener('click', startNewChat);
+    $('#logout-btn')?.addEventListener('click', () => API.logout());
 
     // File upload
     uploadZone.addEventListener('click', () => fileInput.click());

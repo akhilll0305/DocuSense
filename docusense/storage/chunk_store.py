@@ -36,7 +36,11 @@ class DocumentRecord:
     total_chunks: int
     processing_date: str
     metadata: Dict[str, Any]  # Flexible JSON metadata
-    
+
+    # Owning user. Documents ingested before multi-tenancy have None and are
+    # visible only to admin tooling, never through the per-user API.
+    user_id: Optional[str] = None
+
     # Optional fields (set by database on insert)
     id: Optional[int] = None
     
@@ -212,9 +216,21 @@ class ChunkStorage:
             )
         """)
         
+        # 3b. MIGRATION: add document ownership to databases created before
+        #     multi-tenancy. SQLite has no "ADD COLUMN IF NOT EXISTS".
+        existing = {r["name"] for r in cursor.execute("PRAGMA table_info(documents)")}
+        if "user_id" not in existing:
+            cursor.execute("ALTER TABLE documents ADD COLUMN user_id TEXT")
+            logger.info("Migrated documents table: added user_id column")
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_documents_user_id
+            ON documents(user_id)
+        """)
+
         # 4. CREATE INDEXES for fast queries
         cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_chunks_document_id 
+            CREATE INDEX IF NOT EXISTS idx_chunks_document_id
             ON chunks(document_id)
         """)
         
@@ -260,8 +276,8 @@ class ChunkStorage:
         cursor.execute("""
             INSERT OR REPLACE INTO documents (
                 document_id, filename, file_path, file_type,
-                total_chunks, processing_date, metadata
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                total_chunks, processing_date, metadata, user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             doc.document_id,
             doc.filename,
@@ -269,7 +285,8 @@ class ChunkStorage:
             doc.file_type,
             doc.total_chunks,
             doc.processing_date,
-            json.dumps(doc.metadata)
+            json.dumps(doc.metadata),
+            doc.user_id,
         ))
         
         self.conn.commit()
@@ -413,18 +430,9 @@ class ChunkStorage:
         
         if not row:
             return None
-        
-        return DocumentRecord(
-            id=row['id'],
-            document_id=row['document_id'],
-            filename=row['filename'],
-            file_path=row['file_path'],
-            file_type=row['file_type'],
-            total_chunks=row['total_chunks'],
-            processing_date=row['processing_date'],
-            metadata=json.loads(row['metadata']) if row['metadata'] else {}
-        )
-    
+
+        return self._row_to_document(row)
+
     @staticmethod
     def _row_to_chunk(row) -> ChunkRecord:
         """Map a chunks table row to a ChunkRecord."""
@@ -464,20 +472,33 @@ class ChunkStorage:
 
         return [self._row_to_chunk(row) for row in rows]
 
-    def get_all_chunks(self) -> List[ChunkRecord]:
+    def get_all_chunks(self, user_id: Optional[str] = None) -> List[ChunkRecord]:
         """
-        Retrieve every chunk in the database, ordered by document then index.
+        Retrieve chunks across documents, ordered by document then index.
 
         Used to build the in-memory BM25 corpus, which needs the full text of
         all chunks rather than the vector store's payloads.
 
+        Args:
+            user_id: When given, return only chunks belonging to that user's
+                documents, so one tenant's corpus never contains another's text.
+
         Returns:
-            List of ChunkRecords across all documents
+            List of ChunkRecords
         """
         cursor = self.conn.cursor()
-        rows = cursor.execute(
-            "SELECT * FROM chunks ORDER BY document_id, chunk_index"
-        ).fetchall()
+        if user_id is None:
+            rows = cursor.execute(
+                "SELECT * FROM chunks ORDER BY document_id, chunk_index"
+            ).fetchall()
+        else:
+            rows = cursor.execute(
+                "SELECT c.* FROM chunks c "
+                "JOIN documents d ON d.document_id = c.document_id "
+                "WHERE d.user_id = ? "
+                "ORDER BY c.document_id, c.chunk_index",
+                (user_id,),
+            ).fetchall()
 
         return [self._row_to_chunk(row) for row in rows]
 
@@ -571,31 +592,53 @@ class ChunkStorage:
             logger.info(f"Deleted document {document_id} and associated chunks/images")
         return deleted
     
-    def get_all_documents(self) -> List[DocumentRecord]:
+    @staticmethod
+    def _row_to_document(row) -> DocumentRecord:
+        """Map a documents table row to a DocumentRecord."""
+        keys = row.keys()
+        return DocumentRecord(
+            id=row['id'],
+            document_id=row['document_id'],
+            filename=row['filename'],
+            file_path=row['file_path'],
+            file_type=row['file_type'],
+            total_chunks=row['total_chunks'],
+            processing_date=row['processing_date'],
+            metadata=json.loads(row['metadata']) if row['metadata'] else {},
+            user_id=row['user_id'] if 'user_id' in keys else None,
+        )
+
+    def get_all_documents(self, user_id: Optional[str] = None) -> List[DocumentRecord]:
         """
-        Retrieve all documents in the database.
-        
+        Retrieve documents, optionally scoped to one owner.
+
+        Args:
+            user_id: When given, return only this user's documents. When None,
+                returns every document — callers exposing data over the API
+                must always pass a user_id.
+
         Returns:
-            List of DocumentRecords
+            List of DocumentRecords, newest first
         """
         cursor = self.conn.cursor()
-        rows = cursor.execute(
-            "SELECT * FROM documents ORDER BY created_at DESC"
-        ).fetchall()
-        
-        return [
-            DocumentRecord(
-                id=row['id'],
-                document_id=row['document_id'],
-                filename=row['filename'],
-                file_path=row['file_path'],
-                file_type=row['file_type'],
-                total_chunks=row['total_chunks'],
-                processing_date=row['processing_date'],
-                metadata=json.loads(row['metadata']) if row['metadata'] else {}
-            )
-            for row in rows
-        ]
+        if user_id is None:
+            rows = cursor.execute(
+                "SELECT * FROM documents ORDER BY created_at DESC"
+            ).fetchall()
+        else:
+            rows = cursor.execute(
+                "SELECT * FROM documents WHERE user_id = ? ORDER BY created_at DESC",
+                (user_id,),
+            ).fetchall()
+
+        return [self._row_to_document(row) for row in rows]
+
+    def get_document_owner(self, document_id: str) -> Optional[str]:
+        """Return the user_id owning a document, or None if unowned/missing."""
+        row = self.conn.execute(
+            "SELECT user_id FROM documents WHERE document_id = ?", (document_id,)
+        ).fetchone()
+        return row["user_id"] if row else None
     
     def count_chunks(self, document_id: Optional[str] = None) -> int:
         """

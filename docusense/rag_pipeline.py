@@ -117,9 +117,12 @@ class DocuSenseRAG:
         self._ingestion_pipeline = None
         self._embedding_generator = None
         self._qdrant_store = None
-        self._retrieval_pipeline = None
-        self._generation_pipeline = None
-        self._conversation_manager = None
+        self._conversation_managers: Dict[str, Any] = {}
+
+        # Retrieval and generation are per-user: BM25 holds an in-memory
+        # corpus that must not be shared across tenants.
+        self._retrieval_pipelines: Dict[str, Any] = {}
+        self._generation_pipelines: Dict[str, Any] = {}
 
         logger.info("📚 DocuSenseRAG created")
 
@@ -160,15 +163,19 @@ class DocuSenseRAG:
             logger.info("🗄️ Qdrant store initialized")
         return self._qdrant_store
 
-    def _load_bm25_corpus(self) -> List[Dict[str, Any]]:
+    def _load_bm25_corpus(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Load every stored chunk as a dict for BM25 indexing.
+        Load stored chunks as dicts for BM25 indexing.
 
         BM25 is an in-memory index built from full chunk text, so it has to be
         rebuilt from SQLite on startup and refreshed whenever documents change.
+
+        Args:
+            user_id: Scope the corpus to one owner. Required for multi-tenant
+                use — a shared corpus would let BM25 surface another user's text.
         """
         try:
-            records = self.ingestion_pipeline.storage.get_all_chunks()
+            records = self.ingestion_pipeline.storage.get_all_chunks(user_id=user_id)
         except Exception as e:
             logger.warning(f"Could not load chunks for BM25: {e}")
             return []
@@ -191,65 +198,100 @@ class DocuSenseRAG:
             })
         return corpus
 
-    @property
-    def retrieval_pipeline(self):
-        """Lazily initialize retrieval pipeline, wired to the vector store."""
-        if self._retrieval_pipeline is None:
+    # Sentinel key for single-tenant use (CLI scripts, tests) where there is
+    # no authenticated user.
+    _GLOBAL_SCOPE = "__global__"
+
+    def _scope_key(self, user_id: Optional[str]) -> str:
+        return user_id or self._GLOBAL_SCOPE
+
+    def _retrieval_for(self, user_id: Optional[str] = None):
+        """
+        Get the retrieval pipeline for one user, building it on first use.
+
+        BM25 keeps an in-memory corpus, so it cannot be shared across tenants:
+        each user gets their own index built from only their documents. The
+        vector store is shared, and queries against it are filtered by user_id.
+        """
+        key = self._scope_key(user_id)
+        if key not in self._retrieval_pipelines:
             from docusense.retrieval.retrieval_pipeline import RetrievalPipeline
 
-            corpus = self._load_bm25_corpus()
-            self._retrieval_pipeline = RetrievalPipeline(
+            corpus = self._load_bm25_corpus(user_id)
+            self._retrieval_pipelines[key] = RetrievalPipeline(
                 vector_store=self.qdrant_store,
                 chunks=corpus,
             )
             logger.info(
-                f"🔍 Retrieval pipeline initialized "
-                f"(vector store connected, {len(corpus)} chunks indexed for BM25)"
+                f"🔍 Retrieval pipeline ready for {key} "
+                f"({len(corpus)} chunks indexed for BM25)"
             )
-        return self._retrieval_pipeline
+        return self._retrieval_pipelines[key]
 
-    def refresh_retrieval_index(self) -> None:
+    def _generation_for(self, user_id: Optional[str] = None):
+        """Get the generation pipeline bound to this user's retrieval scope."""
+        key = self._scope_key(user_id)
+        if key not in self._generation_pipelines:
+            from docusense.generation.generation_pipeline import GenerationPipeline
+
+            self._generation_pipelines[key] = GenerationPipeline(
+                retrieval_pipeline=self._retrieval_for(user_id)
+            )
+        return self._generation_pipelines[key]
+
+    @property
+    def retrieval_pipeline(self):
+        """Retrieval pipeline for the unscoped/global corpus."""
+        return self._retrieval_for(None)
+
+    @property
+    def generation_pipeline(self):
+        """Generation pipeline for the unscoped/global corpus."""
+        return self._generation_for(None)
+
+    def refresh_retrieval_index(self, user_id: Optional[str] = None) -> None:
         """
-        Rebuild the BM25 index from storage.
+        Rebuild a user's BM25 index from storage.
 
         Vector search picks up new documents immediately because Qdrant is
         queried live, but BM25 holds an in-memory corpus that goes stale after
         ingestion or deletion.
         """
-        if self._retrieval_pipeline is None:
+        key = self._scope_key(user_id)
+        pipeline = self._retrieval_pipelines.get(key)
+        if pipeline is None:
             return  # Nothing built yet; it will load fresh on first use.
 
-        hybrid = getattr(self._retrieval_pipeline, "hybrid_search", None)
+        hybrid = getattr(pipeline, "hybrid_search", None)
         if hybrid is None:
             return
 
-        corpus = self._load_bm25_corpus()
-        self._retrieval_pipeline.chunks = corpus
+        corpus = self._load_bm25_corpus(user_id)
+        pipeline.chunks = corpus
         if corpus:
             hybrid.index_chunks(corpus)
-            logger.info(f"🔄 BM25 index refreshed ({len(corpus)} chunks)")
+            logger.info(f"🔄 BM25 index refreshed for {key} ({len(corpus)} chunks)")
 
-    @property
-    def generation_pipeline(self):
-        """Lazily initialize generation pipeline."""
-        if self._generation_pipeline is None:
-            from docusense.generation.generation_pipeline import GenerationPipeline
-            self._generation_pipeline = GenerationPipeline(
-                retrieval_pipeline=self.retrieval_pipeline
-            )
-            logger.info("✍️ Generation pipeline initialized")
-        return self._generation_pipeline
+    @staticmethod
+    def _scoped_filters(
+        filters: Optional[Dict[str, Any]], user_id: Optional[str]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Add the tenant constraint to a filter set.
+
+        The vector store is shared across users, so every search must carry
+        user_id or one tenant's query would match another's chunks.
+        """
+        if user_id is None:
+            return filters
+        scoped = dict(filters or {})
+        scoped["user_id"] = user_id
+        return scoped
 
     @property
     def conversation_manager(self):
-        """Lazily initialize conversation manager."""
-        if self._conversation_manager is None:
-            from docusense.generation.conversation_manager import ConversationManager
-            self._conversation_manager = ConversationManager(
-                generation_pipeline=self.generation_pipeline
-            )
-            logger.info("💬 Conversation manager initialized")
-        return self._conversation_manager
+        """Conversation manager for the unscoped/global corpus."""
+        return self._conversations_for(None)
 
     def _init_all(self):
         """Force-initialize all components."""
@@ -270,7 +312,8 @@ class DocuSenseRAG:
         self,
         file_path: str | Path,
         document_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None
     ) -> IngestResult:
         """
         Ingest a document: convert → chunk → embed → store in Qdrant.
@@ -279,6 +322,8 @@ class DocuSenseRAG:
             file_path: Path to PDF, DOCX, or TXT file
             document_id: Optional custom document ID
             metadata: Optional metadata dict
+            user_id: Owning user. Stored on the document row and stamped onto
+                every vector payload so retrieval can filter by tenant.
 
         Returns:
             IngestResult with success status and details
@@ -291,7 +336,7 @@ class DocuSenseRAG:
         # Step 1: Run ingestion pipeline (convert → chunk → store in SQLite)
         try:
             pipeline_result = self.ingestion_pipeline.process_document(
-                file_path, document_id, metadata
+                file_path, document_id, metadata, user_id=user_id
             )
         except Exception as e:
             logger.error(f"❌ Ingestion failed: {e}")
@@ -358,6 +403,8 @@ class DocuSenseRAG:
                     "chunk_index": chunk.metadata.get("chunk_index", i),
                     "has_code": chunk.metadata.get("has_code", False),
                     "has_tables": chunk.metadata.get("has_tables", False),
+                    # Tenant key: every search filters on this.
+                    "user_id": user_id or "",
                 }
 
                 # Add paper metadata if available
@@ -427,7 +474,7 @@ class DocuSenseRAG:
         )
 
         # New chunks are live in Qdrant, but BM25 holds a stale in-memory copy.
-        self.refresh_retrieval_index()
+        self.refresh_retrieval_index(user_id)
 
         logger.success(f"🎉 {result}")
         return result
@@ -469,7 +516,8 @@ class DocuSenseRAG:
         query: str,
         top_k: int = 5,
         filters: Optional[Dict[str, Any]] = None,
-        mode: str = "answer"
+        mode: str = "answer",
+        user_id: Optional[str] = None
     ):
         """
         Ask a question and get an answer with citations.
@@ -479,41 +527,70 @@ class DocuSenseRAG:
             top_k: Number of chunks to retrieve
             filters: Optional metadata filters
             mode: "answer" (default), "compare", "conflicts"
+            user_id: Restrict retrieval to this user's documents
 
         Returns:
             PipelineResponse with answer, citations, references
         """
         logger.info(f"❓ Asking: '{query}'")
-        return self.generation_pipeline.generate(
+        return self._generation_for(user_id).generate(
             query=query,
             top_k=top_k,
-            filters=filters,
+            filters=self._scoped_filters(filters, user_id),
             mode=mode
         )
 
-    def compare(self, query: str, top_k: int = 10):
+    def compare(self, query: str, top_k: int = 10, user_id: Optional[str] = None):
         """Compare findings across multiple papers."""
-        return self.ask(query, top_k=top_k, mode="compare")
+        return self.ask(query, top_k=top_k, mode="compare", user_id=user_id)
 
     # ==================================================================
     # MULTI-TURN CHAT
     # ==================================================================
 
-    def start_chat(self, title: str = "New Chat") -> str:
+    def _conversations_for(self, user_id: Optional[str] = None):
+        """
+        Get the conversation manager bound to this user's generation scope.
+
+        Each manager wraps a generation pipeline, which is per-user, so
+        managers are cached per user as well. They share one ConversationStore
+        because that state lives in SQLite and is scoped by query.
+        """
+        key = self._scope_key(user_id)
+        if key not in self._conversation_managers:
+            from docusense.generation.conversation_manager import ConversationManager
+
+            self._conversation_managers[key] = ConversationManager(
+                generation_pipeline=self._generation_for(user_id)
+            )
+        return self._conversation_managers[key]
+
+    def owns_conversation(self, conversation_id: str, user_id: Optional[str]) -> bool:
+        """
+        Whether a user may access a conversation.
+
+        Unscoped callers (CLI, tests) pass user_id=None and are unrestricted.
+        """
+        if user_id is None:
+            return True
+        return self._conversations_for(user_id).get_owner(conversation_id) == user_id
+
+    def start_chat(self, title: str = "New Chat", user_id: Optional[str] = None) -> str:
         """
         Start a new chat conversation.
 
         Returns:
             conversation_id
         """
-        return self.conversation_manager.start_conversation(title)
+        return self._conversations_for(user_id).start_conversation(title, user_id=user_id)
 
     def chat(
         self,
         conversation_id: str,
         query: str,
         mode: str = "answer",
-        top_k: int = 5
+        top_k: int = 5,
+        user_id: Optional[str] = None
     ):
         """
         Chat with conversation context.
@@ -523,31 +600,36 @@ class DocuSenseRAG:
             query: User's question
             mode: "answer", "compare", or "conflicts"
             top_k: Number of chunks to retrieve
+            user_id: Restrict retrieval to this user's documents
 
         Returns:
             ChatResponse with answer and metadata
         """
-        return self.conversation_manager.chat(
-            conversation_id, query, mode=mode, top_k=top_k
+        return self._conversations_for(user_id).chat(
+            conversation_id,
+            query,
+            mode=mode,
+            top_k=top_k,
+            filters=self._scoped_filters(None, user_id),
         )
 
-    def get_chat_history(self, conversation_id: str):
+    def get_chat_history(self, conversation_id: str, user_id: Optional[str] = None):
         """Get all messages in a conversation."""
-        return self.conversation_manager.get_history(conversation_id)
+        return self._conversations_for(user_id).get_history(conversation_id)
 
-    def list_chats(self):
-        """List recent conversations."""
-        return self.conversation_manager.list_conversations()
+    def list_chats(self, user_id: Optional[str] = None):
+        """List recent conversations for a user."""
+        return self._conversations_for(user_id).list_conversations(user_id=user_id)
 
     # ==================================================================
     # DOCUMENT MANAGEMENT
     # ==================================================================
 
-    def list_documents(self) -> List[Dict[str, Any]]:
-        """List all ingested documents."""
+    def list_documents(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List ingested documents, scoped to a user when given."""
         try:
             storage = self.ingestion_pipeline.storage
-            docs = storage.get_all_documents()
+            docs = storage.get_all_documents(user_id=user_id)
             return [
                 {
                     "document_id": doc.document_id,
@@ -564,14 +646,32 @@ class DocuSenseRAG:
             logger.error(f"❌ Failed to list documents: {e}")
             return []
 
-    def delete_document(self, document_id: str) -> bool:
+    def owns_document(self, document_id: str, user_id: Optional[str]) -> bool:
+        """
+        Whether a user may act on a document.
+
+        Unscoped callers (CLI, tests) pass user_id=None and are unrestricted.
+        """
+        if user_id is None:
+            return True
+        owner = self.ingestion_pipeline.storage.get_document_owner(document_id)
+        return owner == user_id
+
+    def delete_document(self, document_id: str, user_id: Optional[str] = None) -> bool:
         """
         Delete a document, its chunks, and its vectors.
 
         Removes the Qdrant points first: if that fails we still have the SQLite
         rows, so the document remains listed and the delete can be retried. The
         reverse order would strand unreachable vectors with no record of them.
+
+        Returns False when the document is not owned by user_id, so a caller
+        cannot delete another tenant's data.
         """
+        if not self.owns_document(document_id, user_id):
+            logger.warning(f"Refusing delete of {document_id}: not owned by {user_id}")
+            return False
+
         try:
             self.qdrant_store.delete_by_document(document_id)
         except Exception as e:
@@ -585,7 +685,7 @@ class DocuSenseRAG:
             return False
 
         if deleted:
-            self.refresh_retrieval_index()
+            self.refresh_retrieval_index(user_id)
             logger.info(f"🗑️ Deleted document and vectors: {document_id}")
         return deleted
 
@@ -600,15 +700,16 @@ class DocuSenseRAG:
                 "ingestion": self._ingestion_pipeline is not None,
                 "embeddings": self._embedding_generator is not None,
                 "qdrant": self._qdrant_store is not None,
-                "retrieval": self._retrieval_pipeline is not None,
-                "generation": self._generation_pipeline is not None,
-                "conversation": self._conversation_manager is not None,
+                "retrieval": bool(self._retrieval_pipelines),
+                "generation": bool(self._generation_pipelines),
+                "conversation": bool(self._conversation_managers),
             }
         }
 
-        # Add stats if components are loaded
-        if self._conversation_manager:
-            status["query_stats"] = self._conversation_manager.get_query_stats()
+        # Query stats are shared state in SQLite, so any live manager can report them.
+        for manager in self._conversation_managers.values():
+            status["query_stats"] = manager.get_query_stats()
+            break
 
         return status
 
@@ -616,6 +717,6 @@ class DocuSenseRAG:
         """Close all components."""
         if self._ingestion_pipeline:
             self._ingestion_pipeline.close()
-        if self._conversation_manager:
-            self._conversation_manager.close()
+        for manager in self._conversation_managers.values():
+            manager.close()
         logger.info("📚 DocuSenseRAG closed")

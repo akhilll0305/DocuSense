@@ -20,7 +20,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from loguru import logger
 
-from docusense.api.routes import router, set_rag_instance
+from docusense.config.settings import settings
+from docusense.api.auth_routes import router as auth_router
+from docusense.api.deps import set_rag_instance, set_user_store
+from docusense.api.routes import router
 
 
 # Path to web UI static files
@@ -29,10 +32,15 @@ WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize RAG system on startup, cleanup on shutdown."""
+    """Initialize RAG system and user store on startup, clean up on shutdown."""
     logger.info("🚀 Starting DocuSense API...")
 
+    from docusense.auth import UserStore
     from docusense.rag_pipeline import DocuSenseRAG
+
+    user_store = UserStore()
+    set_user_store(user_store)
+
     rag = DocuSenseRAG()
     set_rag_instance(rag)
 
@@ -42,6 +50,7 @@ async def lifespan(app: FastAPI):
 
     logger.info("🛑 Shutting down DocuSense API...")
     rag.close()
+    user_store.close()
 
 
 app = FastAPI(
@@ -54,16 +63,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS for local development
+# CORS. The web UI is served from this same origin, so cross-origin access is
+# only needed for external clients and is opt-in via CORS_ALLOW_ORIGINS.
+# "*" with allow_credentials is rejected by browsers anyway, so credentials are
+# only enabled for an explicit origin list.
+_origins = settings.cors_allow_origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_origins,
+    allow_credentials=_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Register API routes
+app.include_router(auth_router)
 app.include_router(router)
 
 # Serve static web UI files
