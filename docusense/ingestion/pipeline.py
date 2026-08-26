@@ -20,15 +20,13 @@ from datetime import datetime
 from loguru import logger
 from tqdm import tqdm
 
-from docusense.config.settings import settings
 from docusense.ingestion.converters import DocumentConverter, ConversionResult
 from docusense.ingestion.image_processor import ImageProcessor, ImageDescription
 from docusense.ingestion.preprocessor import TextPreprocessor
 from docusense.ingestion.chunker import SemanticChunker, Chunk
 from docusense.ingestion.paper_metadata import (
     PaperMetadataExtractor, 
-    PaperMetadata,
-    extract_paper_metadata
+    PaperMetadata
 )
 from docusense.storage import (
     ChunkStorage,
@@ -143,7 +141,7 @@ class DocumentPipeline:
         self.enable_paper_extraction = enable_paper_extraction
         
         logger.success("✅ DocumentPipeline initialized")
-        logger.info(f"  Components: Converter, Preprocessor, Chunker, Storage")
+        logger.info("  Components: Converter, Preprocessor, Chunker, Storage")
         logger.info(f"  Image processing: {'Enabled' if enable_images else 'Disabled'}")
         logger.info(f"  Paper metadata extraction: {'Enabled' if enable_paper_extraction else 'Disabled'}")
     
@@ -313,7 +311,7 @@ class DocumentPipeline:
             if paper_metadata and paper_metadata.is_research_paper():
                 doc_metadata['paper_metadata'] = paper_metadata.to_dict()
                 doc_metadata['is_research_paper'] = True
-                logger.info(f"  📚 Stored research paper metadata")
+                logger.info("  📚 Stored research paper metadata")
             else:
                 doc_metadata['is_research_paper'] = False
             
@@ -330,7 +328,7 @@ class DocumentPipeline:
             
             # Store document
             self.storage.add_document(document_record)
-            logger.info(f"  ✅ Stored document record")
+            logger.info("  ✅ Stored document record")
             
             # Convert chunks to ChunkRecords
             chunk_records = [
@@ -434,7 +432,7 @@ class DocumentPipeline:
         total_chunks = sum(r.total_chunks for r in results)
         total_images = sum(r.total_images for r in results)
         
-        logger.success(f"✅ Batch processing complete!")
+        logger.success("✅ Batch processing complete!")
         logger.info(f"   Successes: {successes}/{len(results)}")
         logger.info(f"   Failures: {failures}")
         logger.info(f"   Total chunks: {total_chunks}")

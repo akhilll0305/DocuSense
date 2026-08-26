@@ -39,13 +39,12 @@ Created: 2026-03-08
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Dict, Optional, Any, TYPE_CHECKING
-from dataclasses import dataclass, field
+from typing import List, Dict, Optional, Any
+from dataclasses import dataclass
 import time
 
 from loguru import logger
 
-from docusense.config.settings import settings
 
 import uuid
 

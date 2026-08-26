@@ -23,10 +23,8 @@ Created: 2026-03-08
 from __future__ import annotations
 
 import json
-import shutil
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import StreamingResponse

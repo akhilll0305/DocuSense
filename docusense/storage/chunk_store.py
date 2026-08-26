@@ -19,8 +19,7 @@ import sqlite3
 import json
 from pathlib import Path
 from typing import List, Dict, Optional, Any
-from datetime import datetime
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from loguru import logger
 
 from docusense.config.settings import settings

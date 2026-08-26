@@ -70,8 +70,7 @@ Each chunk gets rich metadata:
 
 import re
 import uuid
-from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 
 import tiktoken
@@ -191,7 +190,7 @@ class SemanticChunker:
         # Token encoder for accurate counting
         self.encoder = tiktoken.get_encoding("cl100k_base")
         
-        logger.info(f"SemanticChunker initialized")
+        logger.info("SemanticChunker initialized")
         logger.info(f"  Token range: {self.min_chunk_tokens}-{self.max_chunk_tokens}")
         logger.info(f"  Target: {self.target_chunk_tokens} tokens")
         logger.info(f"  Overlap: {self.overlap_sentences} sentences")

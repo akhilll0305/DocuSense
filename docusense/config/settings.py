@@ -4,7 +4,6 @@ Configuration settings for DocuSense.
 Centralized configuration management using pydantic-settings.
 """
 
-import os
 from pathlib import Path
 from typing import Optional, Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict

@@ -58,13 +58,12 @@ Created: 2026-03-06
 
 from __future__ import annotations
 
-from typing import List, Dict, Optional, Literal, Any, TYPE_CHECKING
+from typing import List, Dict, Optional, Any, TYPE_CHECKING
 from dataclasses import dataclass, field
 import time
 
 from loguru import logger
 
-from docusense.config.settings import settings
 from docusense.llms.ollama_client import OllamaClient
 from docusense.generation.answer_generator import AnswerGenerator, GeneratedAnswer
 from docusense.generation.citation_formatter import (
@@ -74,7 +73,7 @@ from docusense.generation.citation_formatter import (
 )
 
 if TYPE_CHECKING:
-    from docusense.retrieval.retrieval_pipeline import RetrievalPipeline, RetrievalResult
+    from docusense.retrieval.retrieval_pipeline import RetrievalPipeline
 
 
 @dataclass
@@ -122,14 +121,14 @@ class PipelineResponse:
         """Human-readable response."""
         parts = [
             f"Question: {self.query}",
-            f"",
+            "",
             f"Answer: {self.answer}",
         ]
         
         if self.reference_list:
             parts.append(self.reference_list)
         
-        parts.append(f"")
+        parts.append("")
         parts.append(
             f"[{self.num_sources} sources, {len(self.papers_cited)} papers, "
             f"confidence: {self.confidence:.2f}, time: {self.total_time:.2f}s]"

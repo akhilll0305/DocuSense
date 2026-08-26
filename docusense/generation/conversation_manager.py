@@ -26,12 +26,11 @@ from loguru import logger
 from docusense.storage.conversation_store import (
     ConversationStore,
     Conversation,
-    Message,
-    QueryLog
+    Message
 )
 
 if TYPE_CHECKING:
-    from docusense.generation.generation_pipeline import GenerationPipeline, PipelineResponse
+    from docusense.generation.generation_pipeline import GenerationPipeline
 
 
 @dataclass
@@ -154,7 +153,7 @@ class ConversationManager:
         context = self._build_context(history) if history else None
 
         # Step 3: Save user message
-        user_msg_id = self.store.add_message(conversation_id, "user", query)
+        self.store.add_message(conversation_id, "user", query)
 
         # Step 4: Generate answer
         if self.pipeline:

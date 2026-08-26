@@ -37,7 +37,6 @@ Fallback 2: Plain text extraction
 Emergency: Skip with error log
 """
 
-import os
 import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -49,7 +48,6 @@ import PyPDF2
 from docx import Document as DocxDocument
 
 from docusense.config import settings
-from docusense.utils.exceptions import DocumentProcessingError
 
 
 @dataclass
@@ -104,7 +102,7 @@ class DocumentConverter:
         self.markdown_dir.mkdir(parents=True, exist_ok=True)
         self.images_dir.mkdir(parents=True, exist_ok=True)
         
-        logger.info(f"DocumentConverter initialized")
+        logger.info("DocumentConverter initialized")
         logger.info(f"  Markdown output: {self.markdown_dir}")
         logger.info(f"  Images output: {self.images_dir}")
     
@@ -156,7 +154,7 @@ class DocumentConverter:
             
         except Exception as e:
             logger.warning(f"Markitdown failed for {file_path.name}: {e}")
-            logger.info(f"Trying fallback converter...")
+            logger.info("Trying fallback converter...")
             
             try:
                 markdown_text, images = self._convert_with_fallback(file_path, doc_id)

@@ -5,7 +5,6 @@ Provides structured logging with rotation and filtering.
 """
 
 import sys
-from pathlib import Path
 from loguru import logger
 
 from docusense.config.settings import settings

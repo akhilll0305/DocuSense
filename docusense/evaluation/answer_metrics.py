@@ -21,9 +21,8 @@ Created: 2026-03-08
 from __future__ import annotations
 
 import re
-from typing import List, Dict, Any, Optional, Set
-from dataclasses import dataclass, field
-from collections import Counter
+from typing import List, Dict, Any, Optional
+from dataclasses import dataclass
 
 from loguru import logger
 
@@ -36,7 +35,7 @@ except ImportError:
     ROUGE_AVAILABLE = False
 
 try:
-    import bert_score
+    import bert_score  # noqa: F401  (availability probe)
     BERTSCORE_AVAILABLE = True
 except ImportError:
     BERTSCORE_AVAILABLE = False

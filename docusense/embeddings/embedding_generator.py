@@ -72,12 +72,11 @@ We normalize embeddings to unit length (L2 norm = 1) for:
 - Better clustering
 """
 
-from typing import List, Optional, Union
+from typing import List, Optional
 from dataclasses import dataclass
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from loguru import logger
-from tqdm import tqdm
 
 from docusense.config.settings import settings
 
@@ -144,7 +143,7 @@ class EmbeddingGenerator:
         self.normalize = normalize if normalize is not None else settings.embedding_normalize
         self.batch_size = batch_size or settings.embedding_batch_size
         
-        logger.info(f"Initializing EmbeddingGenerator...")
+        logger.info("Initializing EmbeddingGenerator...")
         logger.info(f"  Model: {self.model_name}")
         logger.info(f"  Device: {self.device}")
         logger.info(f"  Batch size: {self.batch_size}")

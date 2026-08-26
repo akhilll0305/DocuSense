@@ -351,7 +351,7 @@ Strategy: [recommended retrieval strategy]"""
             elif line.startswith('Confidence:'):
                 try:
                     confidence = float(line.split(':', 1)[1].strip())
-                except:
+                except (ValueError, IndexError):
                     confidence = 0.5
             elif line.startswith('Strategy:'):
                 strategy = line.split(':', 1)[1].strip()
@@ -425,30 +425,30 @@ Strategy: [recommended retrieval strategy]"""
         # Check patterns in priority order
         for pattern in methodology_patterns:
             if re.search(pattern, query_lower):
-                logger.info(f"📊 Section routing: METHODOLOGY detected")
+                logger.info("📊 Section routing: METHODOLOGY detected")
                 return "methodology"
         
         for pattern in results_patterns:
             if re.search(pattern, query_lower):
-                logger.info(f"📊 Section routing: RESULTS detected")
+                logger.info("📊 Section routing: RESULTS detected")
                 return "results"
         
         for pattern in discussion_patterns:
             if re.search(pattern, query_lower):
-                logger.info(f"📊 Section routing: DISCUSSION detected")
+                logger.info("📊 Section routing: DISCUSSION detected")
                 return "discussion"
         
         for pattern in intro_patterns:
             if re.search(pattern, query_lower):
-                logger.info(f"📊 Section routing: ABSTRACT/INTRODUCTION detected")
+                logger.info("📊 Section routing: ABSTRACT/INTRODUCTION detected")
                 return "abstract"
         
         for pattern in conclusion_patterns:
             if re.search(pattern, query_lower):
-                logger.info(f"📊 Section routing: CONCLUSION detected")
+                logger.info("📊 Section routing: CONCLUSION detected")
                 return "conclusion"
         
-        logger.info(f"📊 Section routing: NO specific section detected")
+        logger.info("📊 Section routing: NO specific section detected")
         return None
     
     def extract_academic_filters(self, query: str) -> Dict[str, Any]:
@@ -517,13 +517,13 @@ Strategy: [recommended retrieval strategy]"""
         # Extract paper type
         if re.search(r'\barxiv\b', query_lower):
             filters["paper_type"] = "arxiv"
-            logger.info(f"📄 Paper type: arxiv")
+            logger.info("📄 Paper type: arxiv")
         elif re.search(r'\b(conference|workshop) paper', query_lower):
             filters["paper_type"] = "conference"
-            logger.info(f"📄 Paper type: conference")
+            logger.info("📄 Paper type: conference")
         elif re.search(r'\bjournal (paper|article)', query_lower):
             filters["paper_type"] = "journal"
-            logger.info(f"📄 Paper type: journal")
+            logger.info("📄 Paper type: journal")
         
         return filters
     

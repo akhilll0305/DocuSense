@@ -71,10 +71,7 @@ from qdrant_client.models import (
     Filter,
     FieldCondition,
     MatchValue,
-    SearchRequest,
-    ScoredPoint,
-    PayloadSchemaType,
-    TextIndexParams
+    PayloadSchemaType
 )
 from loguru import logger
 
@@ -154,7 +151,7 @@ class QdrantVectorStore:
         self.embedding_generator = embedding_generator or EmbeddingGenerator()
         self.embedding_dim = self.embedding_generator.embedding_dim
         
-        logger.info(f"Initializing QdrantVectorStore...")
+        logger.info("Initializing QdrantVectorStore...")
         logger.info(f"  Collection: {self.collection_name}")
         logger.info(f"  Mode: {self.mode}")
         logger.info(f"  Embedding dim: {self.embedding_dim}")

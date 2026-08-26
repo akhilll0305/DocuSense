@@ -86,6 +86,24 @@ Run `python scripts/doctor.py` to check your environment before reporting a prob
 
 ## Setup
 
+### Docker (everything included)
+
+Brings up the API, Qdrant, and Ollama together — no local Python or Ollama install:
+
+```bash
+echo "JWT_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(48))')" > .env
+docker compose up -d
+docker compose exec ollama ollama pull llama3.2:3b   # one time, ~2GB
+```
+
+Then open http://localhost:8000.
+
+Compose runs Qdrant as a **server** rather than the embedded on-disk store, which matters:
+the embedded store allows only one process at a time, and it silently ignores payload
+indexes, so every metadata filter degrades to a full scan.
+
+### Local install
+
 **Prerequisites:** Python 3.10+, [Ollama](https://ollama.ai/), and a Qdrant instance
 (local disk mode works out of the box — no server needed).
 
@@ -185,7 +203,11 @@ docusense/
 tests/              Unit + integration tests (test_integration.py, test_auth.py)
 docs/               Architecture notes; docs/archive/ holds the original course plan
 data/               Local documents, SQLite DB, vector store (gitignored)
-scripts/            Development and operations utilities
+scripts/            doctor.py (environment diagnostics), ingest.py (bulk ingestion)
+
+Dockerfile          Two-stage build; models baked in so the first query isn't a download
+docker-compose.yml  API + Qdrant + Ollama
+.github/workflows/  CI: lint, tests on Python 3.11 and 3.13, Docker build
 ```
 
 ---

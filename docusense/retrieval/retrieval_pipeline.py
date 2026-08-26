@@ -81,11 +81,10 @@ from dataclasses import dataclass, field
 import time
 from loguru import logger
 
-from docusense.config.settings import settings
-from docusense.vectorstore import QdrantVectorStore, SearchResult
-from docusense.retrieval.query_processor import QueryProcessor, ProcessedQuery
-from docusense.retrieval.hybrid_search import HybridSearch, HybridSearchResult
-from docusense.retrieval.reranker import Reranker, RankedResult
+from docusense.vectorstore import QdrantVectorStore
+from docusense.retrieval.query_processor import QueryProcessor
+from docusense.retrieval.hybrid_search import HybridSearch
+from docusense.retrieval.reranker import Reranker
 
 
 @dataclass

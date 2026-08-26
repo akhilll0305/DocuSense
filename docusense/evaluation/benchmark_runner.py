@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional, TYPE_CHECKING
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 
 from loguru import logger

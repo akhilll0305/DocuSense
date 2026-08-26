@@ -38,9 +38,8 @@ Created: 2026-03-03
 
 import re
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from dataclasses import dataclass, field
-from datetime import datetime
 
 from loguru import logger
 import PyPDF2
@@ -511,7 +510,6 @@ class PaperMetadataExtractor:
         
         for match in re.finditer(pattern, markdown, re.MULTILINE):
             hashes = match.group(1)
-            number = match.group(2)
             title = match.group(3).strip()
             
             level = len(hashes)
@@ -679,8 +677,8 @@ class PaperMetadataExtractor:
                 return numbered
             
             # Count lines starting with author names (fallback)
-            lines = [l.strip() for l in references_text.split('\n') if l.strip()]
-            return len([l for l in lines if re.match(r'^[A-Z]', l)])
+            lines = [ln.strip() for ln in references_text.split('\n') if ln.strip()]
+            return len([ln for ln in lines if re.match(r'^[A-Z]', ln)])
         
         return 0
     

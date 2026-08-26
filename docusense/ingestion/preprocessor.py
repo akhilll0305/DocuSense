@@ -57,7 +57,7 @@ WHAT WE CLEAN:
 
 import re
 import unicodedata
-from typing import List, Optional
+from typing import List
 from dataclasses import dataclass
 
 from loguru import logger
@@ -128,7 +128,7 @@ class TextPreprocessor:
         self.remove_page_artifacts = remove_page_artifacts
         self.preserve_code_blocks = preserve_code_blocks
         
-        logger.debug(f"TextPreprocessor initialized with settings:")
+        logger.debug("TextPreprocessor initialized with settings:")
         logger.debug(f"  Normalize Unicode: {normalize_unicode}")
         logger.debug(f"  Remove extra whitespace: {remove_extra_whitespace}")
         logger.debug(f"  Max consecutive newlines: {max_consecutive_newlines}")
@@ -288,16 +288,17 @@ class TextPreprocessor:
         Returns:
             Tuple of (normalized_text, changes_made)
         """
-        original = text
         changes = 0
         
         # Specific replacements for common issues
         replacements = {
-            # Curly quotes → straight quotes
-            '"': '"',
-            '"': '"',
-            ''': "'",
-            ''': "'",
+            # Curly quotes -> straight quotes. Written as escapes: the literal
+            # characters were lost to an encoding round-trip, leaving four
+            # entries that mapped ASCII quotes to themselves (and duplicated keys).
+            '“': '"',
+            '”': '"',
+            '‘': "'",
+            '’': "'",
             
             # Dashes
             '—': '-',  # Em dash
@@ -317,8 +318,10 @@ class TextPreprocessor:
         
         for old_char, new_char in replacements.items():
             if old_char in text:
-                text = text.replace(old_char, new_char)
+                # Count before replacing: afterwards old_char is gone and the
+                # tally was always zero.
                 changes += text.count(old_char)
+                text = text.replace(old_char, new_char)
         
         # Normalize remaining unicode (NFD → NFC)
         # This handles accented characters: é → e

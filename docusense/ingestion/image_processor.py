@@ -49,7 +49,7 @@ Strategy: Track usage, auto-switch to LLaVA after 15 images/min
 
 import time
 from pathlib import Path
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 from dataclasses import dataclass
 from enum import Enum
 
@@ -234,7 +234,7 @@ class ImageProcessor:
                            if 'llava' in m.get('name', '').lower()]
             
             if llava_models:
-                logger.info(f"✅ LLaVA vision available via Ollama")
+                logger.info("✅ LLaVA vision available via Ollama")
                 return True
             else:
                 logger.warning("⚠️ LLaVA not found. Install with: ollama pull llava:7b")
@@ -357,7 +357,7 @@ class ImageProcessor:
                 confidence=1.0 if provider in ["gemini", "llava"] else 0.7
             )
         else:
-            logger.warning(f"❌ All image processing methods failed")
+            logger.warning("❌ All image processing methods failed")
             return ImageDescription(
                 success=False,
                 description="",

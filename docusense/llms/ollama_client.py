@@ -96,7 +96,7 @@ class OllamaClient:
         else:
             self._client = None
         
-        logger.info(f"🤖 OllamaClient initialized")
+        logger.info("🤖 OllamaClient initialized")
         logger.info(f"  Model: {self.model}")
         logger.info(f"  URL: {self.base_url}")
         logger.info(f"  Temperature: {self.temperature}")

@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
     set_rag_instance(rag)
 
     logger.success("✅ DocuSense API ready")
-    logger.info(f"🌐 Web UI: http://localhost:8000")
+    logger.info("🌐 Web UI: http://localhost:8000")
     yield
 
     logger.info("🛑 Shutting down DocuSense API...")

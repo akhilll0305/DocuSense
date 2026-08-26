@@ -1,0 +1,43 @@
+# Keep the build context small and secrets out of the image.
+
+# Secrets — never bake credentials into a layer
+.env
+.env.local
+.env.*.local
+
+# Virtual environments (the image builds its own)
+venv/
+.venv/
+ENV/
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local data: databases, vector store, uploaded and converted documents.
+# These are mounted as volumes at runtime.
+data/
+logs/
+
+# Version control and CI
+.git/
+.github/
+.gitignore
+
+# Docs and tests are not needed at runtime
+docs/
+tests/
+*.md
+!README.md
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

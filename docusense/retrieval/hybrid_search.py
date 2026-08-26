@@ -61,7 +61,6 @@ import re
 from rank_bm25 import BM25Okapi
 from loguru import logger
 
-from docusense.config.settings import settings
 from docusense.vectorstore import QdrantVectorStore, SearchResult
 
 
@@ -124,7 +123,7 @@ class HybridSearch:
         if chunks:
             self.index_chunks(chunks)
         
-        logger.info(f"HybridSearch initialized")
+        logger.info("HybridSearch initialized")
         logger.info(f"  Vector weight: {vector_weight}")
         logger.info(f"  BM25 weight: {bm25_weight}")
         logger.info(f"  RRF k: {rrf_k}")
