@@ -1,95 +1,51 @@
-# ==================== Core Dependencies ====================
-# Environment and configuration
+# DocuSense — Research Paper Analysis RAG System
+# Install:  pip install -r requirements.txt
+
+# ==================== Core ====================
 python-dotenv>=1.0.0
 pydantic>=2.5.0
 pydantic-settings>=2.1.0
-
-# Logging
 loguru>=0.7.2
+tqdm>=4.66.0
 
-# Data validation and processing
-pydantic>=2.5.0
+# ==================== API & Web ====================
+fastapi>=0.115.0              # REST API framework
+uvicorn[standard]>=0.30.0     # ASGI server
+python-multipart>=0.0.9       # Required by FastAPI for file uploads
 
-# Testing
+# ==================== LLM Providers ====================
+ollama>=0.1.0                 # Local LLM inference (answer generation)
+google-generativeai>=0.3.0    # Gemini API (query rewriting, vision)
+
+# ==================== Document Processing ====================
+markitdown>=0.0.1a2           # Universal doc -> Markdown converter
+pypdf2>=3.0.1                 # Fallback PDF parser
+pdfplumber>=0.10.3            # Alternative PDF parser (better tables)
+python-docx>=1.1.0            # Word document parser
+pillow>=10.0.0                # Image manipulation
+pytesseract>=0.3.10           # OCR fallback for images
+tiktoken>=0.5.2               # Token counting for chunking
+chardet>=5.2.0                # File encoding detection
+python-magic-bin>=0.4.14; sys_platform == "win32"   # File type detection (Windows)
+
+# ==================== Embeddings & Vector Store ====================
+sentence-transformers>=5.0.0  # Local embeddings + cross-encoder reranker
+qdrant-client>=1.17.0         # Qdrant vector database
+torch>=2.4.0                  # Backend for sentence-transformers
+numpy>=1.24.0
+
+# ==================== Hybrid Retrieval ====================
+rank-bm25>=0.2.2              # BM25 keyword search
+
+# ==================== Evaluation ====================
+rouge-score>=0.1.2            # ROUGE metrics for answer quality
+datasets>=2.14.0              # QASPER benchmark loading
+
+# ==================== Development ====================
 pytest>=7.4.3
 pytest-cov>=4.1.0
 pytest-asyncio>=0.21.1
-
-# Code quality
+httpx>=0.27.0                 # Required by fastapi.testclient
 black>=23.12.0
 ruff>=0.1.8
 mypy>=1.7.1
-
-# ==================== FREE LLM Providers ====================
-# Ollama client (FREE local models)
-ollama>=0.1.0
-
-# HuggingFace (FREE models)
-huggingface-hub>=0.19.0
-transformers>=4.35.0
-
-# OPTIONAL: Commercial APIs (for comparison only - NOT REQUIRED)
-# openai>=1.6.0
-# anthropic>=0.8.0
-# cohere>=4.37
-
-# ==================== Phase 1: Document Processing ====================
-# Document conversion
-markitdown>=0.0.1a2           # Universal doc → Markdown converter
-pypdf2>=3.0.1                 # Fallback PDF parser
-python-docx>=1.1.0            # Word document parser
-pdfplumber>=0.10.3            # Alternative PDF parser (better tables)
-
-# Image processing
-pillow>=10.0.0                # Image manipulation
-pytesseract>=0.3.10           # OCR for text in images
-google-generativeai>=0.3.0    # Gemini API for image descriptions (FREE tier)
-
-# Text processing
-tiktoken>=0.5.2               # Accurate token counting
-chardet>=5.2.0                # File encoding detection
-python-magic-bin>=0.4.14      # File type detection (Windows)
-
-# Utilities
-tqdm>=4.66.0                  # Progress bars
-uuid>=1.30                    # Unique ID generation
-
-# ==================== Phase 2: Embeddings & Vector Store (FREE) ====================
-sentence-transformers>=5.2.3  # FREE local embeddings (all-MiniLM-L6-v2)
-qdrant-client>=1.17.0         # Qdrant vector database
-torch>=2.10.0                 # PyTorch for embeddings
-numpy>=1.24.0                 # Array operations
-# faiss-cpu>=1.7.4            # Alternative: FAISS vector search
-# chromadb>=0.4.18            # Alternative: ChromaDB
-
-# ==================== Phase 3: Hybrid Retrieval ====================
-rank-bm25>=0.2.2              # BM25 keyword search (FREE)
-# nltk>=3.8.1                 # Natural language processing
-# scikit-learn>=1.3.2         # ML utilities
-
-# ==================== Phase 4: Query Processing ====================
-# (Will be added in Phase 4)
-# tenacity>=8.2.3
-
-# ==================== Phase 6: Answer Generation ====================
-# (Will be added in Phase 6)
-# Note: tiktoken moved to Phase 1 (needed for chunking)
-
-# ==================== Phase 7: Evaluation ====================
-# (Will be added in Phase 7)
-# scipy>=1.11.4
-# rouge-score>=0.1.2
-# bert-score>=0.3.13
-# pandas>=2.1.4
-# plotly>=5.18.0
-# matplotlib>=3.8.2
-
-# ==================== Phase 8: API & UI ====================
-# (Will be added in Phase 8)
-# fastapi>=0.108.0              # Backend API framework
-# uvicorn>=0.25.0               # ASGI server
-# gradio>=4.11.0                # Frontend UI framework
-
-# ==================== Deployment (Modal.com) ====================
-# (Will be added when ready for deployment)
-# modal>=0.55.0                 # Modal.com SDK

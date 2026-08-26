@@ -5,11 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "docusense"
 version = "0.1.0"
-description = "Intelligent Document Q&A System using RAG"
+description = "Research Paper Analysis RAG System with section-aware retrieval and academic citations"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Akhil Reddy", email = "r.akhilreddy007@gmail.com"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -61,4 +61,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --cov=docusense --cov-report=html --cov-report=term"
+markers = [
+    "integration: tests requiring live Qdrant/Ollama services",
+]
+addopts = "-v --cov=docusense --cov-report=term-missing"

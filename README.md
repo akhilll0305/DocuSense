@@ -1,164 +1,152 @@
 # DocuSense
 
-Intelligent Document Q&A System using Retrieval-Augmented Generation (RAG)
+**A research-paper RAG system that understands academic structure.**
 
-## 🆓 100% FREE & Open-Source
+Most RAG systems treat a PDF as a flat wall of text. DocuSense parses the *structure* of a
+research paper — title, authors, venue, year, sections, citations — and uses it at query time.
+Ask "how did they train it?" and it searches the methodology section. Ask "what accuracy did
+they get?" and it searches results. Ask for "papers from 2020–2023 by Bengio" and it filters
+on metadata before it ever runs a vector search.
 
-**No API keys or credits required!** DocuSense uses completely free models:
-- **LLM**: Ollama (Llama 3.2, Mistral, Phi-3) - runs locally
-- **Embeddings**: Sentence Transformers - local embeddings
-- **Vector Store**: FAISS - in-memory search
-- **Backend**: FastAPI
-- **Frontend**: Gradio
-- **Deployment**: Modal.com (free tier available)
+Answers come back with inline academic citations and a formatted reference list.
 
-## 🚧 Project Status: Phase 0 - Setup Complete ✅
+---
 
-### Current Phase
-- ✅ Project structure created
-- ✅ Configuration management setup
-- ✅ Logging infrastructure configured
-- 🔄 Virtual environment setup (next step)
+## Architecture
 
-See [PROJECT_PLAN.md](PROJECT_PLAN.md) for complete roadmap.
+```
+PDF / DOCX / TXT
+      |
+      v
+[ Ingestion ]      converters -> preprocessor -> paper_metadata -> chunker
+      |            Markitdown        cleaning     title/authors/    semantic,
+      |                                           sections/cites    section-tagged
+      v
+[ Storage ]        SQLite (documents, chunks, conversations)
+      |
+      v
+[ Embeddings ]     all-MiniLM-L6-v2 (384-dim, local)
+      |
+      v
+[ Vector Store ]   Qdrant + 8 academic payload indexes
+      |                    (paper_title, authors, year, section_type,
+      |                     venue, paper_type, has_equations, has_citations)
+      v
+[ Retrieval ]      query_processor -> hybrid_search -> reranker
+                   section routing    Vector + BM25    cross-encoder
+                   + metadata filters  -> RRF fusion   ms-marco-MiniLM
+      |
+      v
+[ Generation ]     answer_generator -> citation_formatter
+                   Ollama llama3.2      APA / references / BibTeX
+      |
+      v
+[ API + Web UI ]   FastAPI (11 endpoints) + vanilla HTML/CSS/JS
+```
 
-## Quick Start
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module-level detail.
 
-### Prerequisites
+---
 
-1. **Install Ollama** (FREE local LLM runtime)
-   ```powershell
-   # Download from: https://ollama.ai/
-   # Or via winget:
-   winget install Ollama.Ollama
-   
-   # Pull a model (one-time, ~2GB):
-   ollama pull llama3.2:3b
-   ```
+## What makes it different
 
-2. **Python 3.10+** (you have 3.13.0 ✅)
+| Capability | How it works |
+|---|---|
+| **Paper metadata extraction** | Pulls title, authors, year, venue, DOI/arXiv ID, abstract, 20+ section types, and both numbered `[1]` and author-year `(Smith, 2020)` citations — with a confidence score for "is this actually a paper?" |
+| **Section-aware routing** | `detect_section_intent()` maps question phrasing to the right section, so "how did they train" doesn't retrieve from the related-work section |
+| **Metadata filtering from natural language** | `extract_academic_filters()` parses "recent papers", "2020–2023", "by Yoshua Bengio", "NeurIPS papers" into structured Qdrant filters |
+| **Hybrid retrieval** | Vector search for meaning + BM25 for exact terms (`BERT-base` shouldn't match `RoBERTa`), fused with Reciprocal Rank Fusion |
+| **Cross-encoder reranking** | Retrieves a wide candidate set, then reranks for precision |
+| **Grounded citations** | Every claim is traced to a source chunk; exports APA reference lists and BibTeX |
 
-### 1. Create Virtual Environment
+---
 
-```powershell
-# Create virtual environment
+## Setup
+
+**Prerequisites:** Python 3.10+, [Ollama](https://ollama.ai/), and a Qdrant instance
+(local disk mode works out of the box — no server needed).
+
+```bash
+# 1. Virtual environment
 python -m venv venv
+source venv/Scripts/activate      # Windows (Git Bash)
+# source venv/bin/activate        # macOS / Linux
 
-# Activate it
-.\venv\Scripts\activate
-```
-No API keys needed! Default config uses FREE models.
-# Optionally edit .env if you want to customize models.
-```
-
-### 4. Verify Ollama is Running
-
-```powershell
-# Check Ollama is running
-ollama list
-
-# Test Ollama
-ollama run llama3.2:3b "Hello!"ll Dependencies
-
-```powershell
+# 2. Dependencies
 pip install --upgrade pip
 pip install -r requirements.txt
+
+# 3. Configuration
+cp .env.example .env
+# Optional: add GEMINI_API_KEY for LLM-based query rewriting.
+# Everything else has working local defaults.
+
+# 4. Local LLM for answer generation
+ollama pull llama3.2:3b
+ollama serve
 ```
 
-### 3. Configure Environment
+### Run
 
-```powershell
-# Copy example env file
-copy .env.example .env
+```bash
+uvicorn docusense.api.app:app --reload
+```
 
-# Edit .env and add your API keys
-notepad .env✅ Using FREE models: {settings.is_using_free_models}')"
+- Web UI — http://localhost:8000
+- API docs — http://localhost:8000/docs
+
+### Test
+
+```bash
+pytest                          # unit tests
+pytest -m "not integration"     # skip tests needing live services
 ```
 
 ---
 
-## 🎯 Technology Stack (100% FREE)
+## Configuration
 
-### Core Components
-- **LLM**: Ollama (Llama 3.2, Mistral, Phi-3, etc.)
-- **Embeddings**: Sentence Transformers (all-MiniLM-L6-v2)
-- **Vector DB**: FAISS (CPU version)
-- **Keyword Search**: BM25
-- **Re-ranker**: Cross-encoder (ms-marco-MiniLM-L-6-v2)
+All settings live in `docusense/config/settings.py` and are overridable via `.env`.
+The ones that matter most:
 
-### Infrastructure
-- **Backend**: FastAPI
-- **Frontend**: Gradio
-- **Deployment**: Modal.com
-- **Storage**: SQLite / Local files
-
-### Why These Choices?
-✅ **No cost** - Everything runs locally or uses free tiers  
-✅ **No API keys** - No external dependencies  
-✅ **Privacy** - Your documents stay on your machine  
-✅ **Production-ready** - Can deploy to Modal.com free tier  
-✅ **Fast** - Optimized models for speed  
+| Variable | Default | Notes |
+|---|---|---|
+| `QDRANT_MODE` | `disk` | `memory` / `disk` / `server`. Auto-switches to `server` when `QDRANT_URL` + `QDRANT_API_KEY` are both set |
+| `QDRANT_URL` | — | Set only for Qdrant Cloud or a self-hosted server |
+| `OLLAMA_MODEL` | `llama3.2:3b` | Any model available to your Ollama install |
+| `GEMINI_API_KEY` | — | Optional. Enables query rewriting/expansion; the system degrades gracefully without it |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | 384-dim. Changing this requires re-ingesting |
+| `TARGET_CHUNK_TOKENS` | `500` | Chunk sizing (range 200–800) |
 
 ---
 
-### 4. Verify Setup
-
-```powershell
-# Run tests
-pytest tests/
-
-# Check if package imports correctly
-python -c "from docusense.config import settings; print(f'Project: {settings.project_name}')"
-```
-
-## Project Structure
+## Project layout
 
 ```
-LLM COURSE PROJECT/
-├── docusense/              # Main package
-│   ├── llms/              # LLM provider abstractions
-│   ├── retrieval/         # Vector stores, chunking, search
-│   ├── agents/            # Query planning (Phase 5 - Paused)
-│   ├── evaluation/        # Metrics & benchmarks
-│   ├── api/               # REST API
-│   ├── ui/                # Gradio interface
-│   ├── utils/             # Utilities
-│   └── config/            # Configuration
-├── data/
-│   ├── raw/               # Original documents
-│   ├── processed/         # Chunked documents
-│   └── vector_stores/     # FAISS indexes
-├── tests/                 # Tests
-├── logs/                  # Application logs
-└── PROJECT_PLAN.md        # Detailed roadmap
+docusense/
+├── api/            FastAPI app, routes, Pydantic schemas
+├── config/         Centralized pydantic-settings configuration
+├── ingestion/      Converters, preprocessing, paper metadata, chunking
+├── embeddings/     sentence-transformers wrapper
+├── vectorstore/    Qdrant client + academic payload indexes
+├── retrieval/      Query processing, hybrid search, reranking
+├── generation/     Answer generation, citations, conversation memory
+├── evaluation/     Retrieval + answer metrics, QASPER, benchmark runner
+├── storage/        SQLite chunk and conversation stores
+├── web/            Landing page, auth page, chat UI
+└── rag_pipeline.py Top-level orchestrator (ingest / ask / chat)
+
+tests/              Unit tests
+docs/               Architecture notes; docs/archive/ holds the original course plan
+data/               Local documents, SQLite DB, vector store (gitignored)
+scripts/            Development and operations utilities
 ```
-
-## Next Steps
-
-Moving to **Phase 1**: Knowledge Ingestion & Chunking
-- Document loaders
-- Text preprocessing
-- Chunking strategies
-- Chunk storage
-
-## Development
-
-```powershell
-# Format code
-black docusense/
-
-# Lint
-ruff check docusense/
-
-# Type check
-mypy docusense/
-```
-
-## Resources
-
-- [Project Plan](PROJECT_PLAN.md) - Complete phase-by-phase guide
-- [Configuration](.env.example) - Environment variables
 
 ---
 
-Built as a learning project for LLM Engineering
+## Tech stack
+
+Python · FastAPI · Qdrant · sentence-transformers · Ollama · rank-bm25 ·
+Markitdown · SQLite · Gemini API · pytest
+
+Built to run entirely on free/local infrastructure — no per-query API cost.
