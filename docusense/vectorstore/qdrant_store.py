@@ -176,17 +176,41 @@ class QdrantVectorStore:
                 logger.info(f"  Storage: Remote server at {self.url}")
                 self.client = QdrantClient(
                     url=self.url,
-                    api_key=self.api_key
+                    api_key=self.api_key,
+                    timeout=15,
                 )
-            
+                # QdrantClient does not connect on construction, so an
+                # unreachable server would otherwise surface much later as an
+                # empty result set rather than a connection error.
+                self._verify_server_connection()
+
             else:
                 raise ValueError(f"Invalid mode: {self.mode}")
-            
+
             logger.success(f"✅ Connected to Qdrant ({self.mode} mode)")
-        
+
         except Exception as e:
             logger.error(f"❌ Failed to connect to Qdrant: {e}")
             raise
+
+    def _verify_server_connection(self) -> None:
+        """
+        Confirm the remote Qdrant server is actually reachable.
+
+        Raises:
+            ConnectionError: with guidance on how to recover
+        """
+        try:
+            self.client.get_collections()
+        except Exception as e:
+            raise ConnectionError(
+                f"Cannot reach Qdrant server at {self.url} ({type(e).__name__}: {e}).\n"
+                f"  - If this is a Qdrant Cloud cluster, check it is still running "
+                f"(free clusters are paused after inactivity).\n"
+                f"  - To fall back to the local on-disk store, unset QDRANT_URL and "
+                f"QDRANT_API_KEY in your .env and set QDRANT_MODE=disk.\n"
+                f"  - Run 'python scripts/doctor.py' to diagnose."
+            ) from e
     
     def _get_distance_metric(self, distance: Optional[Union[Distance, str]] = None) -> Distance:
         """

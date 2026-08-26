@@ -160,14 +160,74 @@ class DocuSenseRAG:
             logger.info("🗄️ Qdrant store initialized")
         return self._qdrant_store
 
+    def _load_bm25_corpus(self) -> List[Dict[str, Any]]:
+        """
+        Load every stored chunk as a dict for BM25 indexing.
+
+        BM25 is an in-memory index built from full chunk text, so it has to be
+        rebuilt from SQLite on startup and refreshed whenever documents change.
+        """
+        try:
+            records = self.ingestion_pipeline.storage.get_all_chunks()
+        except Exception as e:
+            logger.warning(f"Could not load chunks for BM25: {e}")
+            return []
+
+        corpus = []
+        for r in records:
+            meta = dict(r.metadata or {})
+            meta.setdefault("document_id", r.document_id)
+            meta.setdefault("chunk_index", r.chunk_index)
+            meta.setdefault("header_path", r.header_path)
+            meta.setdefault("page_number", r.page_number)
+            corpus.append({
+                "chunk_id": r.chunk_id,
+                "document_id": r.document_id,
+                "text": r.text,
+                # Nested copy: BM25-sourced hits read chunk['metadata'], and
+                # without it citations lose paper title/authors/year.
+                "metadata": meta,
+                **meta,
+            })
+        return corpus
+
     @property
     def retrieval_pipeline(self):
-        """Lazily initialize retrieval pipeline."""
+        """Lazily initialize retrieval pipeline, wired to the vector store."""
         if self._retrieval_pipeline is None:
             from docusense.retrieval.retrieval_pipeline import RetrievalPipeline
-            self._retrieval_pipeline = RetrievalPipeline()
-            logger.info("🔍 Retrieval pipeline initialized")
+
+            corpus = self._load_bm25_corpus()
+            self._retrieval_pipeline = RetrievalPipeline(
+                vector_store=self.qdrant_store,
+                chunks=corpus,
+            )
+            logger.info(
+                f"🔍 Retrieval pipeline initialized "
+                f"(vector store connected, {len(corpus)} chunks indexed for BM25)"
+            )
         return self._retrieval_pipeline
+
+    def refresh_retrieval_index(self) -> None:
+        """
+        Rebuild the BM25 index from storage.
+
+        Vector search picks up new documents immediately because Qdrant is
+        queried live, but BM25 holds an in-memory corpus that goes stale after
+        ingestion or deletion.
+        """
+        if self._retrieval_pipeline is None:
+            return  # Nothing built yet; it will load fresh on first use.
+
+        hybrid = getattr(self._retrieval_pipeline, "hybrid_search", None)
+        if hybrid is None:
+            return
+
+        corpus = self._load_bm25_corpus()
+        self._retrieval_pipeline.chunks = corpus
+        if corpus:
+            hybrid.index_chunks(corpus)
+            logger.info(f"🔄 BM25 index refreshed ({len(corpus)} chunks)")
 
     @property
     def generation_pipeline(self):
@@ -366,6 +426,9 @@ class DocuSenseRAG:
             processing_time=elapsed
         )
 
+        # New chunks are live in Qdrant, but BM25 holds a stale in-memory copy.
+        self.refresh_retrieval_index()
+
         logger.success(f"🎉 {result}")
         return result
 
@@ -502,16 +565,29 @@ class DocuSenseRAG:
             return []
 
     def delete_document(self, document_id: str) -> bool:
-        """Delete a document and its vectors."""
+        """
+        Delete a document, its chunks, and its vectors.
+
+        Removes the Qdrant points first: if that fails we still have the SQLite
+        rows, so the document remains listed and the delete can be retried. The
+        reverse order would strand unreachable vectors with no record of them.
+        """
         try:
-            storage = self.ingestion_pipeline.storage
-            deleted = storage.delete_document(document_id)
-            if deleted:
-                logger.info(f"🗑️ Deleted document: {document_id}")
-            return deleted
+            self.qdrant_store.delete_by_document(document_id)
         except Exception as e:
-            logger.error(f"❌ Failed to delete document: {e}")
+            logger.error(f"❌ Failed to delete vectors for {document_id}: {e}")
             return False
+
+        try:
+            deleted = self.ingestion_pipeline.storage.delete_document(document_id)
+        except Exception as e:
+            logger.error(f"❌ Failed to delete document record: {e}")
+            return False
+
+        if deleted:
+            self.refresh_retrieval_index()
+            logger.info(f"🗑️ Deleted document and vectors: {document_id}")
+        return deleted
 
     # ==================================================================
     # SYSTEM INFO

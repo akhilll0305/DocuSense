@@ -127,10 +127,22 @@ def check_gemini(settings):
         report(OK, "Gemini API", f"model '{settings.gemini_model}' responding")
     except Exception as e:
         msg = str(e)
-        hint = ""
         if "not available" in msg or "404" in msg:
-            hint = "\n        Model retired — update GEMINI_MODEL in .env"
-        report(FAIL, "Gemini API", f"{settings.gemini_model}: {msg[:120]}{hint}")
+            hint = "Model retired — update GEMINI_MODEL in .env"
+        elif "denied" in msg or "403" in msg:
+            hint = "Key's project lacks access — issue a new key at aistudio.google.com"
+        elif "429" in msg or "quota" in msg.lower():
+            hint = "Quota exhausted — retry later or use a different key"
+        else:
+            hint = "Check GEMINI_API_KEY in .env"
+        # Optional dependency: only query rewriting/expansion is lost. Section
+        # routing and academic filters are pattern-based and unaffected.
+        report(
+            WARN,
+            "Gemini API (optional)",
+            f"{settings.gemini_model}: {msg[:100]}\n        {hint}"
+            f"\n        Retrieval still works; only LLM query rewriting is disabled.",
+        )
 
 
 def check_embeddings(settings):

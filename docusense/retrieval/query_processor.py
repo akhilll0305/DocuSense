@@ -104,23 +104,26 @@ class QueryProcessor:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "gemini-2.0-flash",
+        model: Optional[str] = None,
         enable_rewriting: bool = True,
         enable_expansion: bool = True,
         enable_intent_classification: bool = True
     ):
         """
         Initialize QueryProcessor.
-        
+
         Args:
             api_key: Gemini API key (uses settings if None)
-            model: Gemini model to use
+            model: Gemini model to use (uses settings if None)
             enable_rewriting: Enable query rewriting
             enable_expansion: Enable multi-query expansion
             enable_intent_classification: Enable intent detection
         """
         self.api_key = api_key or settings.gemini_api_key
-        self.model_name = model
+        self.model_name = model or settings.gemini_model
+        # Tripped when Gemini is unreachable or unauthorized, so a dead API
+        # does not produce three identical warnings on every single query.
+        self._gemini_disabled_reason: Optional[str] = None
         self.enable_rewriting = enable_rewriting and settings.enable_query_rewriting
         self.enable_expansion = enable_expansion
         self.enable_intent_classification = enable_intent_classification and settings.enable_intent_classification
@@ -138,6 +141,33 @@ class QueryProcessor:
         else:
             logger.info("QueryProcessor initialized (basic mode - no Gemini)")
     
+    # Errors that will not resolve by retrying the next query.
+    _PERMANENT_GEMINI_ERRORS = (
+        "no longer available", "not found", "404",
+        "denied access", "permission", "403",
+        "api key", "unauthorized", "401",
+    )
+
+    def _handle_gemini_error(self, stage: str, error: Exception) -> None:
+        """
+        Log a Gemini failure and trip the circuit breaker for permanent errors.
+
+        Transient failures (timeouts, rate limits) stay retryable; a retired
+        model or a revoked key would otherwise log the same warning on every
+        query for the life of the process.
+        """
+        msg = str(error)
+        if any(tok in msg.lower() for tok in self._PERMANENT_GEMINI_ERRORS):
+            self._gemini_disabled_reason = msg
+            logger.warning(
+                f"{stage} failed: {msg}\n"
+                f"Disabling Gemini query enhancement for this session. "
+                f"Section routing and academic filters are pattern-based and still active. "
+                f"Update GEMINI_MODEL/GEMINI_API_KEY in .env to re-enable."
+            )
+        else:
+            logger.warning(f"{stage} failed: {msg}")
+
     def process(
         self,
         query: str,
@@ -162,34 +192,42 @@ class QueryProcessor:
         expanded = []
         intent = None
         
+        gemini_available = self.gemini_model and not self._gemini_disabled_reason
+
         # 1. Query Rewriting (if Gemini available)
-        if self.enable_rewriting and self.gemini_model:
+        if self.enable_rewriting and gemini_available:
             try:
                 rewritten = self._rewrite_query(query, context)
                 logger.info(f"Rewritten: '{rewritten}'")
             except Exception as e:
-                logger.warning(f"Query rewriting failed: {e}, using original")
+                self._handle_gemini_error("Query rewriting", e)
                 rewritten = query
-        
+
+        gemini_available = self.gemini_model and not self._gemini_disabled_reason
+
         # 2. Query Expansion (if enabled)
-        if self.enable_expansion and self.gemini_model:
+        if self.enable_expansion and gemini_available:
             try:
                 expanded = self._expand_query(rewritten, num_expansions)
                 logger.info(f"Generated {len(expanded)} expanded queries")
             except Exception as e:
-                logger.warning(f"Query expansion failed: {e}")
+                self._handle_gemini_error("Query expansion", e)
                 expanded = []
-        
+
+        gemini_available = self.gemini_model and not self._gemini_disabled_reason
+
         # 3. Intent Classification (if enabled)
-        if self.enable_intent_classification and self.gemini_model:
+        if self.enable_intent_classification and gemini_available:
             try:
                 intent = self._classify_intent(query)
                 logger.info(f"Intent: {intent.intent_type} ({intent.confidence:.2f})")
             except Exception as e:
-                logger.warning(f"Intent classification failed: {e}")
-        
-        # 4. Fallback: Basic expansion if Gemini not available
-        if not expanded and not self.gemini_model:
+                self._handle_gemini_error("Intent classification", e)
+
+        # 4. Fallback: Basic expansion when Gemini is unavailable.
+        #    Section routing and academic filters below are pattern-based and
+        #    keep working regardless, so retrieval quality degrades gracefully.
+        if not expanded:
             expanded = self._basic_expansion(query)
         
         # 5. ACADEMIC ENHANCEMENTS (NEW!)

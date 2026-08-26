@@ -227,46 +227,116 @@ class PaperMetadataExtractor:
         
         return metadata
     
+    # Journal furniture that appears above the real title on the first page.
+    _BOILERPLATE = re.compile(
+        r'^\s*('
+        r'RESEARCH(\s+ARTICLE)?|REVIEW|ARTICLE|ORIGINAL\s+(RESEARCH|ARTICLE|PAPER)|'
+        r'SHORT\s+(REPORT|COMMUNICATION)|METHODOLOGY|SURVEY|EDITORIAL|PREPRINT|'
+        r'OPEN\s+ACCESS|CORRESPONDENCE|ABSTRACT|KEYWORDS|INTRODUCTION|'
+        r'CHECK\s+FOR\s+UPDATES|SUPPLEMENTARY|©.*'
+        r')\s*$',
+        re.IGNORECASE,
+    )
+
+    # Running head: "Saadi et al. Journal of Big Data (2025) 12:84"
+    _RUNNING_HEAD = re.compile(
+        r'et\s+al\.|'
+        r'\(\d{4}\)\s*\d+\s*:\s*\d+|'
+        r'\bvol\.?\s*\d+|\bno\.?\s*\d+|\bpp\.?\s*\d+|'
+        r'^\s*page\s+\d+|^\s*\d+\s*$',
+        re.IGNORECASE,
+    )
+
+    # Author line: names carrying affiliation markers, e.g. "Aicha Saadi1*, Noureddine Abghour1"
+    _AUTHOR_LINE = re.compile(r'[A-Za-z]{2,}\s*\d{1,2}\s*[*†‡§]?\s*(,|and\b|$)')
+
+    def _is_title_candidate(self, line: str) -> bool:
+        """Whether a line could form part of a paper title."""
+        if not (4 <= len(line) <= 300):
+            return False
+        low = line.lower()
+        if 'http' in low or 'www.' in low or 'doi.org' in low or low.startswith('doi'):
+            return False
+        if '@' in line:                      # correspondence email
+            return False
+        if self._BOILERPLATE.match(line):
+            return False
+        if self._RUNNING_HEAD.search(line):
+            return False
+        if self._AUTHOR_LINE.search(line):   # we've reached the author block
+            return False
+        if not any(c.isalpha() for c in line):
+            return False
+        return True
+
     def _extract_title(self, markdown: str) -> Optional[str]:
         """
         Extract paper title.
-        
+
         Strategy:
-        1. Look for # header on first ~500 chars (main title in Markdown)
-        2. Look for lines in ALL CAPS or Title Case
-        3. Filter out common non-title patterns (page numbers, URLs)
+        1. First Markdown `# ` header (most reliable when present)
+        2. Otherwise scan the top of the document, skipping journal furniture
+           (running heads, DOIs, "RESEARCH"/"Open Access" banners), and join
+           the consecutive lines of the title block — titles in converted PDFs
+           are frequently wrapped across two or three lines.
         """
-        # Get first ~1000 characters (title should be near top)
-        top_section = markdown[:1000]
-        
+        top_section = markdown[:2000]
+
         # Strategy 1: First # header (most reliable for Markdown)
         match = re.search(r'^#\s+(.+)$', top_section, re.MULTILINE)
         if match:
             title = match.group(1).strip()
-            # Clean up (remove trailing asterisks, etc.)
             title = re.sub(r'[*_]+$', '', title).strip()
-            if len(title) > 10 and len(title) < 300:  # Reasonable title length
+            if 10 < len(title) < 300:
                 return title
-        
-        # Strategy 2: Look for lines in Title Case or ALL CAPS
-        lines = top_section.split('\n')
-        for line in lines[:20]:  # Check first 20 lines
-            line = line.strip()
-            # Skip short lines, URLs, page numbers
-            if len(line) < 10 or len(line) > 300:
+
+        # Strategy 2: Accumulate the title block from the top of the page
+        block: List[str] = []
+        for raw in top_section.split('\n')[:40]:
+            line = raw.strip()
+
+            if not line:
+                # A blank line ends the title once we have enough of one.
+                if len(' '.join(block)) >= 20:
+                    break
+                block = []          # false start; keep looking
                 continue
-            if 'http' in line.lower() or 'www' in line.lower():
-                continue
-            if re.match(r'^\d+$', line):  # Just a number
-                continue
-            
-            # Check if Title Case or ALL CAPS
-            if line.isupper() or (line[0].isupper() and sum(c.isupper() for c in line) >= 3):
-                # Likely a title
-                return line
-        
+
+            if self._is_title_candidate(line):
+                block.append(line)
+            elif block:
+                break               # hit authors or boilerplate after the title
+            # else: still in the header furniture, keep skipping
+
+        title = ' '.join(block).strip()
+        title = re.sub(r'\s+', ' ', title)
+        title = re.sub(r'[*_]+$', '', title).strip()
+
+        if 10 < len(title) < 300:
+            return title
         return None
     
+    # Words that mark a capitalized phrase as an organization, journal, or
+    # section heading rather than a person's name.
+    _NON_NAME_WORDS = {
+        'journal', 'data', 'access', 'open', 'research', 'review', 'article',
+        'abstract', 'keywords', 'introduction', 'conclusion', 'references',
+        'university', 'faculty', 'department', 'institute', 'college', 'school',
+        'laboratory', 'labs', 'lab', 'sciences', 'science', 'center', 'centre',
+        'hospital', 'academy', 'society', 'association', 'foundation',
+        'springer', 'elsevier', 'wiley', 'nature', 'press', 'publishing',
+        'license', 'licence', 'creative', 'commons', 'copyright',
+        'correspondence', 'author', 'authors', 'received', 'accepted',
+        'published', 'available', 'online', 'supplementary', 'figure', 'table',
+        'big', 'international', 'conference', 'proceedings', 'transactions',
+        'learning', 'network', 'networks', 'systems', 'control', 'traffic',
+    }
+
+    def _is_not_a_person(self, name: str) -> bool:
+        """Whether a capitalized phrase is an organization/heading, not a person."""
+        words = {w.lower().strip('.,') for w in name.split()}
+        return bool(words & self._NON_NAME_WORDS)
+
     def _extract_authors(self, markdown: str) -> List[str]:
         """
         Extract author names.
@@ -277,21 +347,34 @@ class PaperMetadataExtractor:
         3. Filter out common false positives
         """
         authors = []
-        
+
         # Get first ~2000 characters (authors should be near top)
         top_section = markdown[:2000]
-        
+
+        # Stop before the affiliation/correspondence block, which is dense with
+        # capitalized institution names that look like people to a regex.
+        cutoff = re.search(
+            r'^\s*(Abstract|Keywords|Correspondence|\*?\s*Correspondence)\b',
+            top_section, re.IGNORECASE | re.MULTILINE,
+        )
+        if cutoff:
+            top_section = top_section[:cutoff.start()]
+
         # Look for comma-separated names with possible annotations
         # Pattern: "First Last, First Last" or "First Last1, First Last2"
-        pattern = r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+[*†‡§¶0-9]*)'
+        # Uses [ \t]+ rather than \s+ so a name cannot span two lines.
+        pattern = r'([A-Z][a-z]+(?:[ \t]+[A-Z][a-z]+)+[*†‡§¶0-9]*)'
         matches = re.findall(pattern, top_section)
-        
+
         for match in matches:
             # Clean up annotations
             name = re.sub(r'[*†‡§¶0-9]+$', '', match).strip()
             # Reasonable name length
-            if 5 <= len(name) <= 50 and name.count(' ') >= 1:
-                authors.append(name)
+            if not (5 <= len(name) <= 50 and name.count(' ') >= 1):
+                continue
+            if self._is_not_a_person(name):
+                continue
+            authors.append(name)
         
         # Remove duplicates while preserving order
         seen = set()
@@ -446,7 +529,12 @@ class PaperMetadataExtractor:
             )
             
             sections.append(section)
-        
+
+        # PDF -> Markdown conversion usually yields no '#' headers at all, so
+        # fall back to detecting headings that stand alone on their own line.
+        if not sections:
+            sections = self._extract_plaintext_sections(markdown)
+
         # Calculate end_char for each section
         for i in range(len(sections)):
             if i < len(sections) - 1:
@@ -465,6 +553,75 @@ class PaperMetadataExtractor:
         logger.info(f"Detected {len(sections)} sections")
         return sections
     
+    def _extract_plaintext_sections(self, markdown: str) -> List[PaperSection]:
+        """
+        Detect section headings in text that has no Markdown headers.
+
+        Converters flatten PDFs into plain text, so headings survive only as
+        short standalone lines ("Introduction", "3.2 Reward design"). A line is
+        treated as a heading when it sits on its own, is short, carries no
+        sentence punctuation, and either names a known section or is numbered.
+
+        Returns:
+            Sections ordered by position in the document
+        """
+        sections: List[PaperSection] = []
+        seen_types: set[str] = set()
+
+        # "3", "3.2", "IV" prefixes are strong heading signals in papers.
+        numbered = re.compile(r'^\s*(\d+(?:\.\d+)*|[IVX]{1,5})[.)]?\s+(.{2,70})$')
+
+        offset = 0
+        lines = markdown.split('\n')
+        for i, raw in enumerate(lines):
+            line_start = offset
+            offset += len(raw) + 1  # +1 for the newline consumed by split
+
+            line = raw.strip()
+            if not (2 <= len(line) <= 80):
+                continue
+            # Headings stand alone: require blank space above (or document top).
+            if i > 0 and lines[i - 1].strip():
+                continue
+            # Sentences and list items are not headings.
+            if line.endswith(('.', ',', ';', ':')) or line.startswith(('-', '*', '|')):
+                continue
+            if len(line.split()) > 10:
+                continue
+
+            # Figure/table captions read like headings but are not sections.
+            if re.match(r'^(fig(ure)?\.?|table|algorithm|eq(uation)?\.?|scheme)\b',
+                        line, re.IGNORECASE):
+                continue
+
+            m = numbered.match(line)
+            title = m.group(2).strip() if m else line
+            level = 2 if (m and '.' in (m.group(1) or '')) else 1
+
+            # Affiliation lines are numbered like sections ("1 LIS Labs, ...").
+            if self._is_not_a_person(title) and self._classify_section(title) == "other":
+                continue
+
+            section_type = self._classify_section(title)
+
+            # Without a number to vouch for it, only accept known section names.
+            if section_type == "other" and not m:
+                continue
+            # Unnumbered headings repeat in running heads; keep the first only.
+            if not m and section_type in seen_types:
+                continue
+            seen_types.add(section_type)
+
+            sections.append(PaperSection(
+                section_type=section_type,
+                title=title,
+                level=level,
+                start_page=0,
+                start_char=line_start,
+            ))
+
+        return sections
+
     def _classify_section(self, title: str) -> str:
         """Classify section type based on title."""
         title_lower = title.lower()

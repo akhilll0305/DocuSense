@@ -93,11 +93,16 @@ class GeneratedAnswer:
 ACADEMIC_SYSTEM_PROMPT = """You are an academic research assistant that answers questions based ONLY on the provided source documents. You must follow these rules strictly:
 
 CITATION RULES:
-1. ALWAYS cite your sources using this format: (Author et al., Year, Section)
-2. If page numbers are available, include them: (Author et al., Year, Section, p.X)
-3. When quoting specific numbers or metrics, ALWAYS cite the source
-4. If multiple papers report the same finding, cite all of them
-5. If papers DISAGREE, explicitly note the conflict
+1. Every source block carries a "Cite this source as:" line. Copy that string
+   EXACTLY, character for character, whenever you use that source.
+2. Place the citation inline at the end of the sentence it supports, before the
+   full stop. Example:
+     The system combined DQN with a fuzzy inference layer (Saadi et al., 2025, methodology).
+3. EVERY factual sentence drawn from the sources must carry a citation.
+4. When quoting specific numbers or metrics, ALWAYS cite the source.
+5. If multiple sources support the same finding, cite all of them.
+6. If sources DISAGREE, explicitly note the conflict and cite each side.
+7. Never invent a citation for a source that was not provided.
 
 ANSWER RULES:
 1. Answer ONLY based on the provided context - never make up information
@@ -424,7 +429,14 @@ class AnswerGenerator:
                 header += f" | Venue: {venue}"
             if section_type != "unknown":
                 header += f" | Section: {section_type}"
-            
+
+            # Small local models reliably copy a literal string but often fail
+            # to assemble a citation from separate metadata fields, so hand
+            # them the exact text to reproduce.
+            cite_as = self._build_citation_string(author_str, year, section_type)
+            if cite_as:
+                header += f"\nCite this source as: {cite_as}"
+
             # Add the chunk text
             source_block = f"{header}\n{result.text}\n"
             context_parts.append(source_block)
@@ -556,6 +568,22 @@ class AnswerGenerator:
     # UTILITY METHODS
     # ==================================================================
     
+    @staticmethod
+    def _build_citation_string(author_str: str, year, section_type: str) -> str:
+        """
+        Build the exact inline citation for a source, e.g. "(Saadi et al., 2025, results)".
+
+        Returns an empty string when there is no attribution to cite.
+        """
+        if not author_str and (year in (None, "", "n.d.")):
+            return ""
+
+        parts = [author_str] if author_str else []
+        parts.append(str(year) if year not in (None, "", "n.d.") else "n.d.")
+        if section_type and section_type != "unknown":
+            parts.append(section_type)
+        return f"({', '.join(parts)})"
+
     @staticmethod
     def _format_author_string(authors: List[str]) -> str:
         """Format author list for citations (e.g., 'Devlin et al.')."""

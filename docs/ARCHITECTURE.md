@@ -143,12 +143,36 @@ Tracked honestly rather than hidden — see the README for current status.
   session handling, or password storage. All data is effectively single-tenant.
 - **No multi-tenancy.** One SQLite database and one Qdrant collection are shared globally,
   so every user would see every document.
-- **Document deletion leaks vectors.** `delete_document()` removes SQLite rows but leaves
-  the corresponding Qdrant points orphaned.
 - **Health check is shallow.** `/api/health` reports whether components have been lazily
-  constructed, not whether Qdrant and Ollama are actually reachable.
+  constructed, not whether Qdrant and Ollama are actually reachable. `scripts/doctor.py`
+  does the real check in the meantime.
 - **Errors degrade silently.** Retrieval failures are logged as warnings and return an empty
   list, which is indistinguishable to the caller from a genuine no-match.
-- **No streaming.** Responses are fully buffered before returning.
+- **No streaming.** Responses are fully buffered before returning, and generation on a local
+  3B model takes 20–60s, so the UI waits with no partial output.
+- **Payload indexes are server-only.** Qdrant's local disk mode ignores the eight academic
+  indexes, so metadata filters fall back to full scans. Correct, but not fast at scale.
 - **Benchmarks unpublished.** The evaluation framework exists but has not been run against
   QASPER to produce reportable numbers.
+- **Metadata extraction is heuristic.** Title, author, and section detection are
+  regex-based and tuned against a small sample; unusual layouts will still mis-parse.
+
+## Fixed in the repair pass
+
+Recorded because the failure modes are instructive:
+
+- **Retrieval was never connected to the vector store.** `DocuSenseRAG` built
+  `RetrievalPipeline()` with no arguments, so `vector_store` stayed `None`, `hybrid_search`
+  was never constructed, and every query returned zero results regardless of backend health.
+- **BM25 was never indexed.** The same call passed no chunk corpus, leaving the keyword half
+  of hybrid search inert.
+- **The similarity threshold silently emptied vector results.** A 0.7 cutoff sat above the
+  range all-MiniLM-L6-v2 actually produces (~0.25–0.8), so the vector side returned nothing
+  and hybrid search ran on BM25 alone.
+- **BM25 hits lost their metadata.** Those results read `chunk['metadata']`, but the corpus
+  dicts were flat, so citations degraded to "Unknown Document".
+- **Sections were never detected in real papers.** Detection matched only Markdown `#`
+  headers, which PDF conversion never produces.
+- **Document deletion stranded vectors.** `delete_document()` removed SQLite rows only.
+
+Every one of these is now covered by `tests/test_integration.py`.

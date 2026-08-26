@@ -425,13 +425,34 @@ class ChunkStorage:
             metadata=json.loads(row['metadata']) if row['metadata'] else {}
         )
     
+    @staticmethod
+    def _row_to_chunk(row) -> ChunkRecord:
+        """Map a chunks table row to a ChunkRecord."""
+        return ChunkRecord(
+            id=row['id'],
+            chunk_id=row['chunk_id'],
+            document_id=row['document_id'],
+            chunk_index=row['chunk_index'],
+            text=row['text'],
+            token_count=row['token_count'],
+            header_path=row['header_path'] or "",
+            page_number=row['page_number'],
+            has_code=bool(row['has_code']),
+            has_tables=bool(row['has_tables']),
+            has_overlap=bool(row['has_overlap']),
+            merged=bool(row['merged']),
+            emergency_split=bool(row['emergency_split']),
+            metadata=json.loads(row['metadata']) if row['metadata'] else {},
+            created_at=row['created_at']
+        )
+
     def get_chunks_by_document(self, document_id: str) -> List[ChunkRecord]:
         """
         Retrieve all chunks for a document, ordered by chunk_index.
-        
+
         Args:
             document_id: Unique document identifier
-        
+
         Returns:
             List of ChunkRecords (ordered by chunk_index)
         """
@@ -440,28 +461,26 @@ class ChunkStorage:
             "SELECT * FROM chunks WHERE document_id = ? ORDER BY chunk_index",
             (document_id,)
         ).fetchall()
-        
-        return [
-            ChunkRecord(
-                id=row['id'],
-                chunk_id=row['chunk_id'],
-                document_id=row['document_id'],
-                chunk_index=row['chunk_index'],
-                text=row['text'],
-                token_count=row['token_count'],
-                header_path=row['header_path'] or "",
-                page_number=row['page_number'],
-                has_code=bool(row['has_code']),
-                has_tables=bool(row['has_tables']),
-                has_overlap=bool(row['has_overlap']),
-                merged=bool(row['merged']),
-                emergency_split=bool(row['emergency_split']),
-                metadata=json.loads(row['metadata']) if row['metadata'] else {},
-                created_at=row['created_at']
-            )
-            for row in rows
-        ]
-    
+
+        return [self._row_to_chunk(row) for row in rows]
+
+    def get_all_chunks(self) -> List[ChunkRecord]:
+        """
+        Retrieve every chunk in the database, ordered by document then index.
+
+        Used to build the in-memory BM25 corpus, which needs the full text of
+        all chunks rather than the vector store's payloads.
+
+        Returns:
+            List of ChunkRecords across all documents
+        """
+        cursor = self.conn.cursor()
+        rows = cursor.execute(
+            "SELECT * FROM chunks ORDER BY document_id, chunk_index"
+        ).fetchall()
+
+        return [self._row_to_chunk(row) for row in rows]
+
     def get_chunk(self, chunk_id: str) -> Optional[ChunkRecord]:
         """
         Retrieve a single chunk by ID.

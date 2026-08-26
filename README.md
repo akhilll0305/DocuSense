@@ -48,6 +48,25 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module-level detail.
 
 ---
 
+## Status
+
+The pipeline runs end to end: ingest a paper, ask a question, get a grounded answer with
+inline citations and an APA reference list. Multi-turn chat resolves pronouns against
+conversation history.
+
+**Working:** ingestion with paper metadata extraction · section-tagged chunking ·
+hybrid vector + BM25 retrieval with RRF · section routing and academic filters ·
+cross-encoder reranking · cited answer generation · multi-turn chat · REST API · web UI
+
+**Not built yet:** real authentication (the login page is a mockup), multi-tenancy,
+streaming responses, and published benchmark numbers. See
+[Known limitations](docs/ARCHITECTURE.md#known-limitations).
+
+Tests: 136 passing (129 unit, 7 integration), 73% coverage.
+Run `python scripts/doctor.py` to check your environment before reporting a problem.
+
+---
+
 ## What makes it different
 
 | Capability | How it works |
@@ -95,11 +114,21 @@ uvicorn docusense.api.app:app --reload
 - Web UI — http://localhost:8000
 - API docs — http://localhost:8000/docs
 
+### Ingest documents
+
+```bash
+python scripts/ingest.py path/to/paper.pdf
+python scripts/ingest.py data/papers/            # a whole directory
+python scripts/ingest.py --reset data/papers/    # wipe the vector store first
+```
+
 ### Test
 
 ```bash
-pytest                          # unit tests
-pytest -m "not integration"     # skip tests needing live services
+pytest                          # everything (136 tests)
+pytest -m integration           # real components, no mocks
+pytest -m "not integration"     # unit tests only
+python scripts/doctor.py        # check Qdrant / Ollama / Gemini / embeddings
 ```
 
 ---

@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     
     # Gemini (FREE tier - for image processing & query rewriting)
     gemini_api_key: Optional[str] = None  # FREE: 1500 images/day, 15 req/min
-    gemini_model: str = "gemini-2.0-flash"  # Fast, multimodal (vision + text)
+    gemini_model: str = "gemini-flash-latest"  # Alias: tracks current flash model, avoids retirement breakage
     
     # Ollama (FREE - local models)
     ollama_base_url: str = "http://localhost:11434"
@@ -113,8 +113,11 @@ class Settings(BaseSettings):
     
     # Vector search
     top_k_results: int = 5
-    similarity_threshold: float = 0.7
-    use_score_threshold: bool = True  # Filter by similarity score
+    # Raw cosine scores for all-MiniLM-L6-v2 land around 0.25-0.8 for relevant
+    # chunks, so a hard cutoff silently empties the result set. RRF fusion and
+    # the cross-encoder reranker already handle relevance ordering.
+    similarity_threshold: float = 0.25
+    use_score_threshold: bool = False  # Filter by raw similarity score
     
     # Auto-detect server mode when credentials are provided
     @property
