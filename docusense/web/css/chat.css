@@ -645,3 +645,32 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── Streaming answer ─────────────────────────────────────────────── */
+.typing-label {
+  font-size: 0.8125rem;
+  opacity: 0.6;
+  align-self: center;
+}
+
+/* Blinking caret while tokens are still arriving */
+.message__bubble--streaming::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: currentColor;
+  opacity: 0.7;
+  animation: caret-blink 1s step-end infinite;
+}
+
+@keyframes caret-blink {
+  0%, 100% { opacity: 0.7; }
+  50%      { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message__bubble--streaming::after { animation: none; }
+}

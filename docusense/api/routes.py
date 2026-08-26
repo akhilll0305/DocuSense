@@ -22,12 +22,14 @@ Created: 2026-03-08
 
 from __future__ import annotations
 
+import json
 import shutil
 import tempfile
 from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from loguru import logger
 
 from docusense.api.deps import get_current_user, get_rag
@@ -50,6 +52,70 @@ from docusense.api.schemas import (
 )
 
 router = APIRouter(prefix="/api", tags=["DocuSense"])
+
+
+# ==============================================================================
+# SERVER-SENT EVENTS
+# ==============================================================================
+
+def _sse_response(make_stream) -> StreamingResponse:
+    """
+    Wrap a (kind, payload) generator as a Server-Sent Events response.
+
+    Args:
+        make_stream: Zero-arg callable returning the generator. Deferred so any
+            exception raised while starting it is reported inside the stream
+            rather than escaping as an unhandled error mid-response.
+
+    Event payloads:
+        {"type": "status", "message": str}
+        {"type": "token",  "text": str}
+        {"type": "done",   answer, sources, citations, metrics...}
+        {"type": "error",  "message": str}
+    """
+    def encode(kind: str, payload) -> str:
+        if kind == "done":
+            data = {
+                "type": "done",
+                "answer": payload.answer,
+                "sources": payload.sources,
+                "papers_cited": payload.papers_cited,
+                "reference_list": payload.reference_list,
+                "confidence": payload.confidence,
+                "num_sources": getattr(payload, "num_sources", len(payload.sources)),
+                "total_time": getattr(payload, "total_time", None)
+                or getattr(payload, "response_time", 0.0),
+                # Chat turns carry these; a bare ask does not.
+                "conversation_id": getattr(payload, "conversation_id", None),
+                "message_id": getattr(payload, "message_id", None),
+                "turn_number": getattr(payload, "turn_number", None),
+                "has_citations": getattr(payload, "has_citations", False),
+            }
+        elif kind == "token":
+            data = {"type": "token", "text": payload}
+        else:
+            data = {"type": kind, "message": payload}
+        return f"data: {json.dumps(data)}\n\n"
+
+    def event_stream():
+        try:
+            for kind, payload in make_stream():
+                yield encode(kind, payload)
+        except Exception as e:
+            # The response has already begun, so an HTTP error status is no
+            # longer possible; report the failure inside the stream instead.
+            logger.error(f"❌ Stream failed: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # stop nginx buffering the stream
+        },
+    )
 
 
 # ==============================================================================
@@ -141,6 +207,33 @@ async def ask_question(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/ask/stream")
+async def ask_question_stream(
+    request: AskRequest,
+    rag=Depends(get_rag),
+    user: User = Depends(get_current_user),
+):
+    """
+    Ask a question and receive the answer as Server-Sent Events.
+
+    Generation on a local model takes tens of seconds, so streaming lets the UI
+    show text as it is written instead of waiting for the whole response.
+
+    Event stream:
+        {"type": "status", "message": str}   progress before text arrives
+        {"type": "token",  "text": str}      answer fragments, in order
+        {"type": "done",   ...}              sources, citations, metrics
+        {"type": "error",  "message": str}   terminal failure
+    """
+    logger.info(f"🌊 API stream: '{request.query}'")
+    return _sse_response(lambda: rag.ask_stream(
+        query=request.query,
+        top_k=request.top_k,
+        filters=request.filters,
+        user_id=user.user_id,
+    ))
+
+
 # ==============================================================================
 # MULTI-TURN CHAT
 # ==============================================================================
@@ -192,6 +285,32 @@ async def chat(
     except Exception as e:
         logger.error(f"❌ Chat failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/chat/{conversation_id}/stream")
+async def chat_stream(
+    conversation_id: str,
+    request: ChatRequest,
+    rag=Depends(get_rag),
+    user: User = Depends(get_current_user),
+):
+    """
+    Send a message in a conversation, streaming the reply as Server-Sent Events.
+
+    Same persistence as the non-streaming endpoint: the user message is saved
+    before generation and the assistant message after, so history is identical.
+    """
+    logger.info(f"🌊 API stream chat {conversation_id}: '{request.query}'")
+
+    if not rag.owns_conversation(conversation_id, user.user_id):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    return _sse_response(lambda: rag.chat_stream(
+        conversation_id,
+        request.query,
+        top_k=request.top_k,
+        user_id=user.user_id,
+    ))
 
 
 @router.get("/chat/{conversation_id}", response_model=ChatHistoryResponse)

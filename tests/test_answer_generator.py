@@ -379,3 +379,126 @@ class TestAnswerGenerator:
         
         # Should not raise, but include error message
         assert "unable to generate" in answer.answer.lower() or "technical issue" in answer.answer.lower()
+
+
+class TestCitationValidation:
+    """
+    Citations must be traceable to a retrieved source.
+
+    Small local models invent plausible-looking citations even when the prompt
+    forbids it, and a fabricated citation is worse than none in a system whose
+    whole purpose is grounded attribution. These cover the post-generation
+    check that removes unsupported ones.
+    """
+
+    @staticmethod
+    def _generator():
+        from docusense.generation.answer_generator import AnswerGenerator
+        # Bypass __init__ so the test needs no Ollama connection.
+        return AnswerGenerator.__new__(AnswerGenerator)
+
+    PAPER_SOURCE = [{
+        "authors": ["Aicha Saadi", "Noureddine Abghour", "Zouhair Chiba"],
+        "year": 2025,
+        "section_type": "results",
+    }]
+    UNATTRIBUTED_SOURCE = [{"authors": [], "year": "n.d.", "section_type": "unknown"}]
+
+    def test_supported_citation_is_kept(self):
+        text = "Delay fell by 23% (Saadi et al., 2025, results)."
+        out, removed = self._generator()._strip_unsupported_citations(text, self.PAPER_SOURCE)
+        assert removed == 0
+        assert out == text
+
+    def test_citation_without_section_is_kept(self):
+        """The model routinely drops the section suffix; that is still valid."""
+        text = "Delay fell by 23% (Saadi et al., 2025)."
+        out, removed = self._generator()._strip_unsupported_citations(text, self.PAPER_SOURCE)
+        assert removed == 0
+        assert "(Saadi et al., 2025)" in out
+
+    def test_alternative_author_rendering_is_kept(self):
+        """
+        "Saadi et al.", "Saadi and Abghour", and "A. Saadi" all name the same
+        source, so validation matches on surname and year, not on an exact
+        string. Requiring an exact match deleted legitimate citations.
+        """
+        for rendering in [
+            "(Saadi et al., 2025, results)",
+            "(Saadi and Abghour, 2025)",
+            "(Abghour et al., 2025)",
+        ]:
+            text = f"Delay fell by 23% {rendering}."
+            out, removed = self._generator()._strip_unsupported_citations(
+                text, self.PAPER_SOURCE
+            )
+            assert removed == 0, f"wrongly removed {rendering}"
+
+    def test_narrative_citation_is_kept(self):
+        """"Saadi et al. (2025)" puts the name outside the parentheses."""
+        text = "According to Saadi et al. (2025, results), delay fell by 23%."
+        out, removed = self._generator()._strip_unsupported_citations(text, self.PAPER_SOURCE)
+        assert removed == 0
+        assert "Saadi et al. (2025, results)" in out
+
+    def test_fabricated_narrative_citation_is_removed(self):
+        """A fabricated narrative citation takes its lead-in phrase with it."""
+        text = "According to Smith et al. (2019), results improved."
+        out, removed = self._generator()._strip_unsupported_citations(text, self.PAPER_SOURCE)
+        assert removed == 1
+        assert "Smith" not in out and "According to" not in out
+        assert out == "Results improved."
+
+    def test_wrong_year_is_removed(self):
+        text = "Delay fell by 23% (Saadi et al., 1999)."
+        out, removed = self._generator()._strip_unsupported_citations(text, self.PAPER_SOURCE)
+        assert removed == 1
+        assert "1999" not in out
+
+    def test_wrong_author_is_removed(self):
+        text = "Delay fell by 23% (Smith et al., 2019, results)."
+        out, removed = self._generator()._strip_unsupported_citations(text, self.PAPER_SOURCE)
+        assert removed == 1
+        assert "Smith" not in out
+
+    def test_fabricated_citation_on_unattributed_source_is_removed(self):
+        """Regression: a source with no metadata drew an invented citation."""
+        text = "SGD at lr 0.01 was used (Saadi et al., 2023, Methods)."
+        out, removed = self._generator()._strip_unsupported_citations(
+            text, self.UNATTRIBUTED_SOURCE
+        )
+        assert removed == 1
+        assert "Saadi" not in out
+        assert out == "SGD at lr 0.01 was used."
+
+    def test_ordinary_parentheses_are_untouched(self):
+        text = "The model (a CNN) ran for 90 epochs (roughly two days)."
+        out, removed = self._generator()._strip_unsupported_citations(
+            text, self.UNATTRIBUTED_SOURCE
+        )
+        assert removed == 0
+        assert out == text
+
+    def test_multiple_fabrications_all_removed(self):
+        text = "A holds (Lee et al., 2020). B holds (Kim et al., 2021, methods)."
+        out, removed = self._generator()._strip_unsupported_citations(
+            text, self.PAPER_SOURCE
+        )
+        assert removed == 2
+        assert "Lee" not in out and "Kim" not in out
+
+    def test_punctuation_survives_removal(self):
+        """Removal must not eat the sentence's terminating punctuation."""
+        text = "SGD at lr 0.01 was used (Nobody et al., 2001)."
+        out, removed = self._generator()._strip_unsupported_citations(
+            text, self.UNATTRIBUTED_SOURCE
+        )
+        assert removed == 1
+        assert out.endswith(".")
+        assert out == "SGD at lr 0.01 was used."
+
+    def test_has_citations_detects_both_renderings(self):
+        from docusense.generation.answer_generator import AnswerGenerator
+        assert AnswerGenerator._check_has_citations("Delay fell (Saadi et al., 2025).")
+        assert AnswerGenerator._check_has_citations("Saadi et al. (2025) report a drop.")
+        assert not AnswerGenerator._check_has_citations("The model (a CNN) ran 90 epochs.")

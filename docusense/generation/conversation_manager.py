@@ -231,6 +231,85 @@ class ConversationManager:
             turn_number=turn_number
         )
 
+    def chat_stream(
+        self,
+        conversation_id: str,
+        query: str,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None
+    ):
+        """
+        Process a chat turn, yielding the answer as it is generated.
+
+        Persists the user message before generating and the assistant message
+        after, so a streamed turn leaves the same history as a buffered one.
+
+        Yields:
+            (kind, payload) — "status", "token", "error", then a final "done"
+            carrying a ChatResponse.
+        """
+        import time
+        start_time = time.time()
+
+        logger.info(f"💬 Streaming chat turn in {conversation_id}: '{query}'")
+
+        history = self.store.get_messages(conversation_id, limit=self.context_window)
+        turn_number = len(history) // 2 + 1
+        context = self._build_context(history) if history else None
+
+        self.store.add_message(conversation_id, "user", query)
+
+        if not self.pipeline or not self.pipeline.retrieval_pipeline:
+            yield ("error", "Generation pipeline not configured.")
+            return
+
+        response = None
+        for kind, payload in self.pipeline.generate_stream(
+            query=query, top_k=top_k, filters=filters, context=context
+        ):
+            if kind == "done":
+                response = payload
+            else:
+                yield (kind, payload)
+
+        if response is None:
+            # generate_stream already emitted an error; record nothing further.
+            return
+
+        elapsed = time.time() - start_time
+
+        asst_msg_id = self.store.add_message(
+            conversation_id, "assistant", response.answer,
+            sources=response.sources,
+            metadata={
+                "papers_cited": response.papers_cited,
+                "confidence": response.confidence,
+            }
+        )
+
+        self.store.log_query(
+            query=query,
+            num_results=len(response.sources),
+            response_time=elapsed,
+            confidence=response.confidence,
+            model_used=getattr(self.pipeline, 'client', None) and self.pipeline.client.model or "",
+            conversation_id=conversation_id
+        )
+
+        logger.success(f"💬 Streamed turn {turn_number} complete ({elapsed:.2f}s)")
+
+        yield ("done", ChatResponse(
+            answer=response.answer,
+            conversation_id=conversation_id,
+            message_id=asst_msg_id,
+            sources=response.sources,
+            papers_cited=response.papers_cited,
+            reference_list=response.reference_list,
+            confidence=response.confidence,
+            response_time=elapsed,
+            turn_number=turn_number
+        ))
+
     def get_history(
         self,
         conversation_id: str,

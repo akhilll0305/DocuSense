@@ -40,6 +40,7 @@ from __future__ import annotations
 
 from typing import List, Dict, Optional, Any, TYPE_CHECKING
 from dataclasses import dataclass, field
+import re
 import time
 
 from loguru import logger
@@ -93,8 +94,10 @@ class GeneratedAnswer:
 ACADEMIC_SYSTEM_PROMPT = """You are an academic research assistant that answers questions based ONLY on the provided source documents. You must follow these rules strictly:
 
 CITATION RULES:
-1. Every source block carries a "Cite this source as:" line. Copy that string
-   EXACTLY, character for character, whenever you use that source.
+1. A source block may carry a "Cite this source as:" line. When it does, copy
+   that string EXACTLY, character for character, whenever you use that source.
+   When a source has no such line, use its content but do NOT cite it, and
+   never invent a citation or repeat the words "Author", "Year", or "Section".
 2. Place the citation inline at the end of the sentence it supports, before the
    full stop. Example:
      The system combined DQN with a fuzzy inference layer (Saadi et al., 2025, methodology).
@@ -196,6 +199,81 @@ class AnswerGenerator:
         logger.info(f"  Max answer: {self.max_answer_tokens} tokens")
         logger.info(f"  Citations: {self.include_citations}")
     
+    def generate_answer_stream(
+        self,
+        query: str,
+        retrieval_results: List[RetrievalResult],
+        context: Optional[str] = None
+    ):
+        """
+        Generate an answer incrementally, yielding text as the model produces it.
+
+        Uses exactly the same context and prompt construction as
+        generate_answer, so a streamed answer is identical to a buffered one.
+
+        Args:
+            query: User's question
+            retrieval_results: Chunks from the retrieval pipeline
+            context: Optional additional context (e.g. conversation history)
+
+        Yields:
+            ("token", str) for each text fragment, then exactly one
+            ("done", GeneratedAnswer) carrying sources, citations, and metrics.
+            Emits ("error", str) instead of raising, so a partially streamed
+            response can still be closed cleanly by the caller.
+        """
+        start_time = time.time()
+
+        logger.info(f"📝 Streaming answer for: '{query}'")
+
+        context_text, sources = self._build_context(retrieval_results)
+        papers_cited = self._extract_unique_papers(sources)
+        prompt = self._build_prompt(query, context_text, context)
+
+        parts: List[str] = []
+        error: Optional[str] = None
+
+        try:
+            for piece in self.client.generate_stream(
+                prompt=prompt,
+                system_prompt=ACADEMIC_SYSTEM_PROMPT,
+                temperature=self.temperature,
+            ):
+                if piece:
+                    parts.append(piece)
+                    yield ("token", piece)
+        except Exception as e:
+            logger.error(f"❌ Streaming generation failed: {e}")
+            error = str(e)
+            yield (
+                "error",
+                f"Answer generation failed: {e}. "
+                f"Please ensure Ollama is running with the {self.client.model} model.",
+            )
+
+        answer_text = "".join(parts)
+        # Validate after the fact: tokens were already streamed, so the final
+        # payload carries the cleaned text and the UI re-renders from it.
+        answer_text, _removed = self._strip_unsupported_citations(answer_text, sources)
+        elapsed = time.time() - start_time
+
+        yield ("done", GeneratedAnswer(
+            query=query,
+            answer=answer_text,
+            sources=sources,
+            num_sources=len(sources),
+            papers_cited=papers_cited,
+            confidence=(
+                0.0 if error else self._estimate_confidence(retrieval_results, answer_text)
+            ),
+            has_citations=self._check_has_citations(answer_text),
+            is_multi_paper=len(papers_cited) > 1,
+            generation_time=elapsed,
+            model_used=self.client.model,
+        ))
+
+        logger.success(f"✅ Streamed {len(answer_text)} chars in {elapsed:.2f}s")
+
     def generate_answer(
         self,
         query: str,
@@ -248,8 +326,11 @@ class AnswerGenerator:
                 f"Please ensure Ollama is running with the {self.client.model} model."
             )
         
+        # Drop any citation the retrieved sources do not support.
+        answer_text, _removed = self._strip_unsupported_citations(answer_text, sources)
+
         elapsed = time.time() - start_time
-        
+
         # Build result
         result = GeneratedAnswer(
             query=query,
@@ -568,6 +649,115 @@ class AnswerGenerator:
     # UTILITY METHODS
     # ==================================================================
     
+    # Parenthetical citation: "(Saadi et al., 2025, methodology)". Opens with a
+    # capitalized name and contains a year. Narrow, so ordinary parentheses
+    # such as "(a CNN)" or "(roughly two days)" are left alone.
+    _CITATION_RE = re.compile(r'\(\s*[A-Z][^()]{0,120}?\b(?:\d{4}|n\.d\.)[^()]{0,60}?\)')
+
+    # Narrative citation: "Saadi et al. (2025, methodology)" — the name sits
+    # outside the parentheses, so the pattern above never sees it.
+    _NARRATIVE_CITATION_RE = re.compile(
+        # Optional attribution lead-in, absorbed so removing the citation does
+        # not leave "According to, ..." stranded at the front of a sentence.
+        r'(?:\b(?:According to|As reported (?:by|in)|As shown (?:by|in)|'
+        r'As described (?:by|in)|Per|Following)\s+)?'
+        r'\b(?P<surname>[A-Z][A-Za-z\-\']+)'                  # surname
+        r'(?:\s+(?:et\s+al\.?|and\s+[A-Z][A-Za-z\-\']+))?'    # "et al." / "and Abghour"
+        r'\s*\(\s*(?P<year>\d{4}|n\.d\.)[^()]{0,60}?\)'       # (year[, section])
+        r',?\s*'                                              # trailing comma
+    )
+
+    @staticmethod
+    def _surname(name: str) -> str:
+        """Last token of a name, lowercased — how citations refer to authors."""
+        parts = (name or "").split()
+        return parts[-1].lower() if parts else ""
+
+    def _supported_author_years(self, sources: List[Dict[str, Any]]) -> set:
+        """
+        (surname, year) pairs the retrieved sources actually support.
+
+        Matching on surname and year rather than the whole citation string is
+        deliberate: the model may render the same source as "Saadi et al.",
+        "Saadi and Abghour", or "A. Saadi", and all three are legitimate.
+        Author identity plus year is the part that must be true.
+        """
+        pairs = set()
+        for s in sources:
+            year = str(s.get("year") or "").strip()
+            if not year or year in {"0", "None"}:
+                continue
+            for author in (s.get("authors") or []):
+                surname = self._surname(author)
+                if surname:
+                    pairs.add((surname, year))
+        return pairs
+
+    def _strip_unsupported_citations(
+        self, answer: str, sources: List[Dict[str, Any]]
+    ) -> tuple[str, int]:
+        """
+        Remove citations that no retrieved source supports.
+
+        Small models invent plausible-looking citations even when the prompt
+        forbids it, and a fabricated citation is worse than none in a system
+        whose purpose is grounded attribution. Prompting cannot guarantee this,
+        so unsupported citations are deleted rather than trusted.
+
+        Handles both renderings the model produces:
+            parenthetical  "(Saadi et al., 2025, methodology)"
+            narrative      "According to Saadi et al. (2025), ..."
+
+        Returns:
+            (cleaned answer, number of citations removed)
+        """
+        supported = self._supported_author_years(sources)
+        removed = 0
+
+        def is_supported(surname: str, year: str) -> bool:
+            return (surname.lower(), year) in supported
+
+        def replace_parenthetical(match: "re.Match") -> str:
+            nonlocal removed
+            text = match.group(0)
+            year_match = re.search(r'\b(\d{4})\b', text)
+            name_match = re.search(r'\(\s*([A-Z][A-Za-z\-\']+)', text)
+            if year_match and name_match and is_supported(name_match.group(1), year_match.group(1)):
+                return text
+            removed += 1
+            logger.warning(f"Removed unsupported citation: {text}")
+            return ""
+
+        cleaned = self._CITATION_RE.sub(replace_parenthetical, answer)
+
+        def replace_narrative(match: "re.Match") -> str:
+            nonlocal removed
+            if is_supported(match.group("surname"), match.group("year")):
+                return match.group(0)
+            removed += 1
+            logger.warning(f"Removed unsupported citation: {match.group(0)}")
+            # Drop the lead-in too ("According to X (2019),"), which would
+            # otherwise be left dangling in front of the sentence.
+            return ""
+
+        cleaned = self._NARRATIVE_CITATION_RE.sub(replace_narrative, cleaned)
+
+        if removed:
+            cleaned = self._tidy_after_removal(cleaned)
+
+        return cleaned, removed
+
+    @staticmethod
+    def _tidy_after_removal(text: str) -> str:
+        """Repair spacing and punctuation left behind by a deleted citation."""
+        text = re.sub(r"\(\s*\)", "", text)                    # empty parens
+        text = re.sub(r"[ \t]{2,}", " ", text)                 # doubled spaces
+        text = re.sub(r"\s+([.,;:])", r"\1", text)             # space before punctuation
+        text = re.sub(r"([.,;:])(?:\s*\1)+", r"\1", text)      # doubled punctuation
+        text = re.sub(r"(^|[.!?]\s+)([a-z])",                  # re-capitalize a sentence
+                      lambda m: m.group(1) + m.group(2).upper(), text)
+        return text.strip()
+
     @staticmethod
     def _build_citation_string(author_str: str, year, section_type: str) -> str:
         """
@@ -645,11 +835,18 @@ class AnswerGenerator:
     
     @staticmethod
     def _check_has_citations(answer_text: str) -> bool:
-        """Check if the answer contains citation patterns."""
-        import re
-        # Check for (Author, Year) or (Author et al., Year) patterns
-        citation_pattern = r'\([A-Z][a-z]+.*?\d{4}'
-        return bool(re.search(citation_pattern, answer_text))
+        """
+        Whether the answer carries at least one citation.
+
+        Recognizes both the parenthetical form, "(Devlin et al., 2018)", and
+        the narrative form, "Devlin et al. (2018)", which models produce just
+        as often. Runs after unsupported citations are stripped, so a True
+        result means a source-backed citation survived.
+        """
+        return bool(
+            AnswerGenerator._CITATION_RE.search(answer_text)
+            or AnswerGenerator._NARRATIVE_CITATION_RE.search(answer_text)
+        )
 
 
 # Convenience function

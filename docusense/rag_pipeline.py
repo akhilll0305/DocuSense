@@ -540,6 +540,33 @@ class DocuSenseRAG:
             mode=mode
         )
 
+    def ask_stream(
+        self,
+        query: str,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None
+    ):
+        """
+        Ask a question, yielding the answer as it is generated.
+
+        Args:
+            query: Natural language question
+            top_k: Number of chunks to retrieve
+            filters: Optional metadata filters
+            user_id: Restrict retrieval to this user's documents
+
+        Yields:
+            (kind, payload) pairs — "status", "token", "done", or "error".
+            See GenerationPipeline.generate_stream.
+        """
+        logger.info(f"🌊 Streaming answer for: '{query}'")
+        return self._generation_for(user_id).generate_stream(
+            query=query,
+            top_k=top_k,
+            filters=self._scoped_filters(filters, user_id),
+        )
+
     def compare(self, query: str, top_k: int = 10, user_id: Optional[str] = None):
         """Compare findings across multiple papers."""
         return self.ask(query, top_k=top_k, mode="compare", user_id=user_id)
@@ -609,6 +636,26 @@ class DocuSenseRAG:
             conversation_id,
             query,
             mode=mode,
+            top_k=top_k,
+            filters=self._scoped_filters(None, user_id),
+        )
+
+    def chat_stream(
+        self,
+        conversation_id: str,
+        query: str,
+        top_k: int = 5,
+        user_id: Optional[str] = None
+    ):
+        """
+        Chat with conversation context, yielding the answer as it is generated.
+
+        Yields:
+            (kind, payload) pairs — "status", "token", "done", or "error".
+        """
+        return self._conversations_for(user_id).chat_stream(
+            conversation_id,
+            query,
             top_k=top_k,
             filters=self._scoped_filters(None, user_id),
         )

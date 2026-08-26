@@ -87,10 +87,39 @@ happens inside Qdrant rather than in Python:
 ### `generation/`
 | File | Responsibility |
 |---|---|
-| `answer_generator.py` | Builds the grounded prompt, calls Ollama, enforces citation formatting. Modes: `answer`, `compare`, `conflicts` |
+| `answer_generator.py` | Builds the grounded prompt, calls Ollama, and streams or buffers the answer. Modes: `answer`, `compare`, `conflicts`. Also validates citations after generation (below) |
 | `citation_formatter.py` | Inline citations, APA reference lists, BibTeX export |
 | `conversation_manager.py` | Multi-turn memory — history is folded into follow-up queries so "what about its accuracy?" resolves against the prior turn |
-| `generation_pipeline.py` | Retrieval -> generation -> citation assembly, returning `PipelineResponse` |
+| `generation_pipeline.py` | Retrieval -> generation -> citation assembly, returning `PipelineResponse`; `generate_stream()` yields the same result incrementally |
+
+### Citation validation
+
+A fabricated citation is worse than none in a system whose purpose is grounded attribution,
+and a 3B model invents plausible ones even when the prompt forbids it — observed in practice
+citing "(Saadi et al., 2023)" for a document with no authors at all. Prompting cannot
+guarantee this, so every citation is checked after generation and deleted if unsupported.
+
+Matching is on **author surname plus year**, not on the exact string: the same source is
+legitimately rendered "Saadi et al.", "Saadi and Abghour", or "A. Saadi", and an exact-string
+rule deleted valid citations. Both renderings are handled — parenthetical
+"(Saadi et al., 2025)" and narrative "According to Saadi et al. (2025)" — and removing a
+narrative citation takes its lead-in phrase with it so no dangling "According to," is left.
+Ordinary parentheses are untouched.
+
+### Streaming
+
+`POST /api/ask/stream` and `POST /api/chat/{id}/stream` return Server-Sent Events:
+`status` while retrieval runs, `token` per answer fragment, then one `done` carrying
+sources, citations, and metrics. Retrieval finishes before the first token because its
+result is needed to build the prompt, so status events cover that gap.
+
+Once the response has begun, an HTTP error status is no longer possible, so failures are
+reported as an `error` event inside the stream. Citation validation runs on the complete
+text, so the `done` payload can differ slightly from the concatenated tokens; the UI
+re-renders from `done`.
+
+A streamed chat turn persists the same messages as a buffered one — the user message before
+generation, the assistant message after — so history is identical either way.
 
 ### `evaluation/`
 | File | Responsibility |
@@ -174,8 +203,8 @@ Tracked honestly rather than hidden — see the README for current status.
   does the real check in the meantime.
 - **Errors degrade silently.** Retrieval failures are logged as warnings and return an empty
   list, which is indistinguishable to the caller from a genuine no-match.
-- **No streaming.** Responses are fully buffered before returning, and generation on a local
-  3B model takes 20–60s, so the UI waits with no partial output.
+- **Streaming is answer-only.** Retrieval still completes before the first token, so there is
+  a few-second wait before text begins; progress events cover it.
 - **Payload indexes are server-only.** Qdrant's local disk mode ignores the eight academic
   indexes, so metadata filters fall back to full scans. Correct, but not fast at scale.
 - **Benchmarks unpublished.** The evaluation framework exists but has not been run against

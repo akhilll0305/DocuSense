@@ -58,12 +58,12 @@ conversation history.
 **Working:** email/password accounts with bcrypt + JWT · per-user document isolation ·
 ingestion with paper metadata extraction · section-tagged chunking · hybrid vector + BM25
 retrieval with RRF · section routing and academic filters · cross-encoder reranking ·
-cited answer generation · multi-turn chat · REST API · web UI
+cited answer generation with fabricated-citation filtering · streamed responses (SSE) ·
+multi-turn chat · REST API · web UI
 
-**Not built yet:** streaming responses, token revocation, password reset, and published
-benchmark numbers. See [Known limitations](docs/ARCHITECTURE.md#known-limitations).
+**Not built yet:** token revocation, password reset, and published benchmark numbers. See [Known limitations](docs/ARCHITECTURE.md#known-limitations).
 
-Tests: 153 passing (unit + integration), 75% coverage.
+Tests: 165 passing (unit + integration), 74% coverage.
 Run `python scripts/doctor.py` to check your environment before reporting a problem.
 
 ---
@@ -78,6 +78,8 @@ Run `python scripts/doctor.py` to check your environment before reporting a prob
 | **Hybrid retrieval** | Vector search for meaning + BM25 for exact terms (`BERT-base` shouldn't match `RoBERTa`), fused with Reciprocal Rank Fusion |
 | **Cross-encoder reranking** | Retrieves a wide candidate set, then reranks for precision |
 | **Grounded citations** | Every claim is traced to a source chunk; exports APA reference lists and BibTeX |
+| **Fabricated citations removed** | Small models invent citations even when told not to, so every citation is checked against the retrieved sources by author and year, and unsupported ones are deleted rather than trusted |
+| **Streamed answers** | Local generation takes tens of seconds, so answers arrive token by token over SSE, with progress before the first token |
 | **Per-user isolation** | Documents, vectors, BM25 corpora, and conversations are all scoped to their owner; cross-tenant reads return 404 rather than revealing that an id exists |
 
 ---
@@ -139,7 +141,7 @@ python scripts/ingest.py --reset data/papers/    # wipe the vector store first
 ### Test
 
 ```bash
-pytest                          # everything (153 tests)
+pytest                          # everything (165 tests)
 pytest -m integration           # real components, no mocks
 pytest -m "not integration"     # unit tests only
 python scripts/doctor.py        # check Qdrant / Ollama / Gemini / embeddings

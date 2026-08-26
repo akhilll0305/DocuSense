@@ -241,6 +241,59 @@
     scrollToBottom();
   }
 
+  /** The bot avatar markup, shared by streamed and buffered messages. */
+  function botAvatarHtml() {
+    return `
+      <div class="message__avatar">
+        <svg width="18" height="18" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="8" fill="url(#blg)"/>
+        <path d="M8 9h8a3 3 0 013 3v0a3 3 0 01-3 3H8V9z" fill="white" opacity="0.9"/>
+        <path d="M8 15h10a3 3 0 013 3v0a3 3 0 01-3 3H8v-6z" fill="white" opacity="0.6"/>
+        <defs><linearGradient id="blg" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#6c5ce7"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs></svg>
+      </div>`;
+  }
+
+  /**
+   * Create an empty bot message and return its bubble, so streamed tokens can
+   * be written into it as they arrive.
+   */
+  function beginBotMessage() {
+    hideWelcome();
+    const el = document.createElement('div');
+    el.className = 'message message--bot';
+    el.innerHTML = `${botAvatarHtml()}<div class="message__bubble message__bubble--streaming"></div>`;
+    messages.appendChild(el);
+    scrollToBottom();
+    return el.querySelector('.message__bubble');
+  }
+
+  /** Append references and confidence once the stream completes. */
+  function finishBotMessage(bubble, data) {
+    bubble.classList.remove('message__bubble--streaming');
+    bubble.innerHTML = formatAnswer(data.answer || bubble.textContent || '');
+    bubble.insertAdjacentHTML('beforeend', referencesHtml(data) + confidenceHtml(data));
+    scrollToBottom();
+  }
+
+  function referencesHtml(data) {
+    if (!data.reference_list || !data.reference_list.length) return '';
+    const refs = Array.isArray(data.reference_list)
+      ? data.reference_list
+      : String(data.reference_list).split('\n').filter(l => l.trim());
+    return `<div class="message__refs">${
+      refs.map((ref, i) =>
+        `<div class="message__ref"><span class="message__ref-num">[${i+1}]</span><span>${escHtml(ref)}</span></div>`
+      ).join('')
+    }</div>`;
+  }
+
+  function confidenceHtml(data) {
+    if (data.confidence == null) return '';
+    const level = data.confidence > 0.7 ? 'high' : data.confidence > 0.4 ? 'medium' : 'low';
+    return `<div class="message__confidence message__confidence--${level}">
+      Confidence: ${Math.round(data.confidence * 100)}%
+    </div>`;
+  }
+
   function addBotMessage(data) {
     const el = document.createElement('div');
     el.className = 'message message--bot';
@@ -329,9 +382,16 @@
         <defs><linearGradient id="tlg" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#6c5ce7"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs></svg>
       </div>
       <div class="typing-dots"><span></span><span></span><span></span></div>
+      <span class="typing-label" id="typing-label"></span>
     `;
     messages.appendChild(el);
     scrollToBottom();
+  }
+
+  /** Show what the backend is doing while the user waits for the first token. */
+  function setTypingLabel(text) {
+    const label = $('#typing-label');
+    if (label) label.textContent = text || '';
   }
 
   function hideTyping() {
@@ -352,22 +412,43 @@
     addUserMessage(query);
     showTyping();
 
+    let isNewChat = false;
     try {
-      let data;
-      if (currentConversationId) {
-        // Continue existing chat
-        data = await API.chat(currentConversationId, query);
-      } else {
-        // Start new chat for first message
+      if (!currentConversationId) {
         const chat = await API.startChat(query.substring(0, 60));
         currentConversationId = chat.conversation_id;
         chatTitle.textContent = query.substring(0, 60);
-        data = await API.chat(currentConversationId, query);
-        loadChats(); // Refresh sidebar
+        isNewChat = true;
       }
 
-      hideTyping();
-      addBotMessage(data);
+      // Generation takes tens of seconds on a local model, so render the
+      // answer as it streams rather than leaving the user staring at a dot.
+      let bubble = null;
+      let answer = '';
+
+      await API.chatStream(currentConversationId, query, {}, {
+        onStatus: (msg) => setTypingLabel(msg),
+        onToken: (text) => {
+          if (!bubble) {
+            hideTyping();
+            bubble = beginBotMessage();
+          }
+          answer += text;
+          bubble.innerHTML = formatAnswer(answer);
+          scrollToBottom();
+        },
+        onDone: (data) => {
+          hideTyping();
+          if (bubble) finishBotMessage(bubble, data);
+          else addBotMessage(data);   // no tokens streamed (e.g. no results)
+        },
+        onError: (err) => {
+          hideTyping();
+          addSystemMessage('Error: ' + err.message);
+        }
+      });
+
+      if (isNewChat) loadChats();  // refresh sidebar with the new conversation
     } catch (e) {
       hideTyping();
       addSystemMessage('Error: ' + e.message);

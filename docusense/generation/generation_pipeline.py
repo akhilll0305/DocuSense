@@ -291,6 +291,79 @@ class GenerationPipeline:
         
         return response
     
+    def generate_stream(
+        self,
+        query: str,
+        top_k: int = 5,
+        filters: Optional[Dict[str, Any]] = None,
+        context: Optional[str] = None,
+    ):
+        """
+        Run the pipeline, streaming the answer as the model writes it.
+
+        Retrieval completes first (it is fast and its result is needed to build
+        the prompt), then answer text is yielded incrementally. Citations are
+        formatted at the end, once the full answer text exists.
+
+        Yields:
+            ("status", str)      progress before any text is available
+            ("token", str)       answer fragments, in order
+            ("done", PipelineResponse)  final answer plus citations and metrics
+            ("error", str)       terminal failure; no "done" follows
+        """
+        start_time = time.time()
+        logger.info(f"🌊 Streaming pipeline: '{query}' (top_k={top_k})")
+
+        # Step 1: Retrieval
+        retrieval_start = time.time()
+        yield ("status", "Searching your documents...")
+        try:
+            results, metrics = self.retrieval_pipeline.retrieve(
+                query=query, top_k=top_k, filters=filters, context=context
+            )
+        except Exception as e:
+            logger.error(f"❌ Retrieval failed: {e}")
+            yield ("error", f"Retrieval failed: {e}")
+            return
+
+        retrieval_time = time.time() - retrieval_start
+
+        if not results:
+            yield ("done", PipelineResponse(
+                query=query,
+                answer="No relevant documents found for your query. "
+                       "Please try rephrasing or broadening your search.",
+                retrieval_time=retrieval_time,
+                total_time=time.time() - start_time,
+            ))
+            return
+
+        yield ("status", f"Reading {len(results)} sources...")
+
+        # Step 2: Stream the answer
+        generated = None
+        for kind, payload in self.answer_generator.generate_answer_stream(
+            query=query, retrieval_results=results, context=context
+        ):
+            if kind == "token":
+                yield ("token", payload)
+            elif kind == "error":
+                yield ("error", payload)
+            elif kind == "done":
+                generated = payload
+
+        if generated is None:
+            yield ("error", "Generation produced no result")
+            return
+
+        # Step 3: Citations, once the whole answer exists
+        response = self._build_response(generated)
+        response.retrieval_time = retrieval_time
+        response.total_time = time.time() - start_time
+        response.retrieval_mode = ", ".join(getattr(metrics, "stages_used", []))
+
+        yield ("done", response)
+
     def generate_from_results(
         self,
         query: str,
@@ -327,33 +400,51 @@ class GenerationPipeline:
             )
         
         generation_time = time.time() - gen_start
-        
-        # Step 2: Format citations
+
+        response = self._build_response(generated, mode=mode)
+        response.generation_time = generation_time
+        response.total_time = time.time() - start_time
+
+        logger.success(
+            f"✅ Generated answer: {len(generated.answer)} chars, "
+            f"{len(response.citations)} citations, {generation_time:.2f}s"
+        )
+
+        return response
+
+    def _build_response(
+        self,
+        generated: GeneratedAnswer,
+        mode: str = "answer",
+    ) -> PipelineResponse:
+        """
+        Format citations and assemble a PipelineResponse from a generated answer.
+
+        Shared by the buffered and streaming paths so both produce identical
+        citations, reference lists, and BibTeX for the same answer.
+        """
         citations = []
         reference_list = ""
         bibtex = ""
-        
+
         if generated.sources:
             citations = self.citation_formatter.format_sources(
                 generated.sources,
                 style=self.citation_style
             )
-            
+
             if self.include_references:
                 reference_list = self.citation_formatter.format_reference_list(
                     generated.sources
                 )
-            
+
             if self.include_bibtex:
                 bibtex = self.citation_formatter.format_bibtex_export(
                     generated.sources
                 )
-        
-        # Step 3: Assemble response
-        total_time = time.time() - start_time
-        
-        response = PipelineResponse(
-            query=query,
+
+        return PipelineResponse(
+            query=generated.query,
             answer=generated.answer,
             citations=citations,
             reference_list=reference_list,
@@ -364,19 +455,10 @@ class GenerationPipeline:
             confidence=generated.confidence,
             has_citations=generated.has_citations,
             is_multi_paper=generated.is_multi_paper,
-            retrieval_time=0.0,
-            generation_time=generation_time,
-            total_time=total_time,
+            generation_time=generated.generation_time,
             model_used=generated.model_used,
             generation_mode=mode
         )
-        
-        logger.success(
-            f"✅ Generated answer: {len(generated.answer)} chars, "
-            f"{len(citations)} citations, {generation_time:.2f}s"
-        )
-        
-        return response
     
     def get_pipeline_config(self) -> Dict[str, Any]:
         """Get current pipeline configuration."""

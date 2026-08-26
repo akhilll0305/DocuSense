@@ -126,6 +126,70 @@ const API = (() => {
       return request('POST', `/chat/${conversationId}`, { query, mode, top_k });
     },
 
+    /**
+     * Stream a chat reply via Server-Sent Events.
+     *
+     * EventSource cannot POST or send an Authorization header, so this reads
+     * the response body directly and parses the SSE frames itself.
+     *
+     * @param {object} handlers - { onStatus, onToken, onDone, onError }
+     */
+    async chatStream(conversationId, query, { top_k = 5 } = {}, handlers = {}) {
+      const { onStatus, onToken, onDone, onError } = handlers;
+
+      const res = await fetch(`${BASE}/chat/${conversationId}/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getToken()}`
+        },
+        body: JSON.stringify({ query, top_k, mode: 'answer' })
+      });
+
+      if (res.status === 401) {
+        clearSession();
+        window.location.href = '/static/auth.html';
+        throw new ApiError('Session expired', 401);
+      }
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new ApiError(err.detail || `HTTP ${res.status}`, res.status);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Frames are separated by a blank line; the last piece may be partial.
+        const frames = buffer.split('\n\n');
+        buffer = frames.pop();
+
+        for (const frame of frames) {
+          const line = frame.split('\n').find(l => l.startsWith('data: '));
+          if (!line) continue;
+
+          let ev;
+          try {
+            ev = JSON.parse(line.slice(6));
+          } catch {
+            continue;  // ignore a malformed frame rather than aborting
+          }
+
+          if (ev.type === 'status') onStatus?.(ev.message);
+          else if (ev.type === 'token') onToken?.(ev.text);
+          else if (ev.type === 'done') onDone?.(ev);
+          else if (ev.type === 'error') onError?.(new ApiError(ev.message, 500));
+        }
+      }
+    },
+
     async getChatHistory(conversationId) {
       return request('GET', `/chat/${conversationId}`);
     },
