@@ -143,13 +143,15 @@ class Settings(BaseSettings):
     enable_strategy_planning: bool = True
 
     # Restrict a question to the section it seems to be about ("how did they
-    # train it?" -> methodology). Measured on QASPER this costs accuracy rather
-    # than adding it: on the 60 of 259 questions it fires on, MRR falls 8.5%
-    # and Recall@5 18.2%, because section_type is absent on 63% of chunks, so
-    # the filter hides the majority of the corpus rather than focusing it.
-    # Left on by default because the behaviour predates the measurement and the
-    # corpus that fixes the tagging would change the result; set
-    # USE_SECTION_ROUTING=false to turn it off. See docs/BENCHMARKS.md.
+    # train it?" -> methodology). Measured on QASPER it shows no detectable
+    # benefit: on the 60 of 259 questions it fires on the point estimate is
+    # -8.5% MRR, but the 95% interval spans zero (p=0.42), so that sample
+    # cannot separate a real penalty from noise -- it only bounds any gain as
+    # small. What is not statistical is the cause: section_type is absent on
+    # 63% of chunks, so the filter hides most of the corpus rather than
+    # focusing it. Left on by default because the behaviour predates the
+    # measurement and no harm was demonstrated; set USE_SECTION_ROUTING=false
+    # to turn it off. See docs/BENCHMARKS.md.
     use_section_routing: bool = True
     
     # ==================== Answer Generation ====================
