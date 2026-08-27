@@ -487,8 +487,23 @@ Strategy: [recommended retrieval strategy]"""
                 filters["year"] = year
                 logger.info(f"🗓️ Year filter: {year}")
         
-        # Extract "recent" (last 2-3 years)
-        if re.search(r'\b(recent|latest|new)\b', query_lower):
+        # Extract "recent" (last 2-3 years).
+        #
+        # The recency word has to actually describe the *literature* — "recent
+        # papers", "the latest work". A bare \b(recent|latest|new)\b matched the
+        # far more common case of a paper describing its own contribution ("the
+        # new dataset", "what is the new metric?", "recent models they compare
+        # with"), which silently restricted those queries to the last two years
+        # and returned nothing. Measured on QASPER, that false positive hit 17
+        # of 1310 questions and zeroed every one of them.
+        #
+        # An explicit year in the query wins: "recent papers from 2015" means
+        # 2015, and overwriting it here discarded what the user actually said.
+        if "year" not in filters and re.search(
+            r'\b(recent|latest|new|newest)\b\s+(?:\w+\s+){0,2}'
+            r'(papers?|work|works|research|studies|study|publications?|articles?|literature)\b',
+            query_lower
+        ):
             from datetime import datetime
             current_year = datetime.now().year
             filters["year"] = {"$gte": current_year - 2}

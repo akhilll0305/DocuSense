@@ -81,6 +81,7 @@ from dataclasses import dataclass, field
 import time
 from loguru import logger
 
+from docusense.config.settings import settings
 from docusense.vectorstore import QdrantVectorStore
 from docusense.retrieval.query_processor import QueryProcessor
 from docusense.retrieval.hybrid_search import HybridSearch
@@ -208,6 +209,60 @@ class RetrievalPipeline:
         logger.info(f"  Hybrid search: {enable_hybrid_search}")
         logger.info(f"  Reranking: {enable_reranking}")
     
+    def _search(
+        self,
+        query: str,
+        top_k: int,
+        filters: Optional[Dict[str, Any]]
+    ) -> List[Any]:
+        """
+        Run one search with the configured backend.
+
+        Returns candidate results (four times top_k, so the reranker has
+        something to choose from), or an empty list if the backend fails. Both
+        the filtered pass and the widened retry go through here so they cannot
+        drift apart.
+        """
+        candidates = top_k * 4
+
+        if self.hybrid_search and self.enable_hybrid_search:
+            try:
+                return self.hybrid_search.search(
+                    query=query,
+                    top_k=candidates,
+                    filters=filters
+                )
+            except Exception as e:
+                logger.warning(f"Hybrid search failed: {e}")
+                return []
+
+        if self.vector_store:
+            try:
+                vector_results = self.vector_store.search(
+                    query=query,
+                    top_k=candidates,
+                    filters=filters
+                )
+            except Exception as e:
+                logger.error(f"Vector search failed: {e}")
+                return []
+
+            # Normalize to the shape the rest of the pipeline expects.
+            return [
+                type('Result', (), {
+                    'chunk_id': r.chunk_id,
+                    'document_id': r.document_id,
+                    'text': r.text,
+                    'vector_score': r.score,
+                    'bm25_score': 0.0,
+                    'fusion_score': r.score,
+                    'metadata': r.metadata
+                })()
+                for r in vector_results
+            ]
+
+        return []
+
     def retrieve(
         self,
         query: str,
@@ -230,6 +285,12 @@ class RetrievalPipeline:
         start_time = time.time()
         metrics = RetrievalMetrics(total_time=0.0)
         stages_used = []
+
+        # Filters inferred from the query text, as opposed to those the caller
+        # passed in. Only the inferred ones may be dropped when a search comes
+        # back empty: the caller's filters carry the tenant scope, and dropping
+        # user_id would search another user's documents.
+        derived_filter_keys: set = set()
         
         logger.info(f"🔍 Retrieving for query: '{query}'")
         logger.info(f"  Mode: {self.mode}, Top-K: {top_k}")
@@ -255,14 +316,25 @@ class RetrievalPipeline:
                     logger.info(f"  📚 Academic filters detected: {list(academic_filters.keys())}")
                     if filters is None:
                         filters = {}
-                    filters.update(academic_filters)
-                
+                    for key, value in academic_filters.items():
+                        if key not in filters:
+                            derived_filter_keys.add(key)
+                        filters[key] = value
+
                 # NEW: Apply section-based filtering
                 section_intent = processed_query.metadata.get("section_intent")
+                if section_intent and not settings.use_section_routing:
+                    logger.info(
+                        f"  📊 Section intent '{section_intent}' detected but "
+                        f"routing is disabled (USE_SECTION_ROUTING=false)"
+                    )
+                    section_intent = None
                 if section_intent:
                     logger.info(f"  📊 Section filter: {section_intent}")
                     if filters is None:
                         filters = {}
+                    if "section_type" not in filters:
+                        derived_filter_keys.add("section_type")
                     filters["section_type"] = section_intent
                 
             except Exception as e:
@@ -273,91 +345,47 @@ class RetrievalPipeline:
         
         # Stage 2: Search (Hybrid or Vector-only)
         search_start = time.time()
-        search_results = []
-        
-        if self.hybrid_search and self.enable_hybrid_search:
-            # Hybrid search (vector + BM25)
-            try:
-                search_results = self.hybrid_search.search(
-                    query=search_query,
-                    top_k=top_k * 4,  # Get more for reranking
-                    filters=filters
-                )
-                stages_used.append("hybrid_search")
-                logger.info(f"  Hybrid search: {len(search_results)} results")
-            except Exception as e:
-                logger.warning(f"Hybrid search failed: {e}")
-        
-        elif self.vector_store:
-            # Vector-only search
-            try:
-                vector_results = self.vector_store.search(
-                    query=search_query,
-                    top_k=top_k * 4,
-                    filters=filters
-                )
-                # Convert to hybrid format
-                search_results = [
-                    type('Result', (), {
-                        'chunk_id': r.chunk_id,
-                        'document_id': r.document_id,
-                        'text': r.text,
-                        'vector_score': r.score,
-                        'bm25_score': 0.0,
-                        'fusion_score': r.score,
-                        'metadata': r.metadata
-                    })()
-                    for r in vector_results
+        search_results = self._search(search_query, top_k, filters)
+        if search_results:
+            stages_used.append(
+                "hybrid_search" if (self.hybrid_search and self.enable_hybrid_search)
+                else "vector_search"
+            )
+
+        # An inferred filter must never be the reason a query comes back thin.
+        #
+        # Section labels are the case that motivated this: measured on the
+        # QASPER corpus, 63% of chunks carry no usable section_type, and
+        # "results" covers 3.4% of them. Routing a question there searched 3%
+        # of the corpus and returned a handful of hits -- enough that a
+        # zero-results check never fired, while the passage that actually
+        # answered the question sat in an untagged chunk and could not be
+        # reached. Measured, that cost 8.5% MRR on the questions routing fires
+        # on. So the trigger is "fewer candidates than we asked for", not
+        # "none": the unfiltered pool is merged in behind the filtered hits,
+        # which keeps the routing signal where it works and stops it from
+        # excluding everything else where it does not.
+        candidate_target = top_k * 4
+        if filters and derived_filter_keys and len(search_results) < candidate_target:
+            widened_filters = {
+                k: v for k, v in filters.items() if k not in derived_filter_keys
+            } or None
+
+            logger.info(
+                f"  Inferred filters {sorted(derived_filter_keys)} left "
+                f"{len(search_results)}/{candidate_target} candidates; widening"
+            )
+
+            extra = self._search(search_query, top_k, widened_filters)
+            if extra:
+                seen = {r.chunk_id for r in search_results}
+                search_results = search_results + [
+                    r for r in extra if r.chunk_id not in seen
                 ]
-                stages_used.append("vector_search")
-                logger.info(f"  Vector search: {len(search_results)} results")
-            except Exception as e:
-                logger.error(f"Vector search failed: {e}")
-                return [], metrics
-        
+                stages_used.append("filter_widening")
+
         metrics.search_time = time.time() - search_start
         metrics.num_initial_results = len(search_results)
-        
-        if not search_results and filters and "section_type" in filters:
-            # Retry without section filter (papers may not have section metadata)
-            logger.warning("No results with section filter, retrying without it...")
-            fallback_filters = {k: v for k, v in filters.items() if k != "section_type"}
-            fallback_filters = fallback_filters or None
-
-            if self.hybrid_search and self.enable_hybrid_search:
-                try:
-                    search_results = self.hybrid_search.search(
-                        query=search_query,
-                        top_k=top_k * 4,
-                        filters=fallback_filters
-                    )
-                    logger.info(f"  Fallback hybrid search: {len(search_results)} results")
-                except Exception as e:
-                    logger.warning(f"Fallback hybrid search failed: {e}")
-            elif self.vector_store:
-                try:
-                    vector_results = self.vector_store.search(
-                        query=search_query,
-                        top_k=top_k * 4,
-                        filters=fallback_filters
-                    )
-                    search_results = [
-                        type('Result', (), {
-                            'chunk_id': r.chunk_id,
-                            'document_id': r.document_id,
-                            'text': r.text,
-                            'vector_score': r.score,
-                            'bm25_score': 0.0,
-                            'fusion_score': r.score,
-                            'metadata': r.metadata
-                        })()
-                        for r in vector_results
-                    ]
-                    logger.info(f"  Fallback vector search: {len(search_results)} results")
-                except Exception as e:
-                    logger.error(f"Fallback vector search failed: {e}")
-
-            metrics.num_initial_results = len(search_results)
 
         if not search_results:
             logger.warning("No search results found")

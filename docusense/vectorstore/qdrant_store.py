@@ -70,8 +70,10 @@ from qdrant_client.models import (
     PointStruct,
     Filter,
     FieldCondition,
+    MatchAny,
     MatchValue,
-    PayloadSchemaType
+    PayloadSchemaType,
+    Range
 )
 from loguru import logger
 
@@ -460,6 +462,53 @@ class QdrantVectorStore:
         logger.success(f"✅ Added {len(points)} chunks to Qdrant")
         return len(points)
     
+    # Comparison keys accepted in a filter value, mapped to Qdrant's Range.
+    _RANGE_OPERATORS = {"$gte": "gte", "$gt": "gt", "$lte": "lte", "$lt": "lt"}
+
+    @classmethod
+    def build_filter(cls, filters: Optional[Dict[str, Any]]) -> Optional[Filter]:
+        """
+        Translate a plain dict of filters into a Qdrant Filter.
+
+        Three value shapes are supported, because that is what
+        `extract_academic_filters()` produces from natural language:
+
+            {"year": 2023}                       exact match
+            {"year": {"$gte": 2020, "$lte": 2023}}   range  ("papers from 2020-2023")
+            {"authors": ["Bengio", "Hinton"]}    match any
+
+        Ranges previously reached `MatchValue`, which accepts only bool/int/str,
+        so every query that mentioned a year range or "recent papers" raised a
+        pydantic ValidationError inside search. The pipeline caught it and
+        returned nothing, so the documented year filtering could not work.
+        """
+        if not filters:
+            return None
+
+        conditions = []
+        for key, value in filters.items():
+            if isinstance(value, dict):
+                bounds = {
+                    cls._RANGE_OPERATORS[op]: bound
+                    for op, bound in value.items()
+                    if op in cls._RANGE_OPERATORS
+                }
+                if not bounds:
+                    logger.warning(
+                        f"Ignoring filter '{key}': no supported comparison in {value}"
+                    )
+                    continue
+                conditions.append(FieldCondition(key=key, range=Range(**bounds)))
+            elif isinstance(value, (list, tuple, set)):
+                values = list(value)
+                if not values:
+                    continue
+                conditions.append(FieldCondition(key=key, match=MatchAny(any=values)))
+            else:
+                conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
+
+        return Filter(must=conditions) if conditions else None
+
     def search(
         self,
         query: str,
@@ -484,17 +533,7 @@ class QdrantVectorStore:
         query_embedding = self.embedding_generator.embed_text(query)
         
         # Prepare filter if provided
-        qdrant_filter = None
-        if filters:
-            conditions = []
-            for key, value in filters.items():
-                conditions.append(
-                    FieldCondition(
-                        key=key,
-                        match=MatchValue(value=value)
-                    )
-                )
-            qdrant_filter = Filter(must=conditions)
+        qdrant_filter = self.build_filter(filters)
         
         # Apply score threshold from settings if not provided
         if score_threshold is None and settings.use_score_threshold:

@@ -85,6 +85,13 @@ class RankedResult:
     rerank_score: float    # Score from cross-encoder
     rank_change: int = 0   # Position change after reranking
     metadata: dict = None
+
+    # Carried through from the search stage. Reranking replaces the ordering,
+    # not the record of how a chunk was found, and callers report the two
+    # signals separately -- without these the per-stage scores read 0.0 for
+    # every result as soon as reranking is enabled.
+    vector_score: float = 0.0
+    bm25_score: float = 0.0
     
     def __post_init__(self):
         if self.metadata is None:
@@ -231,7 +238,9 @@ class Reranker:
                     text=result.get('text', ''),
                     original_score=result.get('score', 0.0),
                     rerank_score=0.0,
-                    metadata=result.get('metadata', {})
+                    metadata=result.get('metadata', {}),
+                    vector_score=result.get('vector_score', 0.0),
+                    bm25_score=result.get('bm25_score', 0.0)
                 ))
             elif hasattr(result, 'chunk_id') and hasattr(result, 'text'):
                 # Object with chunk_id and text attributes
@@ -241,7 +250,9 @@ class Reranker:
                     text=result.text,
                     original_score=getattr(result, 'score', getattr(result, 'fusion_score', 0.0)),
                     rerank_score=0.0,
-                    metadata=getattr(result, 'metadata', {})
+                    metadata=getattr(result, 'metadata', {}),
+                    vector_score=getattr(result, 'vector_score', 0.0),
+                    bm25_score=getattr(result, 'bm25_score', 0.0)
                 ))
             else:
                 logger.warning(f"Unknown result format: {type(result)}, skipping")

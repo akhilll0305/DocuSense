@@ -141,6 +141,16 @@ class Settings(BaseSettings):
     enable_query_rewriting: bool = True
     enable_intent_classification: bool = True
     enable_strategy_planning: bool = True
+
+    # Restrict a question to the section it seems to be about ("how did they
+    # train it?" -> methodology). Measured on QASPER this costs accuracy rather
+    # than adding it: on the 60 of 259 questions it fires on, MRR falls 8.5%
+    # and Recall@5 18.2%, because section_type is absent on 63% of chunks, so
+    # the filter hides the majority of the corpus rather than focusing it.
+    # Left on by default because the behaviour predates the measurement and the
+    # corpus that fixes the tagging would change the result; set
+    # USE_SECTION_ROUTING=false to turn it off. See docs/BENCHMARKS.md.
+    use_section_routing: bool = True
     
     # ==================== Answer Generation ====================
     max_context_tokens: int = 3000
