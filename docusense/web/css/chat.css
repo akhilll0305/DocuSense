@@ -488,31 +488,6 @@
 
 .message__ref-num { color: var(--gold); font-family: var(--mono); }
 
-/* Confidence, set as a small running note */
-.message__confidence {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-  font-family: var(--sans);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-}
-
-.message__confidence::before {
-  content: '';
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.message__confidence--high { color: var(--ok); }
-.message__confidence--medium { color: var(--warn); }
-.message__confidence--low { color: var(--err); }
-
 /* File chip */
 .message__file {
   display: inline-grid;

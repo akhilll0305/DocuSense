@@ -40,6 +40,7 @@ from __future__ import annotations
 
 from typing import List, Dict, Optional, Any, TYPE_CHECKING
 from dataclasses import dataclass, field
+import math
 import re
 import time
 
@@ -149,6 +150,22 @@ Format each conflict as:
   - Paper B: [claim] (Author, Year)
   - Possible reason: [explanation]
   - Severity: [minor/moderate/major]"""
+
+
+def _normalize_score(score: float) -> float:
+    """
+    Map a retrieval score from any stage onto 0-1.
+
+    Scores already inside [0, 1] (vector similarity, RRF fusion) pass through;
+    anything else is treated as a logit and squashed. Keeps the confidence
+    estimate meaningful whichever retrieval stage ran last.
+    """
+    if 0.0 <= score <= 1.0:
+        return score
+    try:
+        return 1.0 / (1.0 + math.exp(-score))
+    except OverflowError:
+        return 0.0 if score < 0 else 1.0
 
 
 class AnswerGenerator:
@@ -814,10 +831,18 @@ class AnswerGenerator:
         """
         if not results or not answer_text:
             return 0.0
-        
-        # Average retrieval score
-        avg_score = sum(r.score for r in results) / len(results)
-        
+
+        # Average retrieval score, normalized to 0-1 first.
+        #
+        # `score` carries whichever stage ran last, and the stages are on
+        # different scales: vector similarity is already 0-1, RRF fusion is a
+        # small positive number, but a cross-encoder emits an unbounded logit
+        # that is routinely negative (roughly -11..+11 for ms-marco). Averaging
+        # those raw made the weighted sum negative, and the clamp below turned
+        # every reranked answer's confidence into exactly 0.0. A logistic maps
+        # any of them onto a comparable 0-1 range.
+        avg_score = sum(_normalize_score(r.score) for r in results) / len(results)
+
         # Source count factor (1-5 sources, diminishing returns)
         source_factor = min(len(results) / 3.0, 1.0)
         

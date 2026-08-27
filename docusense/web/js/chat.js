@@ -307,11 +307,11 @@
     return el.querySelector('.message__bubble');
   }
 
-  /** Append references and confidence once the stream completes. */
+  /** Append the reference list once the stream completes. */
   function finishBotMessage(bubble, data) {
     bubble.classList.remove('message__bubble--streaming');
     bubble.innerHTML = formatAnswer(data.answer || bubble.textContent || '');
-    bubble.insertAdjacentHTML('beforeend', referencesHtml(data) + confidenceHtml(data));
+    bubble.insertAdjacentHTML('beforeend', referencesHtml(data));
     scrollToBottom();
   }
 
@@ -348,14 +348,6 @@
     }</div>`;
   }
 
-  function confidenceHtml(data) {
-    if (data.confidence == null) return '';
-    const level = data.confidence > 0.7 ? 'high' : data.confidence > 0.4 ? 'medium' : 'low';
-    return `<div class="message__confidence message__confidence--${level}">
-      Confidence: ${Math.round(data.confidence * 100)}%
-    </div>`;
-  }
-
   function addBotMessage(data) {
     const el = document.createElement('div');
     el.className = 'message message--bot';
@@ -372,15 +364,6 @@
       }</div>`;
     }
 
-    // Confidence
-    let confHtml = '';
-    if (data.confidence != null) {
-      const level = data.confidence > 0.7 ? 'high' : data.confidence > 0.4 ? 'medium' : 'low';
-      confHtml = `<div class="message__confidence message__confidence--${level}">
-        Confidence: ${Math.round(data.confidence * 100)}%
-      </div>`;
-    }
-
     el.innerHTML = `
       <div class="message__avatar">
         <svg width="18" height="18" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="8" fill="url(#blg)"/>
@@ -391,7 +374,6 @@
       <div class="message__bubble">
         ${answerHtml}
         ${refsHtml}
-        ${confHtml}
       </div>
     `;
     messages.appendChild(el);
@@ -557,8 +539,7 @@
           `• ${result.num_embeddings} embeddings generated\n` +
           (result.is_research_paper ? `• Research paper detected: *${escHtml(result.paper_title || 'Untitled')}*\n` : '') +
           `• Processing time: ${result.processing_time?.toFixed(1)}s\n\n` +
-          `You can now ask questions about this paper!`,
-        confidence: 1.0
+          `You can now ask questions about this paper!`
       });
 
       // Refresh documents
