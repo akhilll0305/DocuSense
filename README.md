@@ -61,10 +61,53 @@ retrieval with RRF · section routing and academic filters · cross-encoder rera
 cited answer generation with fabricated-citation filtering · streamed responses (SSE) ·
 multi-turn chat · REST API · editorial web UI in light and dark
 
-**Not built yet:** token revocation, password reset, and published benchmark numbers. See [Known limitations](docs/ARCHITECTURE.md#known-limitations).
+**Not built yet:** token revocation and password reset. See [Known limitations](docs/ARCHITECTURE.md#known-limitations).
 
-Tests: 165 passing (unit + integration), 74% coverage.
+Tests: 210 passing (unit + integration).
 Run `python scripts/doctor.py` to check your environment before reporting a problem.
+
+---
+
+## Measured performance
+
+Retrieval is evaluated on [QASPER](https://allenai.org/data/qasper) — 80 papers, 1,048
+chunks, **259 questions** with evidence grounded to real chunk ids. Each arm answers the
+same questions, so the comparison is paired; intervals are from 10,000 bootstrap
+resamples. Full methodology, including what was dropped and why:
+**[docs/BENCHMARKS.md](docs/BENCHMARKS.md)**.
+
+| Retrieval | MRR | NDCG@10 | P@1 | Recall@10 | ms/query |
+|---|---|---|---|---|---|
+| Vector only | 0.1867 | 0.1949 | 0.1004 | 0.2938 | 17 |
+| + BM25, fused with RRF | 0.2244 | 0.2348 | 0.1313 | 0.3438 | 19 |
+| **+ cross-encoder rerank** | **0.2824** | **0.2771** | **0.2046** | **0.3816** | 1782 |
+| + query processing *(current default)* | 0.2777 | 0.2691 | 0.2046 | 0.3683 | 1791 |
+
+What holds up under a significance test, and what does not:
+
+- **Hybrid search helps.** +20.2% MRR over vector-only — Δ +0.0377, 95% CI
+  [+0.0189, +0.0584], p = 0.0003.
+- **Reranking helps most.** +25.8% MRR over hybrid alone — Δ +0.0581, 95% CI
+  [+0.0194, +0.0962], p = 0.0044. It doubles P@1 and costs ~1.8s per query on CPU.
+- **Query processing shows no measurable benefit.** Δ −0.0048, 95% CI
+  [−0.0152, +0.0066], p = 0.43. Not a demonstrated penalty either — simply not doing
+  anything detectable. [Why, and the section-labelling problem behind it.](docs/BENCHMARKS.md#what-the-numbers-say)
+
+Running this exposed that the shipped default had reranking **switched off** — the
+`USE_RERANKING` setting was overridden by the pipeline's `mode="balanced"`. The system
+scored 0.2041 MRR, which is not significantly better than plain vector search
+(p = 0.16), while the same components configured as documented reach 0.2777. That is
+fixed, and it is why the numbers above are worth having: the gap was invisible until
+something measured it.
+
+Answer generation is scored separately on 30 questions with `llama3.2:3b`
+(ROUGE-1 0.0594, completeness 0.6998). Those ROUGE figures are a regression signal, not
+an accuracy score, and citation accuracy is *not* reported because QASPER carries no
+author metadata to score it against — [both explained here](docs/BENCHMARKS.md#answer-quality).
+
+```bash
+python scripts/benchmark.py --papers 80        # reproduce (~20 min, CPU)
+```
 
 ---
 
@@ -73,10 +116,10 @@ Run `python scripts/doctor.py` to check your environment before reporting a prob
 | Capability | How it works |
 |---|---|
 | **Paper metadata extraction** | Pulls title, authors, year, venue, DOI/arXiv ID, abstract, 20+ section types, and both numbered `[1]` and author-year `(Smith, 2020)` citations — with a confidence score for "is this actually a paper?" |
-| **Section-aware routing** | `detect_section_intent()` maps question phrasing to the right section, so "how did they train" doesn't retrieve from the related-work section |
-| **Metadata filtering from natural language** | `extract_academic_filters()` parses "recent papers", "2020–2023", "by Yoshua Bengio", "NeurIPS papers" into structured Qdrant filters |
-| **Hybrid retrieval** | Vector search for meaning + BM25 for exact terms (`BERT-base` shouldn't match `RoBERTa`), fused with Reciprocal Rank Fusion |
-| **Cross-encoder reranking** | Retrieves a wide candidate set, then reranks for precision |
+| **Section-aware routing** | `detect_section_intent()` maps question phrasing to the right section, so "how did they train" doesn't retrieve from the related-work section. **Measured: no detectable benefit** on QASPER, because section labels are missing on 63% of chunks. On by default, `USE_SECTION_ROUTING=false` to disable — [the numbers](docs/BENCHMARKS.md#what-the-numbers-say) |
+| **Metadata filtering from natural language** | `extract_academic_filters()` parses "recent papers", "2020–2023", "by Yoshua Bengio", "NeurIPS papers" into structured Qdrant filters — ranges included, which is what the benchmark caught: they raised a validation error and returned nothing until `build_filter()` learned to emit `Range` |
+| **Hybrid retrieval** | Vector search for meaning + BM25 for exact terms (`BERT-base` shouldn't match `RoBERTa`), fused with Reciprocal Rank Fusion. **Measured: +20.2% MRR** over vector-only (p = 0.0003) |
+| **Cross-encoder reranking** | Retrieves a wide candidate set, then reranks for precision. **Measured: +25.8% MRR** over hybrid alone (p = 0.0044), for ~1.8s per query |
 | **Grounded citations** | Every claim is traced to a source chunk; exports APA reference lists and BibTeX |
 | **Fabricated citations removed** | Small models invent citations even when told not to, so every citation is checked against the retrieved sources by author and year, and unsupported ones are deleted rather than trusted |
 | **Streamed answers** | Local generation takes tens of seconds, so answers arrive token by token over SSE, with progress before the first token |
@@ -159,11 +202,27 @@ python scripts/ingest.py --reset data/papers/    # wipe the vector store first
 ### Test
 
 ```bash
-pytest                          # everything (165 tests)
+pytest                          # everything (210 tests)
 pytest -m integration           # real components, no mocks
 pytest -m "not integration"     # unit tests only
 python scripts/doctor.py        # check Qdrant / Ollama / Gemini / embeddings
 ```
+
+### Benchmark
+
+```bash
+# One-time: fetch QASPER (~18MB extracted)
+mkdir -p data/benchmarks/qasper
+curl -L -o /tmp/qasper.tgz   https://qasper-dataset.s3.us-west-2.amazonaws.com/qasper-test-and-evaluator-v0.3.tgz
+tar xzf /tmp/qasper.tgz -C data/benchmarks/qasper
+
+python scripts/benchmark.py --papers 80               # retrieval ablation (~20 min)
+python scripts/benchmark.py --papers 80 --answers 30  # + answer quality (needs Ollama)
+python scripts/benchmark.py --papers 5 --arms vector,hybrid   # quick smoke test
+```
+
+Papers are ingested under a dedicated benchmark user id, so a run cannot see or disturb
+your own documents. Results and methodology: [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
 ---
 
@@ -180,6 +239,8 @@ The ones that matter most:
 | `GEMINI_API_KEY` | — | Optional. Enables query rewriting/expansion; the system degrades gracefully without it |
 | `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | 384-dim. Changing this requires re-ingesting |
 | `TARGET_CHUNK_TOKENS` | `500` | Chunk sizing (range 200–800) |
+| `USE_RERANKING` | `true` | Cross-encoder reranking. Worth +25.8% MRR for ~1.8s per query; set `false` to trade accuracy for latency |
+| `USE_SECTION_ROUTING` | `true` | Restrict a question to the section it seems to be about. No measurable benefit on QASPER — see [BENCHMARKS.md](docs/BENCHMARKS.md) |
 
 ---
 
@@ -195,15 +256,17 @@ docusense/
 ├── vectorstore/    Qdrant client + academic payload indexes
 ├── retrieval/      Query processing, hybrid search, reranking
 ├── generation/     Answer generation, citations, conversation memory
-├── evaluation/     Retrieval + answer metrics, QASPER, benchmark runner
+├── evaluation/     Retrieval + answer metrics, QASPER harness, benchmark runner
 ├── storage/        SQLite chunk and conversation stores
 ├── web/            Landing page, auth page, chat UI
 └── rag_pipeline.py Top-level orchestrator (ingest / ask / chat)
 
 tests/              Unit + integration tests (test_integration.py, test_auth.py)
-docs/               Architecture notes; docs/archive/ holds the original course plan
+docs/               Architecture notes, benchmark results and methodology;
+                    docs/archive/ holds the original course plan
 data/               Local documents, SQLite DB, vector store (gitignored)
-scripts/            doctor.py (environment diagnostics), ingest.py (bulk ingestion)
+scripts/            doctor.py (environment diagnostics), ingest.py (bulk ingestion),
+                    benchmark.py (QASPER retrieval ablation)
 
 Dockerfile          Two-stage build; models baked in so the first query isn't a download
 docker-compose.yml  API + Qdrant + Ollama

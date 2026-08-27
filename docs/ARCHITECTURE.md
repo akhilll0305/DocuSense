@@ -82,7 +82,19 @@ happens inside Qdrant rather than in Python:
 | `query_processor.py` | `detect_section_intent()` routes questions to sections; `extract_academic_filters()` turns natural language into structured filters; `expand_with_academic_terms()` adds domain synonyms. Gemini-backed rewriting degrades gracefully when the API is unavailable |
 | `hybrid_search.py` | Vector + BM25, merged with Reciprocal Rank Fusion. BM25 needs an in-memory chunk corpus, indexed via `index_chunks()` |
 | `reranker.py` | Cross-encoder (`ms-marco-MiniLM-L-6-v2`) reranking of a wide candidate set |
-| `retrieval_pipeline.py` | Orchestrator with three modes — `fast` (vector only), `balanced` (+ query processing + hybrid), `accurate` (+ reranking). Falls back to an unfiltered search when a section filter yields nothing |
+| `retrieval_pipeline.py` | Orchestrator with three modes — `fast` (vector only), `balanced` (+ query processing + hybrid), `accurate` (+ reranking). Widens the search when a filter inferred from the query leaves too few candidates |
+
+#### Inferred filters are advisory
+
+Filters that come from the *query* (section routing, year/author/venue) are
+tracked separately from filters the *caller* passed in. If an inferred filter
+leaves fewer candidates than the search asked for, the pipeline re-runs without
+it and appends the wider pool behind the filtered hits, so routing keeps its
+precedence where it works without excluding the corpus where it does not.
+
+Caller filters are never dropped: `user_id` is one of them, and widening past it
+would search another tenant's documents. A caller who explicitly asks for
+`year=2021` gets an empty result rather than a silently broadened one.
 
 ### `generation/`
 | File | Responsibility |
@@ -126,9 +138,26 @@ generation, the assistant message after — so history is identical either way.
 |---|---|
 | `retrieval_metrics.py` | MRR, NDCG, Precision@K, Recall@K, MAP |
 | `answer_metrics.py` | ROUGE, citation accuracy, completeness |
-| `qasper_loader.py` | Loads QASPER (QA over scientific papers) as evaluation samples |
+| `qasper_loader.py` | Parses QASPER and rebuilds each paper as ingestible Markdown |
+| `qasper_harness.py` | Ingests QASPER, grounds evidence to chunk ids, runs the ablation arms, paired bootstrap |
 | `evaluator.py` | End-to-end evaluation orchestration |
 | `benchmark_runner.py` | Runs a benchmark config and writes a JSON report |
+
+Results and full methodology: [BENCHMARKS.md](BENCHMARKS.md). Reproduce with
+`python scripts/benchmark.py --papers 80`.
+
+The division of labour matters here. `retrieval_metrics.py` scores a ranking
+against a ground truth; it cannot produce a ground truth. QASPER marks evidence
+as paragraph *text*, and relevance in this system is a set of chunk ids that
+only exist after ingestion, so something has to ingest the papers and match
+evidence paragraphs to the chunks they landed in. That is `qasper_harness.py`,
+and its absence is why the framework produced empty reports for so long: the
+runner handed the evaluator samples with no retrieved ids and no relevant ids,
+and the evaluator's own filters discarded every one of them.
+
+Benchmark papers are ingested under a dedicated `user_id`, so the existing
+per-user isolation keeps a benchmark corpus out of any real user's documents,
+BM25 index, and search results.
 
 ### `storage/`
 SQLite via `chunk_store.py` (documents, chunks, images) and `conversation_store.py`
@@ -230,10 +259,60 @@ Tracked honestly rather than hidden — see the README for current status.
   a few-second wait before text begins; progress events cover it.
 - **Payload indexes are server-only.** Qdrant's local disk mode ignores the eight academic
   indexes, so metadata filters fall back to full scans. Correct, but not fast at scale.
-- **Benchmarks unpublished.** The evaluation framework exists but has not been run against
-  QASPER to produce reportable numbers.
 - **Metadata extraction is heuristic.** Title, author, and section detection are
   regex-based and tuned against a small sample; unusual layouts will still mis-parse.
+  Measured on the QASPER corpus, 63% of chunks end up with no usable `section_type`
+  (46.9% `other`, 8.7% missing, 7.0% `unknown`), which is what makes section routing
+  cost accuracy rather than add it — see below.
+- **Section routing costs accuracy on QASPER.** On the 60 of 259 benchmark questions it
+  fires on, routing lowers MRR by 8.5% and Recall@5 by 18.2%. It is left on by default
+  and can be turned off with `USE_SECTION_ROUTING=false`. The fix is better section
+  tagging, not a better filter. See [BENCHMARKS.md](BENCHMARKS.md).
+- **Reranking costs about 1.8s per query.** It is the largest single accuracy gain in
+  the ablation (+25.8% MRR over hybrid alone) but takes retrieval from ~20ms to ~1.9s
+  on CPU. Set `USE_RERANKING=false` to trade the accuracy back for latency.
+- **Answer quality is bounded by a 3B local model.** Retrieval is measured over 259
+  questions; generation quality is measured over 30 and is limited by `llama3.2:3b`,
+  which answers tersely.
+
+## Fixed in the benchmark pass
+
+The evaluation framework had never been run. Running it end to end surfaced six
+defects, four of them in the product rather than in the harness:
+
+- **The benchmark never ran the pipeline.** `BenchmarkRunner` loaded questions and
+  passed them straight to `RAGEvaluator` with `retrieved_ids` and `generated_answer`
+  empty. The evaluator skips such samples, so every report came back empty in 0.00s —
+  indistinguishable from a genuine score of zero. The runner now records a warning
+  explaining exactly which metrics could not be computed and why.
+- **The QASPER loader could not read QASPER.** `full_text` is a list of
+  `{section_name, paragraphs}`, not a dict, so zero sections parsed; and `evidence`
+  lives inside the `answer` object, not beside it, so zero evidence parsed. The unit
+  tests encoded both mistakes in their fixtures and passed throughout.
+- **Ground truth was synthetic.** `to_evaluation_samples()` set
+  `relevant_ids=["ev_0", "ev_1", ...]`, placeholders that can never equal a retrieved
+  chunk id. Every retrieval metric would have scored exactly 0.0 even with a working
+  pipeline.
+- **Year filters crashed the search.** `extract_academic_filters()` emits Mongo-style
+  ranges (`{"$gte": 2020}`), but `QdrantVectorStore.search` built only `MatchValue`
+  conditions, which accept bool/int/str. Any query mentioning a year range raised a
+  pydantic `ValidationError` that the pipeline caught and turned into an empty result,
+  so the documented year filtering had never worked. `build_filter()` now translates
+  ranges to `Range` and lists to `MatchAny`.
+- **"new" meant "published in the last two years".** The recency heuristic matched
+  `\b(recent|latest|new)\b` anywhere, so "what is the new metric?" — a paper describing
+  its own contribution — was restricted to 2024 onwards and returned nothing. It hit 17
+  of 1310 QASPER questions. The pattern now requires the word to modify the literature
+  ("recent papers", "the latest work"), and an explicit year in the query wins.
+- **`USE_RERANKING` did nothing.** `DocuSenseRAG` built its `RetrievalPipeline` with the
+  default `mode="balanced"`, which forces reranking off regardless of the setting. The
+  shipped system scored 0.2041 MRR while the same components configured as documented
+  reached 0.2777 — a 36% gap that was purely configuration. The pipeline is now built in
+  `mode="accurate"` with `enable_reranking=settings.use_reranking`.
+
+One regression came out of that last fix and was caught by an existing test:
+`RankedResult` did not carry `vector_score`/`bm25_score`, so turning reranking on
+zeroed the per-stage scores in every result. Both fields are now carried through.
 
 ## Fixed in the repair pass
 
