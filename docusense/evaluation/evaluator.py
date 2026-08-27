@@ -69,6 +69,12 @@ class EvaluationSample:
     source_papers: List[str] = field(default_factory=list)
     relevance_scores: Optional[Dict[str, float]] = None
 
+    # Ground truth as it arrives from a dataset, before ingestion exists.
+    # QASPER marks evidence by paragraph *text*; `relevant_ids` can only be
+    # filled once those paragraphs have been resolved to real chunk ids.
+    evidence_texts: List[str] = field(default_factory=list)
+    paper_id: str = ""
+
 
 class RAGEvaluator:
     """

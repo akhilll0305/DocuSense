@@ -50,6 +50,7 @@ class BenchmarkReport:
     benchmark_time: float = 0.0
     timestamp: str = ""
     summary: Dict[str, Any] = field(default_factory=dict)
+    warnings: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -59,6 +60,7 @@ class BenchmarkReport:
             "timestamp": self.timestamp,
             "results": self.result.to_dict() if self.result else {},
             "summary": self.summary,
+            "warnings": self.warnings,
         }
 
     def __str__(self) -> str:
@@ -119,6 +121,8 @@ class BenchmarkRunner:
             logger.warning("⚠️ No samples loaded, returning empty report")
             return BenchmarkReport(config=config, result=EvaluationResult())
 
+        warnings = self._check_samples(samples, config)
+
         # Run evaluation
         result = self.evaluator.evaluate(
             samples,
@@ -137,7 +141,8 @@ class BenchmarkRunner:
             num_samples=len(samples),
             benchmark_time=elapsed,
             timestamp=time.strftime("%Y-%m-%dT%H:%M:%S"),
-            summary=summary
+            summary=summary,
+            warnings=warnings,
         )
 
         # Save report
@@ -153,7 +158,11 @@ class BenchmarkRunner:
         """
         Run a quick benchmark with built-in sample data.
 
-        No external dataset needed — great for testing the eval pipeline.
+        No external dataset needed. This is a smoke test of the evaluation
+        plumbing, not a measurement: the built-in samples carry no retrieved
+        ids and no generated answers, so the report comes back with warnings
+        and no metrics. Real numbers come from `scripts/benchmark.py`, which
+        ingests QASPER papers and runs the retrieval pipeline over them.
         """
         config = BenchmarkConfig(
             name="sample_benchmark",
@@ -189,6 +198,57 @@ class BenchmarkRunner:
             timestamp=time.strftime("%Y-%m-%dT%H:%M:%S"),
             summary=self._build_summary(result)
         )
+
+    @staticmethod
+    def _check_samples(
+        samples: List[EvaluationSample],
+        config: BenchmarkConfig
+    ) -> List[str]:
+        """
+        Say plainly when the samples cannot produce the requested metrics.
+
+        `RAGEvaluator` skips any sample without `retrieved_ids`/`relevant_ids`
+        (retrieval) or without `generated_answer` (answers). A config that asks
+        for metrics nothing can supply used to yield a report with an empty
+        `results` block and no explanation — indistinguishable from a genuine
+        score of zero. These warnings are logged and travel with the report.
+
+        Loading a dataset alone never fills those fields: running the pipeline
+        does. See `QASPERHarness`.
+        """
+        warnings: List[str] = []
+
+        if config.evaluate_retrieval:
+            scorable = sum(1 for s in samples if s.retrieved_ids and s.relevant_ids)
+            if scorable == 0:
+                warnings.append(
+                    "No retrieval metrics: no sample has both retrieved_ids and "
+                    "relevant_ids. Run the retrieval pipeline over an ingested "
+                    "corpus first (see QASPERHarness)."
+                )
+            elif scorable < len(samples):
+                warnings.append(
+                    f"Retrieval metrics cover {scorable}/{len(samples)} samples; "
+                    "the rest lack retrieved_ids or relevant_ids."
+                )
+
+        if config.evaluate_answers:
+            scorable = sum(1 for s in samples if s.generated_answer)
+            if scorable == 0:
+                warnings.append(
+                    "No answer metrics: no sample has a generated_answer. "
+                    "Generate answers before evaluating them."
+                )
+            elif scorable < len(samples):
+                warnings.append(
+                    f"Answer metrics cover {scorable}/{len(samples)} samples; "
+                    "the rest have no generated_answer."
+                )
+
+        for warning in warnings:
+            logger.warning(warning)
+
+        return warnings
 
     def _load_samples(self, config: BenchmarkConfig) -> List[EvaluationSample]:
         """Load evaluation samples based on config."""

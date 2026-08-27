@@ -43,8 +43,16 @@ numpy>=1.24.0
 rank-bm25>=0.2.2              # BM25 keyword search
 
 # ==================== Evaluation ====================
+# Required for scripts/benchmark.py. Without rouge-score the ROUGE columns are
+# reported as null rather than 0.0, so a missing install cannot be mistaken for
+# a genuine score of zero.
 rouge-score>=0.1.2            # ROUGE metrics for answer quality
-datasets>=2.14.0              # QASPER benchmark loading
+# bert-score is optional and not installed by default: it pulls in a second
+# transformer model for a metric the benchmark does not currently rely on.
+# Install it to populate the BERTScore columns.
+
+# QASPER is read straight from its released JSON, so HuggingFace `datasets` is
+# not needed. It was listed here and never imported.
 
 # ==================== Development ====================
 pytest>=7.4.3

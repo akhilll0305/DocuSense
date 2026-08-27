@@ -68,13 +68,35 @@ class AnswerMetricsResult:
     completeness: float = 0.0      # Coverage of key terms from query
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "ROUGE-1": round(self.rouge_1, 4),
-            "ROUGE-2": round(self.rouge_2, 4),
-            "ROUGE-L": round(self.rouge_l, 4),
-            "BERTScore-P": round(self.bert_precision, 4),
-            "BERTScore-R": round(self.bert_recall, 4),
-            "BERTScore-F1": round(self.bert_f1, 4),
+        """
+        Serialize, distinguishing "not computed" from "computed as zero".
+
+        A missing optional library used to be indistinguishable from a genuine
+        score of 0.0: `rouge-score` was absent from the environment while
+        listed in requirements.txt, and every report would have published
+        ROUGE-1 = 0.0 as if the answers had no overlap at all. Metrics whose
+        backing library is unavailable now serialize as null and are named in
+        `not_computed`.
+        """
+        not_computed = []
+        if not ROUGE_AVAILABLE:
+            not_computed.append("ROUGE (install rouge-score)")
+        if not BERTSCORE_AVAILABLE:
+            not_computed.append("BERTScore (install bert-score)")
+
+        def rouge(value: float) -> Optional[float]:
+            return round(value, 4) if ROUGE_AVAILABLE else None
+
+        def bert(value: float) -> Optional[float]:
+            return round(value, 4) if BERTSCORE_AVAILABLE else None
+
+        payload: Dict[str, Any] = {
+            "ROUGE-1": rouge(self.rouge_1),
+            "ROUGE-2": rouge(self.rouge_2),
+            "ROUGE-L": rouge(self.rouge_l),
+            "BERTScore-P": bert(self.bert_precision),
+            "BERTScore-R": bert(self.bert_recall),
+            "BERTScore-F1": bert(self.bert_f1),
             "Citation-P": round(self.citation_precision, 4),
             "Citation-R": round(self.citation_recall, 4),
             "Citation-F1": round(self.citation_f1, 4),
@@ -83,6 +105,9 @@ class AnswerMetricsResult:
             "has_citations": self.has_citations,
             "answer_length": self.answer_length,
         }
+        if not_computed:
+            payload["not_computed"] = not_computed
+        return payload
 
     def __str__(self) -> str:
         lines = ["Answer Quality Metrics:"]
