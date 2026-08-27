@@ -63,4 +63,4 @@ def get_logger(name: str = None):
 
 
 # Export logger for convenience
-__all__ = ["logger", "get_logger", "setup_logging"]
+__all__ = ["get_logger", "logger", "setup_logging"]

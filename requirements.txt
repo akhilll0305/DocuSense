@@ -60,5 +60,10 @@ pytest-cov>=4.1.0
 pytest-asyncio>=0.21.1
 httpx>=0.27.0                 # Required by fastapi.testclient
 black>=23.12.0
-ruff>=0.1.8
+# Pinned, not floating. A linter's rule set grows between releases, so an
+# unpinned `ruff>=...` means CI can fail on code nobody touched: CI resolved
+# 0.16.4 while this venv had 0.15.0, and the newer default rule set flagged
+# nine pre-existing __all__ blocks. Local and CI now run the same tool, and
+# upgrading is a deliberate commit that fixes any new findings with it.
+ruff==0.15.0
 mypy>=1.7.1

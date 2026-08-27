@@ -18,11 +18,11 @@ from .store import DuplicateEmailError, User, UserStore
 
 __all__ = [
     "AuthError",
+    "DuplicateEmailError",
+    "User",
+    "UserStore",
     "create_access_token",
     "decode_access_token",
     "hash_password",
     "verify_password",
-    "DuplicateEmailError",
-    "User",
-    "UserStore",
 ]

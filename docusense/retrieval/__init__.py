@@ -38,7 +38,10 @@ from .retrieval_pipeline import (
     retrieve
 )
 
-__all__ = [
+# Grouped by module rather than sorted alphabetically: the comment headings
+# below are the point of the list. RUF022 wants a flat isort-style sort,
+# which would scatter each group across the others.
+__all__ = [  # noqa: RUF022
     # Query Processing
     "QueryProcessor",
     "ProcessedQuery", 

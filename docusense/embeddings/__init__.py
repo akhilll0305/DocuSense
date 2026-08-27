@@ -18,6 +18,6 @@ from .embedding_generator import (
 __all__ = [
     'EmbeddingGenerator',
     'EmbeddingResult',
-    'embed_text',
-    'embed_batch'
+    'embed_batch',
+    'embed_text'
 ]
