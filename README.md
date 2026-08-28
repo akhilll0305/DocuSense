@@ -48,7 +48,7 @@ PDF / DOCX / TXT
                    Ollama llama3.2      APA / references / BibTeX
       |
       v
-[ API + Web UI ]   FastAPI (14 endpoints, JWT-protected) + vanilla HTML/CSS/JS
+[ API + Web UI ]   FastAPI (18 endpoints, JWT-protected) + vanilla HTML/CSS/JS
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module-level detail.
@@ -61,15 +61,19 @@ The pipeline runs end to end: ingest a paper, ask a question, get a grounded ans
 inline citations and an APA reference list. Multi-turn chat resolves pronouns against
 conversation history.
 
-**Working:** email/password accounts with bcrypt + JWT · per-user document isolation ·
+**Working:** email/password accounts with bcrypt + JWT · revocable sessions (sign out here
+or everywhere) · password change · per-user document isolation ·
 ingestion with paper metadata extraction · section-tagged chunking · hybrid vector + BM25
 retrieval with RRF · academic metadata filters · cross-encoder reranking ·
 cited answer generation with fabricated-citation filtering · streamed responses (SSE) ·
 multi-turn chat · REST API · editorial web UI in light and dark
 
-**Not built yet:** token revocation and password reset. See [Known limitations](docs/ARCHITECTURE.md#known-limitations).
+**Not built yet:** self-service password reset and email verification — both need an
+email channel, and resetting on request alone would hand any account to anyone who knows
+its address. Recovery is `python scripts/reset_password.py <email>`, run by whoever
+operates the instance. See [Known limitations](docs/ARCHITECTURE.md#known-limitations).
 
-Tests: 255 passing (unit + integration).
+Tests: 270 passing (unit + integration).
 Run `python scripts/doctor.py` to check your environment before reporting a problem.
 
 ---
@@ -206,6 +210,22 @@ For production, set a signing key — the app refuses to start without one when
 python -c "import secrets; print(secrets.token_urlsafe(48))"   # -> JWT_SECRET_KEY
 ```
 
+Sessions can be ended server-side, which a signed JWT does not allow on its own:
+
+```bash
+POST /api/auth/logout        # this session only; other devices keep working
+POST /api/auth/logout-all    # every session for the account, in one write
+POST /api/auth/password      # change the password; ends every other session
+```
+
+Forgotten passwords are reset from the machine running DocuSense, because
+nothing here can prove who owns an email address:
+
+```bash
+python scripts/reset_password.py user@example.com --generate
+python scripts/reset_password.py --list
+```
+
 ### Ingest documents
 
 ```bash
@@ -217,7 +237,7 @@ python scripts/ingest.py --reset data/papers/    # wipe the vector store first
 ### Test
 
 ```bash
-pytest                          # everything (255 tests)
+pytest                          # everything (270 tests)
 pytest -m integration           # real components, no mocks
 pytest -m "not integration"     # unit tests only
 python scripts/doctor.py        # check Qdrant / Ollama / Gemini / embeddings
@@ -281,7 +301,8 @@ docs/               Architecture notes, benchmark results and methodology;
                     docs/archive/ holds the original course plan
 data/               Local documents, SQLite DB, vector store (gitignored)
 scripts/            doctor.py (environment diagnostics), ingest.py (bulk ingestion),
-                    benchmark.py (QASPER retrieval ablation)
+                    benchmark.py (QASPER retrieval ablation),
+                    reset_password.py (operator account recovery)
 
 Dockerfile          Two-stage build; models baked in so the first query isn't a download
 docker-compose.yml  API + Qdrant + Ollama

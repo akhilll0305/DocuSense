@@ -167,8 +167,43 @@ SQLite via `chunk_store.py` (documents, chunks, images) and `conversation_store.
 ### `auth/`
 | File | Responsibility |
 |---|---|
-| `security.py` | bcrypt password hashing and JWT issue/verify. Rejects passwords over bcrypt's 72-byte limit rather than silently truncating them |
-| `store.py` | SQLite user accounts, sharing the application database so document ownership is a plain foreign-key relationship |
+| `security.py` | bcrypt password hashing and JWT issue/verify. Rejects passwords over bcrypt's 72-byte limit rather than silently truncating them. Every token carries a `jti` and a `tv` so it can be revoked |
+| `store.py` | SQLite user accounts and the revoked-token blocklist, sharing the application database so document ownership is a plain foreign-key relationship |
+
+### Revoking a stateless token
+
+A signed JWT is valid until it expires. Nothing about the token changes when
+someone signs out, so "log out" that only clears the client's copy leaves a
+working credential in anything else that has it — a shell history, a proxy log,
+a copied `curl`. Making it revocable needs server-side state, and the two kinds
+answer different questions:
+
+| | Mechanism | Answers |
+|---|---|---|
+| Sign out this device | `jti`, a unique id per token, recorded in `revoked_tokens` | "Has *this* token been signed out?" |
+| Sign out everywhere | `tv`, the user's token version, compared to `users.token_version` | "Has *every* token been signed out since this one was issued?" |
+
+Both are needed. A blocklist alone cannot express "sign out everywhere" without
+knowing every outstanding token id, which the server does not; a version alone
+cannot sign out one device without signing out the rest.
+
+The version is what a password change moves, so changing a password ends every
+session that was running under the old one. `POST /api/auth/password` hands back
+a replacement token so the caller who made the change is not signed out by it.
+
+The blocklist is bounded by token lifetime rather than by usage: a revocation
+row is only useful until the token it names would have expired, so expired rows
+are dropped whenever another is written.
+
+`decode_access_token` deliberately does none of this — it verifies the signature
+and the expiry and nothing else, so it stays testable without a database. The
+revocation checks live in `api/deps.get_current_user`, where the store is in
+scope and every protected route passes through.
+
+Tokens issued before this existed carry neither claim. They are treated as
+version 1, so they keep working until something bumps the user past it and stop
+the moment it does. `POST /api/auth/logout` says so plainly rather than
+reporting a revocation it could not perform.
 
 ### Multi-tenancy
 
@@ -275,10 +310,17 @@ means no per-query cost, no rate limits, and documents never leave the machine.
 
 Tracked honestly rather than hidden — see the README for current status.
 
-- **No token revocation.** JWTs are stateless, so a token stays valid until it expires;
-  there is no logout-everywhere or blocklist. Logout clears the client's copy only.
-- **No password reset or email verification.** Accounts are email plus password, and
-  nothing confirms the address is real.
+- **No self-service password reset, and no email verification.** Accounts are email plus
+  password, and nothing confirms the address is real — which is exactly why there is no
+  "forgot password" endpoint. Resetting a password on request alone would hand any
+  account to anyone who knows its email address, and the honest alternative, a mailed
+  one-time link, needs an email provider this does not have. Recovery is
+  `python scripts/reset_password.py <email>`, run by whoever operates the instance;
+  they already have the database file, so this grants no access they lacked, it only
+  makes the change safe to perform.
+- **The revocation check costs a query per request.** Every authenticated request reads
+  the blocklist. At this scale that is a primary-key lookup in SQLite, but it is the
+  price of revocable stateless tokens and it does not disappear under load.
 - **Health check is shallow.** `/api/health` reports whether components have been lazily
   constructed, not whether Qdrant and Ollama are actually reachable. `scripts/doctor.py`
   does the real check in the meantime.

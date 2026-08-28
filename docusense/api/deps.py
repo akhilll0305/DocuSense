@@ -87,4 +87,36 @@ def get_current_user(
         # Token signature was valid but the account is gone.
         raise _unauthorized("User no longer exists")
 
+    # A valid signature is not the same as a live session. Both checks below
+    # are the reason a JWT can be revoked here at all.
+
+    # Signed out on this device.
+    if store.is_token_revoked(claims.get("jti", "")):
+        raise _unauthorized("Session has been signed out")
+
+    # Signed out everywhere, or the password changed. Tokens issued before
+    # versioning existed carry no `tv`; they count as version 1, so they keep
+    # working until something bumps the user past it — and stop the moment it
+    # does, which is the property that matters.
+    if int(claims.get("tv", 1)) != user.token_version:
+        raise _unauthorized("Session is no longer valid")
+
     return user
+
+
+def get_token_claims(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+) -> dict:
+    """
+    Dependency: the claims of the presented token.
+
+    Signing out needs the token's own id and expiry, which `get_current_user`
+    deliberately does not return — it answers "who is this", not "which token
+    said so".
+    """
+    if credentials is None or not credentials.credentials:
+        raise _unauthorized("Not authenticated")
+    try:
+        return decode_access_token(credentials.credentials)
+    except AuthError as e:
+        raise _unauthorized(str(e)) from None

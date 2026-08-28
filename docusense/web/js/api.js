@@ -100,9 +100,38 @@ const API = (() => {
       return request('GET', '/auth/me');
     },
 
-    logout() {
-      clearSession();
-      window.location.href = '/static/auth.html';
+    /**
+     * Sign out.
+     *
+     * Tells the server to revoke this token before dropping the local copy.
+     * Clearing localStorage alone leaves a working token behind in anything
+     * else that has it, which is what logout used to do.
+     *
+     * The redirect happens whatever the server says: a failed revocation must
+     * not strand someone in a session they asked to leave. What it costs is
+     * that the token stays live until it expires, so the failure is logged
+     * rather than swallowed.
+     */
+    async logout({ everywhere = false } = {}) {
+      try {
+        await request('POST', everywhere ? '/auth/logout-all' : '/auth/logout');
+      } catch (e) {
+        console.warn('[DocuSense] Sign-out was not confirmed by the server:', e.message);
+      } finally {
+        clearSession();
+        window.location.href = '/static/auth.html';
+      }
+    },
+
+    async changePassword(currentPassword, newPassword) {
+      const data = await request('POST', '/auth/password', {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      // The change invalidates every existing token, this one included; the
+      // response carries a replacement so the page stays signed in.
+      setSession(data.access_token, data.user);
+      return data;
     },
 
     // Ingestion
