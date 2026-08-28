@@ -37,6 +37,8 @@ Created: 2026-03-03
 """
 
 import re
+from collections import Counter
+from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 from dataclasses import dataclass, field
@@ -106,11 +108,18 @@ class PaperMetadata:
         return self.confidence > 0.5
     
     def get_section_type(self, char_position: int) -> str:
-        """Get section type for a given character position."""
+        """
+        Get section type for a given character position.
+
+        The bounds are compared against None, not truth-tested: the first
+        section of every document starts at character 0, and `if
+        section.start_char` treated that as "no start recorded" and skipped it.
+        """
         for section in self.sections:
-            if section.start_char and section.end_char:
-                if section.start_char <= char_position < section.end_char:
-                    return section.section_type
+            if section.start_char is None or section.end_char is None:
+                continue
+            if section.start_char <= char_position < section.end_char:
+                return section.section_type
         return "unknown"
     
     def to_dict(self) -> Dict:
@@ -155,17 +164,58 @@ class PaperMetadataExtractor:
     - Citation patterns ([1], (Author, 2020))
     """
     
-    # Common section headers in research papers
+    # Section headers in research papers, in priority order: the first pattern
+    # that matches wins, so the more specific phrasings come first.
+    #
+    # Order is load-bearing. "Experimental Results" is a results section, so
+    # `results` is tested before `experiments`; "Conclusion and Future Work" is
+    # a conclusion, so `conclusion` is tested before both. Testing
+    # `abstract: (abstract|summary)` first, as this used to, classified
+    # "Summary and Future Work" as an abstract.
+    #
+    # The vocabulary is wider than the original nine patterns because real
+    # papers do not name their sections after the canonical IMRaD labels. On
+    # the QASPER corpus the old set left 46.9% of chunks tagged "other" --
+    # "Data set", "Setup", "Ablation Study", "Error Analysis", "Baselines" all
+    # fell through -- and section routing cannot work over labels that mostly
+    # say nothing.
     SECTION_PATTERNS = {
-        "abstract": r"\b(abstract|summary)\b",
-        "introduction": r"\b(introduction|background)\b",
-        "related_work": r"\b(related work|literature review|prior work|previous work)\b",
-        "methodology": r"\b(method(ology)?|approach|model|architecture|system)\b",
-        "experiments": r"\b(experiment(s|al)?|evaluation|validation)\b",
-        "results": r"\b(results?|findings|performance)\b",
-        "discussion": r"\b(discussion|analysis)\b",
-        "conclusion": r"\b(conclusion(s)?|summary|future work)\b",
-        "references": r"\b(references|bibliography)\b"
+        "references": r"\b(references|bibliograph(y|ies)|works cited)\b",
+        "acknowledgements": r"\backnowledge?ments?\b",
+        "appendix": r"\b(appendix|appendices|supplementary)\b",
+        "abstract": r"\babstract\b",
+        "related_work": (
+            r"\b(related work|literature review|prior work|previous work|"
+            r"related literature|state of the art)\b"
+        ),
+        "conclusion": (
+            r"\b(conclusions?|concluding remarks|future work|future directions|"
+            r"limitations?|takeaways?|summary)\b"
+        ),
+        "results": (
+            r"\b(results?|findings|error analysis|main finding)\b"
+        ),
+        "experiments": (
+            r"\b(experiments?|experimental|evaluation|validation|"
+            r"(experimental |training |implementation )?(setup|settings?|details)|"
+            r"ablations?|baselines?|hyper-?parameters?|"
+            r"(evaluation |training )?(metrics?|protocol|procedure)|"
+            r"case stud(y|ies)|user study|human evaluation)\b"
+        ),
+        "dataset": (
+            r"\b(datasets?|data set|corpus|corpora|data collection|"
+            r"data description|data preparation|annotation(s| scheme| process)?|"
+            r"data)\b"
+        ),
+        "methodology": (
+            r"\b(method(s|ology|ologies)?|approach(es)?|model(s|ling|ing)?|"
+            r"architectures?|systems?|algorithms?|frameworks?|networks?|"
+            r"formulation|preliminaries|notation|"
+            r"(task|problem) (definition|statement|formulation)|"
+            r"our (model|method|approach|system))\b"
+        ),
+        "discussion": r"\b(discussion|analysis|interpretation|qualitative)\b",
+        "introduction": r"\b(introduction|motivation|overview|background)\b",
     }
     
     # Common academic venues (for detection)
@@ -196,11 +246,13 @@ class PaperMetadataExtractor:
         
         # Extract components
         metadata.title = self._extract_title(markdown)
-        metadata.authors = self._extract_authors(markdown)
-        metadata.year = self._extract_year(markdown)
-        metadata.venue = self._extract_venue(markdown)
+        # Authors are bounded below the title, and the year uses the arXiv id
+        # as a fallback signal, so both depend on what is extracted above them.
+        metadata.authors = self._extract_authors(markdown, metadata.title)
         metadata.doi = self._extract_doi(markdown)
         metadata.arxiv_id = self._extract_arxiv_id(markdown)
+        metadata.year = self._extract_year(markdown, metadata.arxiv_id)
+        metadata.venue = self._extract_venue(markdown)
         metadata.abstract = self._extract_abstract(markdown)
         metadata.keywords = self._extract_keywords(markdown)
         metadata.sections = self._extract_sections(markdown)
@@ -336,74 +388,317 @@ class PaperMetadataExtractor:
         words = {w.lower().strip('.,') for w in name.split()}
         return bool(words & self._NON_NAME_WORDS)
 
-    def _extract_authors(self, markdown: str) -> List[str]:
+    # ------------------------------------------------------------------
+    # Authors
+    # ------------------------------------------------------------------
+
+    # One token of a personal name: an initial ("J", "J."), a nobiliary
+    # particle ("van", "de", "al-"), or a capitalized word, including
+    # hyphenated and apostrophised surnames and accented letters.
+    _NAME_TOKEN = re.compile(
+        r"^(?:"
+        r"[A-ZÀ-Þ]\.?"
+        r"|(?:[Dd]e|[Dd]a|[Dd]i|[Dd]el|[Dd]er|[Dd]en|[Dd]os|[Vv]an|[Vv]on|[Ll]a|[Ll]e"
+        r"|[Bb]in|[Ii]bn|[Aa]l|[Ss]an|[Ss]t\.?)"
+        r"|(?:Mc|Mac|O['’])?"
+        r"[A-ZÀ-Þ][a-zß-ÿ]+"
+        r"(?:[-'’][A-ZÀ-Þa-zß-ÿ][a-zß-ÿ]*)*"
+        r")$"
+    )
+
+    # Particles and initials cannot stand in for a surname on their own.
+    _NAME_PARTICLES = {
+        'de', 'da', 'di', 'del', 'der', 'den', 'dos', 'van', 'von', 'la', 'le',
+        'bin', 'ibn', 'al', 'san', 'st', 'st.',
+    }
+
+    # Footnote and affiliation markers hung off author names.
+    _AUTHOR_MARKERS = re.compile(
+        r'[*†‡§¶∗¹²³⁰-⁹]|\d'
+    )
+
+    # The line that ends the front matter: the first real section.
+    _FRONT_MATTER_END = re.compile(
+        r'^\s*(?:#{1,6}\s*)?(?:\d+\.?\s*)?('
+        r'abstract|summary|keywords?|index\s+terms|introduction|'
+        r'correspondence|received:|accepted:|published:|citation:'
+        r')\b',
+        re.IGNORECASE,
+    )
+
+    _EMAIL = re.compile(r'[\w.+-]+@[\w-]+\.[\w.]+')
+
+    @staticmethod
+    def _normalize_for_compare(text: str) -> str:
+        """Lowercase alphanumeric skeleton, for comparing a line to the title."""
+        return re.sub(r'[^a-z0-9]+', '', text.lower())
+
+    def _author_region(self, markdown: str, title: Optional[str]) -> List[str]:
         """
-        Extract author names.
-        
-        Strategy:
-        1. Look for patterns like "John Smith, Jane Doe"
-        2. Look for author annotations (*, †, 1, 2)
-        3. Filter out common false positives
+        The lines that could hold the author block.
+
+        Authors sit between the title and the first front-matter section, so
+        the search is bounded on both sides. Bounding it at the top is what
+        stops the title itself being read as a name — the failure that gave a
+        paper with no author line authors like
+        ["New Multimodal Benchmark Dataset"].
+
+        Args:
+            markdown: Converted document text
+            title: Extracted title, walked past before collecting
+
+        Returns:
+            Candidate author-block lines, in document order
         """
-        authors = []
+        lines = markdown[:2500].split('\n')
+        title_skeleton = self._normalize_for_compare(title) if title else ''
 
-        # Get first ~2000 characters (authors should be near top)
-        top_section = markdown[:2000]
+        region: List[str] = []
+        consumed_title = not bool(title_skeleton)
+        seen_skeleton = ''
 
-        # Stop before the affiliation/correspondence block, which is dense with
-        # capitalized institution names that look like people to a regex.
-        cutoff = re.search(
-            r'^\s*(Abstract|Keywords|Correspondence|\*?\s*Correspondence)\b',
-            top_section, re.IGNORECASE | re.MULTILINE,
-        )
-        if cutoff:
-            top_section = top_section[:cutoff.start()]
-
-        # Look for comma-separated names with possible annotations
-        # Pattern: "First Last, First Last" or "First Last1, First Last2"
-        # Uses [ \t]+ rather than \s+ so a name cannot span two lines.
-        pattern = r'([A-Z][a-z]+(?:[ \t]+[A-Z][a-z]+)+[*†‡§¶0-9]*)'
-        matches = re.findall(pattern, top_section)
-
-        for match in matches:
-            # Clean up annotations
-            name = re.sub(r'[*†‡§¶0-9]+$', '', match).strip()
-            # Reasonable name length
-            if not (5 <= len(name) <= 50 and name.count(' ') >= 1):
+        for raw in lines[:60]:
+            line = raw.strip()
+            if not line:
                 continue
-            if self._is_not_a_person(name):
+            if self._FRONT_MATTER_END.match(line):
+                break
+
+            stripped = re.sub(r'^#{1,6}\s*', '', line).strip()
+
+            # Walk past the title, which converters often wrap over several
+            # lines, before collecting anything.
+            if not consumed_title:
+                seen_skeleton += self._normalize_for_compare(stripped)
+                if title_skeleton and title_skeleton in seen_skeleton:
+                    consumed_title = True
                 continue
-            authors.append(name)
-        
-        # Remove duplicates while preserving order
+
+            # A markdown header after the title starts the body.
+            if line.startswith('#'):
+                break
+
+            region.append(line)
+            if len(region) >= 8:
+                break
+
+        return region
+
+    def _is_person_name(self, name: str) -> bool:
+        """Whether a string has the shape of a personal name."""
+        if not (3 <= len(name) <= 60):
+            return False
+
+        tokens = name.split()
+        if not (2 <= len(tokens) <= 5):
+            return False
+        if any(not self._NAME_TOKEN.match(token) for token in tokens):
+            return False
+
+        # At least one full word that is neither an initial nor a particle --
+        # a surname. "P. F. Brown" qualifies; "J. R." and "van der" do not.
+        substantive = [
+            token for token in tokens
+            if len(token.rstrip('.')) > 1
+            and token.lower().rstrip('.') not in self._NAME_PARTICLES
+        ]
+        if not substantive:
+            return False
+
+        return not self._is_not_a_person(name)
+
+    def _parse_author_line(self, line: str) -> Optional[List[str]]:
+        """
+        Parse one line as a list of author names.
+
+        Returns None when the line is not an author line at all, so the caller
+        can tell "the block has not started" from "the block has ended".
+        """
+        # Strip markdown emphasis, list markers, emails and bracketed asides.
+        candidate = re.sub(r'[*_`]{1,3}', '', line).strip()
+        candidate = re.sub(r'^[-•]\s*', '', candidate)
+        candidate = self._EMAIL.sub(' ', candidate)
+        candidate = re.sub(r'\(.*?\)|\[.*?\]', ' ', candidate)
+        if not candidate.strip():
+            return None
+
+        names: List[str] = []
+        for part in re.split(r'\s*(?:,|;|\band\b|&)\s*', candidate):
+            # Drop affiliation markers: superscripts, footnote symbols, digits.
+            name = self._AUTHOR_MARKERS.sub('', part).strip(' .·')
+            name = re.sub(r'\s+', ' ', name)
+            if not name:
+                continue
+            if not self._is_person_name(name):
+                return None
+            names.append(name)
+
+        return names or None
+
+    def _extract_authors(
+        self,
+        markdown: str,
+        title: Optional[str] = None,
+    ) -> List[str]:
+        """
+        Extract author names from the block between the title and the abstract.
+
+        A capitalized phrase is accepted as an author list only when the block
+        looks like one: two or more names, or names carrying affiliation
+        markers, or an email in the block. A document whose converted text has
+        no author line gets an empty list, which is the truthful answer.
+
+        The previous version scanned the first 2000 characters with a bare
+        Title-Case regex, so it returned fragments of the title as authors.
+        Those fragments then flowed into every citation the document produced,
+        and are why citation accuracy could not be scored on QASPER.
+
+        Args:
+            markdown: Converted document text
+            title: Extracted title, used to bound the search below it
+
+        Returns:
+            Author names in document order, empty when none can be identified
+        """
+        region = self._author_region(markdown, title)
+        if not region:
+            return []
+
+        block_has_email = any(self._EMAIL.search(line) for line in region)
+
+        authors: List[str] = []
+        marker_seen = False
+
+        for line in region:
+            names = self._parse_author_line(line)
+            if names is None:
+                if authors:
+                    break        # the author block has ended
+                continue         # not started yet; keep looking
+            if self._AUTHOR_MARKERS.search(line):
+                marker_seen = True
+            authors.extend(names)
+            if len(authors) >= 40:
+                break
+
+        if not authors:
+            return []
+
+        # Require positive evidence that this really is an author list. A
+        # single bare name with no marker and no email is more often a stray
+        # line of the title than an author, and a wrong author is worse than
+        # no author: citation validation checks generated citations against
+        # these surnames.
+        if len(authors) < 2 and not (marker_seen or block_has_email):
+            logger.debug("Author candidate rejected: no author-block signal")
+            return []
+
         seen = set()
         unique_authors = []
         for author in authors:
             if author not in seen:
                 seen.add(author)
                 unique_authors.append(author)
-        
+
         return unique_authors[:20]  # Max 20 authors (reasonable limit)
-    
-    def _extract_year(self, markdown: str) -> Optional[int]:
+
+    # ------------------------------------------------------------------
+    # Year
+    # ------------------------------------------------------------------
+
+    # A year attached to something that actually dates a publication.
+    _YEAR_CUE = re.compile(
+        r'(?:©|\(c\)|copyright|published(?:\s+online)?|received|accepted|'
+        r'revised|in\s+press|to\s+appear|proceedings\s+of|preprint|'
+        r'vol\.?\s*\d+|volume\s*\d+)'
+        r'[^\n]{0,80}?\b((?:19|20)\d{2})\b',
+        re.IGNORECASE,
+    )
+
+    # Journal running head: "Journal of Big Data (2025) 12:84"
+    _YEAR_RUNNING_HEAD = re.compile(r'\((\d{4})\)\s*\d+\s*[:(]')
+
+    # A dateline that stands at the start of its own line. Some layouts put
+    # "Received: ... Accepted: ... Published: ..." below the abstract, so this
+    # narrower set is allowed to look past the front matter, where the broader
+    # cue set would match prose ("documents published in 2003").
+    _YEAR_DATELINE = re.compile(
+        r'^\s*(?:©|\(c\)|copyright|published|received|accepted|revised)\b'
+        r'[^\n]{0,60}?\b((?:19|20)\d{2})\b',
+        re.IGNORECASE | re.MULTILINE,
+    )
+
+    def _extract_year(
+        self,
+        markdown: str,
+        arxiv_id: Optional[str] = None,
+    ) -> Optional[int]:
         """
-        Extract publication year.
-        
-        Strategy:
-        1. Look for 4-digit years in first ~2000 chars (2000-2099)
-        2. Prefer years near "copyright", "published", dates
+        Extract the publication year.
+
+        Signals are tried in order of what each is worth: an explicit
+        publication cue ("Published 12 March 2024", "© 2019"), a journal
+        running head, the arXiv identifier, then the most frequent plausible
+        year in the front matter.
+
+        Returns None when nothing supports a year. Callers must not turn that
+        into 0, which reads as a real value and renders as "(Smith, 0)".
+
+        Args:
+            markdown: Converted document text
+            arxiv_id: Extracted arXiv identifier, which encodes the year
+
+        Returns:
+            Four-digit year, or None when undetermined
         """
-        top_section = markdown[:2000]
-        
-        # Find all 4-digit years (2000-2099)
-        years = re.findall(r'\b(20[0-2][0-9])\b', top_section)
-        
+        top_section = markdown[:2500]
+        current_year = datetime.now().year
+
+        def plausible(value: int) -> bool:
+            return 1970 <= value <= current_year + 1
+
+        # Everything above the first real section. Publication dates live here;
+        # the abstract below it discusses years that belong to the work, not to
+        # the paper.
+        front_matter = top_section
+        for line_match in re.finditer(r'^.*$', top_section, re.MULTILINE):
+            if self._FRONT_MATTER_END.match(line_match.group(0).strip()):
+                front_matter = top_section[:line_match.start()]
+                break
+
+        for pattern, scope in (
+            (self._YEAR_CUE, front_matter),
+            (self._YEAR_RUNNING_HEAD, front_matter),
+            (self._YEAR_DATELINE, top_section),
+        ):
+            match = pattern.search(scope)
+            if match and plausible(int(match.group(1))):
+                return int(match.group(1))
+
+        if arxiv_id:
+            # 2103.12345 -> 2021; 0706.0001 -> 2007.
+            prefix = arxiv_id.split('.')[0]
+            if len(prefix) == 4 and prefix.isdigit():
+                year = 2000 + int(prefix[:2])
+                if plausible(year):
+                    return year
+
+        # Fall back to the most frequent plausible year, breaking ties toward
+        # the most recent -- still over the front matter only. Scanning the
+        # whole top section, as this used to, reads a year out of the
+        # abstract's prose ("trained on 2015 data") and reports it as the
+        # publication year. Documents with no front matter get None.
+        years = [
+            int(y) for y in re.findall(r'\b((?:19|20)\d{2})\b', front_matter)
+        ]
+        years = [y for y in years if plausible(y)]
         if years:
-            # Return most recent year (often the publication year)
-            return int(max(years))
-        
+            counts = Counter(years)
+            most_common = max(counts.values())
+            return max(y for y, n in counts.items() if n == most_common)
+
         return None
-    
+
     def _extract_venue(self, markdown: str) -> Optional[str]:
         """Extract publication venue (conference/journal)."""
         top_section = markdown[:2000]
@@ -623,11 +918,67 @@ class PaperMetadataExtractor:
     def _classify_section(self, title: str) -> str:
         """Classify section type based on title."""
         title_lower = title.lower()
-        
+
         for section_type, pattern in self.SECTION_PATTERNS.items():
             if re.search(pattern, title_lower):
                 return section_type
-        
+
+        return "other"
+
+    # Separator used in the chunker's header_path, e.g.
+    # "Experiments > Baseline Models".
+    HEADER_PATH_SEPARATOR = " > "
+
+    def classify_header_path(
+        self,
+        header_path: str,
+        document_title: Optional[str] = None,
+    ) -> str:
+        """
+        Classify a chunk's section from its chain of enclosing headers.
+
+        The outermost heading that can be classified wins. A paper's top-level
+        heading declares what a region is for and its subsections refine it, so
+        "Experiments > Baseline Models" belongs to the experiments, and
+        "Model > Background" belongs to the method rather than the
+        introduction, which is what classifying the leaf alone would say.
+
+        The document title is dropped first when it heads the path. It is a
+        heading like any other to the chunker, but classifying it applies one
+        label to the entire paper: a paper called "A Neural Model for Question
+        Answering" would have every chunk tagged `methodology`, because the
+        title contains "model".
+
+        Args:
+            header_path: Headers from outermost to innermost, separated by
+                HEADER_PATH_SEPARATOR. A bare heading is accepted too.
+            document_title: Title to ignore when it leads the path
+
+        Returns:
+            A section type, or "other" when no heading in the chain matches
+        """
+        if not header_path:
+            return "other"
+
+        parts = [
+            part.strip()
+            for part in header_path.split(self.HEADER_PATH_SEPARATOR)
+            if part.strip()
+        ]
+
+        if (
+            document_title
+            and len(parts) > 1
+            and self._normalize_for_compare(parts[0])
+            == self._normalize_for_compare(document_title)
+        ):
+            parts = parts[1:]
+
+        for part in parts:
+            section_type = self._classify_section(part)
+            if section_type != "other":
+                return section_type
+
         return "other"
     
     def _extract_citations(self, markdown: str) -> List[Citation]:
@@ -720,30 +1071,42 @@ class PaperMetadataExtractor:
     def _calculate_confidence(self, metadata: PaperMetadata) -> float:
         """
         Calculate confidence that this is a research paper.
-        
+
         Scoring:
-        - Has abstract: +0.3
-        - Has references section: +0.2
-        - Has authors: +0.15
-        - Has structured sections: +0.15
-        - Has year and venue: +0.1
-        - Has citations: +0.1
+        - Has abstract: +0.30
+        - Has structured sections: +0.20
+        - Has references section: +0.15
+        - Has a title: +0.10
+        - Has authors: +0.10
+        - Has citations: +0.10
+        - Has year and venue: +0.05
+
+        Authors carry little weight on purpose. Author extraction now returns
+        an empty list rather than guessing from the title, and plenty of real
+        papers reach the system as converted text with no author line at all --
+        every reconstructed QASPER paper does. Weighting authors at 0.15, as
+        this did, put those papers below the 0.5 threshold, which switches off
+        chunk enrichment and leaves every chunk with no section_type. The
+        structural signals (abstract, sections, references) are what actually
+        distinguish a paper from a memo.
         """
         score = 0.0
-        
+
         if metadata.abstract:
-            score += 0.3
-        if metadata.num_references > 5:
-            score += 0.2
-        if len(metadata.authors) > 0:
-            score += 0.15
+            score += 0.30
         if len(metadata.sections) >= 3:
+            score += 0.20
+        if metadata.num_references > 5:
             score += 0.15
-        if metadata.year and metadata.venue:
-            score += 0.1
+        if metadata.title:
+            score += 0.10
+        if len(metadata.authors) > 0:
+            score += 0.10
         if len(metadata.citations) > 10:
-            score += 0.1
-        
+            score += 0.10
+        if metadata.year and metadata.venue:
+            score += 0.05
+
         return min(score, 1.0)
     
     def _determine_paper_type(self, metadata: PaperMetadata) -> str:

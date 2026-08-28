@@ -290,9 +290,15 @@ class SemanticChunker:
         header_pattern = r'^(#{1,6})\s+(.+)$'
         
         lines = text.split('\n')
+        # Enclosing headers, innermost last. A subsection heading like
+        # "Baseline Models" says nothing on its own; "Experiments > Baseline
+        # Models" says which part of the paper it belongs to, which is what
+        # section tagging needs.
+        ancestors: List[tuple] = []       # (level, header)
         current_section = {
             'header': '',
             'level': 0,
+            'header_path': '',
             'lines': [],
             'has_code': False,
             'has_tables': False,
@@ -325,10 +331,20 @@ class SemanticChunker:
                 # Start new section
                 level = len(header_match.group(1))  # Count #'s
                 header_text = header_match.group(2).strip()
-                
+
+                # Pop any sibling or deeper heading; what remains encloses this
+                # one.
+                while ancestors and ancestors[-1][0] >= level:
+                    ancestors.pop()
+                header_path = ' > '.join(
+                    [h for _, h in ancestors] + [header_text]
+                )
+                ancestors.append((level, header_text))
+
                 current_section = {
                     'header': header_text,
                     'level': level,
+                    'header_path': header_path,
                     'lines': [line],  # Include header in section
                     'has_code': False,
                     'has_tables': False,
@@ -384,7 +400,7 @@ class SemanticChunker:
                 metadata={
                     'header': section['header'],
                     'header_level': section['level'],
-                    'header_path': section['header'],
+                    'header_path': section.get('header_path') or section['header'],
                     'token_count': token_count,
                     'has_code': section['has_code'],
                     'has_tables': section['has_tables'],
@@ -419,7 +435,7 @@ class SemanticChunker:
                     metadata={
                         'header': section['header'],
                         'header_level': section['level'],
-                        'header_path': section['header'],
+                        'header_path': section.get('header_path') or section['header'],
                         'token_count': current_tokens,
                         'has_code': '```' in current_text,
                         'has_tables': '|' in current_text,
@@ -445,7 +461,7 @@ class SemanticChunker:
                 metadata={
                     'header': section['header'],
                     'header_level': section['level'],
-                    'header_path': section['header'],
+                    'header_path': section.get('header_path') or section['header'],
                     'token_count': current_tokens,
                     'has_code': '```' in current_text,
                     'has_tables': '|' in current_text,
@@ -650,8 +666,11 @@ class SemanticChunker:
         Returns:
             Enriched chunks with paper-specific metadata
         """
-        from docusense.ingestion.paper_metadata import PaperMetadata
-        
+        from docusense.ingestion.paper_metadata import (
+            PaperMetadata,
+            PaperMetadataExtractor,
+        )
+
         if not isinstance(paper_metadata, PaperMetadata):
             logger.warning("paper_metadata is not PaperMetadata instance, skipping enrichment")
             return chunks
@@ -661,22 +680,51 @@ class SemanticChunker:
             return chunks
         
         logger.info(f"Enriching {len(chunks)} chunks with paper metadata")
-        
+
+        # Header-path classification is stateless; one extractor is enough.
+        extractor = PaperMetadataExtractor()
+
         enriched_chunks = []
         for chunk in chunks:
             # Add paper-level metadata
             chunk.metadata['paper_title'] = paper_metadata.title
             chunk.metadata['authors'] = paper_metadata.authors
-            chunk.metadata['year'] = paper_metadata.year
             chunk.metadata['venue'] = paper_metadata.venue
+            # An undetermined year is omitted, not stored as None or 0. Both
+            # reach the citation formatter as a literal and render as
+            # "(Smith, None)"; an absent key renders as "n.d.".
+            if paper_metadata.year:
+                chunk.metadata['year'] = paper_metadata.year
+            else:
+                chunk.metadata.pop('year', None)
             chunk.metadata['doi'] = paper_metadata.doi
             chunk.metadata['arxiv_id'] = paper_metadata.arxiv_id
             chunk.metadata['paper_type'] = paper_metadata.paper_type
             chunk.metadata['paper_confidence'] = paper_metadata.confidence
             
-            # Determine section type based on chunk position
-            chunk_start = chunk.metadata.get('start_char', 0)
-            section_type = paper_metadata.get_section_type(chunk_start)
+            # Determine section type.
+            #
+            # The chunk's own header path is the primary signal, and it is the
+            # reliable one: it travels with the chunk, so it cannot drift, and
+            # it names the enclosing sections directly.
+            #
+            # Character offsets are the fallback, for documents converted
+            # without any headers. They are second choice because they are
+            # measured against two different strings: section offsets are
+            # recorded on the raw converted markdown, while chunk offsets are
+            # recorded on the preprocessed text, and preprocessing removes
+            # characters. The two agree only as long as it removes few.
+            header_path = chunk.metadata.get('header_path') or chunk.metadata.get('header', '')
+            section_type = extractor.classify_header_path(
+                header_path, paper_metadata.title
+            )
+
+            if section_type == "other":
+                chunk_start = chunk.metadata.get('start_char', 0)
+                by_position = paper_metadata.get_section_type(chunk_start)
+                if by_position not in ("other", "unknown"):
+                    section_type = by_position
+
             chunk.metadata['section_type'] = section_type
             
             # Check for equations and citations in chunk text

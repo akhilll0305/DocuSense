@@ -182,7 +182,9 @@ class CitationFormatter:
             Inline citation string, e.g., (Devlin et al., 2018, Results, p.9)
         """
         authors = metadata.get("authors", [])
-        year = metadata.get("year", "n.d.")
+        # An absent year and a year stored as None/0 must both read "n.d.";
+        # a plain .get() default only covers the absent case.
+        year = metadata.get("year") or "n.d."
         section = metadata.get("section_type", "")
         page = metadata.get("page", "")
         
