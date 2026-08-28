@@ -1,0 +1,17 @@
+# Line endings.
+#
+# This repo is developed on Windows and built into a Linux container. Git's
+# autocrlf stores LF and checks out CRLF, which is fine for Python but breaks
+# anything the container executes directly: `docker build` copies from the
+# working tree, not from git, so a CRLF shebang arrives in the image as
+# `#!/bin/sh\r` and the container exits with "no such file or directory".
+#
+# These paths stay LF in the working tree for that reason.
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.dockerfile    text eol=lf
+docker-compose*.yml text eol=lf
+.dockerignore   text eol=lf
+
+# Everything else follows the platform default.
+* text=auto
