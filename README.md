@@ -4,9 +4,14 @@
 
 Most RAG systems treat a PDF as a flat wall of text. DocuSense parses the *structure* of a
 research paper — title, authors, venue, year, sections, citations — and uses it at query time.
-Ask "how did they train it?" and it searches the methodology section. Ask "what accuracy did
-they get?" and it searches results. Ask for "papers from 2020–2023 by Bengio" and it filters
-on metadata before it ever runs a vector search.
+Ask for "papers from 2020–2023 by Bengio" and it filters on metadata before it ever runs a
+vector search. Every chunk is tagged with the section it came from, and every answer is
+traced back to the chunks that support it.
+
+Routing a question to a single section is also built in, and is switched **off** by
+default: it was measured, it costs accuracy, and [the numbers are
+published](docs/BENCHMARKS.md#what-the-numbers-say) rather than the feature quietly
+removed.
 
 Answers come back with inline academic citations and a formatted reference list.
 
@@ -34,8 +39,9 @@ PDF / DOCX / TXT
       |                     venue, paper_type, has_equations, has_citations)
       v
 [ Retrieval ]      query_processor -> hybrid_search -> reranker
-                   section routing    Vector + BM25    cross-encoder
-                   + metadata filters  -> RRF fusion   ms-marco-MiniLM
+                   metadata filters   Vector + BM25    cross-encoder
+                   (section routing    -> RRF fusion   ms-marco-MiniLM
+                    off by default)
       |
       v
 [ Generation ]     answer_generator -> citation_formatter
@@ -57,13 +63,13 @@ conversation history.
 
 **Working:** email/password accounts with bcrypt + JWT · per-user document isolation ·
 ingestion with paper metadata extraction · section-tagged chunking · hybrid vector + BM25
-retrieval with RRF · section routing and academic filters · cross-encoder reranking ·
+retrieval with RRF · academic metadata filters · cross-encoder reranking ·
 cited answer generation with fabricated-citation filtering · streamed responses (SSE) ·
 multi-turn chat · REST API · editorial web UI in light and dark
 
 **Not built yet:** token revocation and password reset. See [Known limitations](docs/ARCHITECTURE.md#known-limitations).
 
-Tests: 210 passing (unit + integration).
+Tests: 255 passing (unit + integration).
 Run `python scripts/doctor.py` to check your environment before reporting a problem.
 
 ---
@@ -78,10 +84,10 @@ resamples. Full methodology, including what was dropped and why:
 
 | Retrieval | MRR | NDCG@10 | P@1 | Recall@10 | ms/query |
 |---|---|---|---|---|---|
-| Vector only | 0.1867 | 0.1949 | 0.1004 | 0.2938 | 17 |
-| + BM25, fused with RRF | 0.2244 | 0.2348 | 0.1313 | 0.3438 | 19 |
-| **+ cross-encoder rerank** | **0.2824** | **0.2771** | **0.2046** | **0.3816** | 1782 |
-| + query processing *(current default)* | 0.2777 | 0.2691 | 0.2046 | 0.3683 | 1791 |
+| Vector only | 0.1867 | 0.1949 | 0.1004 | 0.2938 | 31 |
+| + BM25, fused with RRF | 0.2244 | 0.2348 | 0.1313 | 0.3438 | 37 |
+| **+ cross-encoder rerank** *(current default)* | **0.2824** | **0.2771** | **0.2046** | **0.3816** | 1908 |
+| + query processing | 0.2824 | 0.2771 | 0.2046 | 0.3816 | 1904 |
 
 What holds up under a significance test, and what does not:
 
@@ -89,14 +95,22 @@ What holds up under a significance test, and what does not:
   [+0.0189, +0.0584], p = 0.0003.
 - **Reranking helps most.** +25.8% MRR over hybrid alone — Δ +0.0581, 95% CI
   [+0.0194, +0.0962], p = 0.0044. It doubles P@1 and costs ~1.8s per query on CPU.
-- **Query processing shows no measurable benefit.** Δ −0.0048, 95% CI
-  [−0.0152, +0.0066], p = 0.43. Not a demonstrated penalty either — simply not doing
-  anything detectable. [Why, and the section-labelling problem behind it.](docs/BENCHMARKS.md#what-the-numbers-say)
+- **Query processing does nothing at all here.** Not "not significant" — the difference
+  is exactly 0.0000 on all 259 queries. All three of its parts are inert on this
+  benchmark: LLM rewriting was unavailable, academic filters fire on no QASPER question,
+  and section routing is now off. That is a statement about what this benchmark
+  exercises, not proof the feature is worthless.
+  [Details.](docs/BENCHMARKS.md#retrieval-ablation)
+- **Section routing costs accuracy, so it is off by default.** On the 60 questions it
+  fires on it drops MRR from 0.2426 to 0.1903 and Recall@5 by 44% relative. The reason is
+  not the section labels — those were repaired, and routing got *worse*. The evidence
+  that answers a question is in the section it routes to only **13.3%** of the time.
+  [The whole investigation.](docs/BENCHMARKS.md#what-the-numbers-say)
 
 Running this exposed that the shipped default had reranking **switched off** — the
 `USE_RERANKING` setting was overridden by the pipeline's `mode="balanced"`. The system
 scored 0.2041 MRR, which is not significantly better than plain vector search
-(p = 0.16), while the same components configured as documented reach 0.2777. That is
+(p = 0.16), while the same components configured as documented reach 0.2824. That is
 fixed, and it is why the numbers above are worth having: the gap was invisible until
 something measured it.
 
@@ -116,7 +130,8 @@ python scripts/benchmark.py --papers 80        # reproduce (~20 min, CPU)
 | Capability | How it works |
 |---|---|
 | **Paper metadata extraction** | Pulls title, authors, year, venue, DOI/arXiv ID, abstract, 20+ section types, and both numbered `[1]` and author-year `(Smith, 2020)` citations — with a confidence score for "is this actually a paper?" |
-| **Section-aware routing** | `detect_section_intent()` maps question phrasing to the right section, so "how did they train" doesn't retrieve from the related-work section. **Measured: no detectable benefit** on QASPER, because section labels are missing on 63% of chunks. On by default, `USE_SECTION_ROUTING=false` to disable — [the numbers](docs/BENCHMARKS.md#what-the-numbers-say) |
+| **Section-tagged chunks** | Every chunk carries the section it came from, classified from its full chain of enclosing headers, so "Experiments > Baseline Models" is tagged `experiments` and "Model > Background" is tagged `methodology` rather than `introduction`. **Measured: chunks with no usable label fell from 62.6% to 27.3%** on the benchmark corpus |
+| **Section-aware routing** *(off by default)* | `detect_section_intent()` maps question phrasing to a section and filters on it. **Measured: it costs accuracy** — the evidence answering a question is in the section it routes to only 13.3% of the time, so the filter hides the answer more often than it finds it. `USE_SECTION_ROUTING=true` to enable — [the numbers, and why better labels made it worse](docs/BENCHMARKS.md#what-the-numbers-say) |
 | **Metadata filtering from natural language** | `extract_academic_filters()` parses "recent papers", "2020–2023", "by Yoshua Bengio", "NeurIPS papers" into structured Qdrant filters — ranges included, which is what the benchmark caught: they raised a validation error and returned nothing until `build_filter()` learned to emit `Range` |
 | **Hybrid retrieval** | Vector search for meaning + BM25 for exact terms (`BERT-base` shouldn't match `RoBERTa`), fused with Reciprocal Rank Fusion. **Measured: +20.2% MRR** over vector-only (p = 0.0003) |
 | **Cross-encoder reranking** | Retrieves a wide candidate set, then reranks for precision. **Measured: +25.8% MRR** over hybrid alone (p = 0.0044), for ~1.8s per query |
@@ -202,7 +217,7 @@ python scripts/ingest.py --reset data/papers/    # wipe the vector store first
 ### Test
 
 ```bash
-pytest                          # everything (210 tests)
+pytest                          # everything (255 tests)
 pytest -m integration           # real components, no mocks
 pytest -m "not integration"     # unit tests only
 python scripts/doctor.py        # check Qdrant / Ollama / Gemini / embeddings
@@ -240,7 +255,7 @@ The ones that matter most:
 | `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | 384-dim. Changing this requires re-ingesting |
 | `TARGET_CHUNK_TOKENS` | `500` | Chunk sizing (range 200–800) |
 | `USE_RERANKING` | `true` | Cross-encoder reranking. Worth +25.8% MRR for ~1.8s per query; set `false` to trade accuracy for latency |
-| `USE_SECTION_ROUTING` | `true` | Restrict a question to the section it seems to be about. No measurable benefit on QASPER — see [BENCHMARKS.md](docs/BENCHMARKS.md) |
+| `USE_SECTION_ROUTING` | `false` | Restrict a question to the section it seems to be about. Measured to cost accuracy on QASPER — see [BENCHMARKS.md](docs/BENCHMARKS.md) |
 
 ---
 

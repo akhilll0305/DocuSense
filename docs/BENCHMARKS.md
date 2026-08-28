@@ -2,9 +2,19 @@
 
 Measured numbers for DocuSense retrieval, and how to reproduce them.
 
-Everything below comes from `python scripts/benchmark.py --papers 80`, which writes
+The ablation below comes from `python scripts/benchmark.py --papers 80`, which writes
 [`data/benchmarks/qasper_ablation_report.json`](../data/benchmarks/qasper_ablation_report.json).
-That file is committed as the evidence behind these tables.
+The section-routing numbers come from
+
+```bash
+USE_SECTION_ROUTING=true python scripts/benchmark.py --papers 80 --reuse-corpus \
+    --only-routed --arms hybrid_rerank,full \
+    --out data/benchmarks/routed_subset_report.json
+```
+
+which writes
+[`data/benchmarks/routed_subset_report.json`](../data/benchmarks/routed_subset_report.json).
+Both files are committed as the evidence behind these tables.
 
 ---
 
@@ -63,13 +73,34 @@ component to the one above it.
 
 | Arm | MRR | NDCG@10 | P@1 | Recall@5 | Recall@10 | MAP | ms/query |
 |---|---|---|---|---|---|---|---|
-| Vector only | 0.1867 | 0.1949 | 0.1004 | 0.2268 | 0.2938 | 0.1476 | 17 |
-| Previous default (balanced, no rerank) | 0.2041 | 0.2142 | 0.1081 | 0.2507 | 0.3219 | 0.1630 | 23 |
-| Hybrid (vector + BM25, RRF) | 0.2244 | 0.2348 | 0.1313 | 0.2662 | 0.3438 | 0.1832 | 19 |
-| **Hybrid + cross-encoder rerank** | **0.2824** | **0.2771** | **0.2046** | **0.3149** | **0.3816** | **0.2223** | 1782 |
-| Hybrid + rerank + query processing (current default) | 0.2777 | 0.2691 | 0.2046 | 0.3022 | 0.3683 | 0.2157 | 1791 |
+| Vector only | 0.1867 | 0.1949 | 0.1004 | 0.2268 | 0.2938 | 0.1476 | 31 |
+| Previous default (balanced, no rerank)* | 0.2041 | 0.2142 | 0.1081 | 0.2507 | 0.3219 | 0.1630 | 23 |
+| Hybrid (vector + BM25, RRF) | 0.2244 | 0.2348 | 0.1313 | 0.2662 | 0.3438 | 0.1832 | 37 |
+| **Hybrid + cross-encoder rerank** | **0.2824** | **0.2771** | **0.2046** | **0.3149** | **0.3816** | **0.2223** | 1908 |
+| Hybrid + rerank + query processing *(current default)* | 0.2824 | 0.2771 | 0.2046 | 0.3149 | 0.3816 | 0.2223 | 1904 |
 
-Retrieval metrics reproduced identically across four separate runs. Latencies vary by a
+\* The "previous default" row is not part of the four-arm ladder and is not in the
+committed report. It comes from a separate run with `--arms legacy_default`, kept here
+because it is what the system scored before reranking was switched on. Reproduce it with
+`python scripts/benchmark.py --papers 80 --arms legacy_default --reuse-corpus`.
+
+The last two rows are identical to four decimal places because, on this benchmark, query
+processing currently does nothing at all. Its three components are LLM rewriting, which
+was unavailable (the Gemini key returns 403/429); academic metadata filters, which fire
+on none of the 259 questions, since QASPER questions do not mention years, authors or
+venues; and section routing, which is now off by default. Every query in both arms
+produced the same ranking — the paired difference is exactly 0.0000 with p = 1.0, not a
+small effect that failed to reach significance. The arm is kept in the ladder because it
+is the shipped default, and stating a cost of zero is worth as much as stating a gain.
+(The two latency figures differ by less than the run-to-run noise, which is why the
+reranking arm appears marginally slower here.)
+
+An earlier run measured this arm at 0.2777 with section routing on. Why routing was
+turned off is [below](#what-the-numbers-say).
+
+Retrieval metrics for the first three arms reproduced identically across seven separate
+runs, including across two full re-ingestions of the corpus with different section
+tagging. Latencies vary by a
 few ms between runs (and the reranking arms by a few hundred) because the machine was not
 otherwise idle; treat the millisecond column as an order of magnitude, not a benchmark.
 
@@ -84,15 +115,20 @@ permutation p-value.
 |---|---|---|---|---|
 | vector → hybrid | +0.0377 | [+0.0189, +0.0584] | 0.0003 | **significant** |
 | hybrid → hybrid + rerank | +0.0581 | [+0.0194, +0.0962] | 0.0044 | **significant** |
-| hybrid + rerank → + query processing | −0.0048 | [−0.0152, +0.0066] | 0.4316 | not significant |
+| hybrid + rerank → + query processing | 0.0000 | [0.0000, 0.0000] | 1.0000 | no effect |
 | vector → hybrid + rerank | +0.0958 | [+0.0554, +0.1374] | 0.0001 | **significant** |
 | vector → previous default | +0.0175 | [−0.0067, +0.0412] | 0.1639 | not significant |
 
 Two rows deserve attention.
 
-**Query processing is not distinguishable from noise.** Its point estimate is negative,
-but the interval straddles zero. This run cannot show that it hurts overall — only that
-it does not help.
+**Query processing has no effect here — which is not the same as "not significant".**
+The difference is exactly zero on every one of the 259 queries, because none of its
+three components does anything on this corpus in this environment (see the note under
+the table). This is a measurement of the benchmark's coverage as much as of the feature:
+it says query processing is not being exercised, not that query rewriting is worthless.
+An earlier run, with section routing still on, put this comparison at −0.0048, 95% CI
+[−0.0152, +0.0066], p = 0.43 — genuinely "not significant", and worth distinguishing
+from the exact zero above.
 
 **The previous default was not significantly better than plain vector search.** Adding
 BM25 and query processing while leaving reranking off produced a +9.3% point estimate
@@ -122,62 +158,119 @@ from 0.1004 to 0.2046. It costs about 1.8s per query on CPU, which is small next
 
 It had never actually run. `DocuSenseRAG` built its pipeline in `mode="balanced"`, which
 forces reranking off regardless of the `USE_RERANKING` setting, so the shipped system
-scored **0.2041** while its own components, configured as documented, reach **0.2777** —
-a 36% improvement that was purely configuration. That is what the "previous default" row
+scored **0.2041** while its own components, configured as documented, reach **0.2824** —
+a 38% improvement that was purely configuration. That is what the "previous default" row
 measures, and it was not significantly better than plain vector search. It is fixed: the
 pipeline is now built in `mode="accurate"` and honours `USE_RERANKING`.
 
-**Section routing does not earn its place.** This is the feature the README leads with —
-"how did they train it?" searches methodology. It fires on 60 of the 259 questions.
-Measured on just those 60:
+**Section routing does not earn its place, and better labels made that clearer.** This
+was the feature the README led with — "how did they train it?" searches methodology. It
+is now **off by default**. The reasoning took two passes, and the first one was wrong.
+
+*First pass: blame the labels.* Routing fires on 60 of the 259 questions. Measured on
+just those 60, with the section labels the system produced at the time:
 
 | Arm (60 routed questions) | MRR | NDCG@10 | Recall@5 | MAP |
 |---|---|---|---|---|
 | Hybrid + rerank | 0.2426 | 0.2521 | 0.3000 | 0.2003 |
 | + section routing | 0.2221 | 0.2178 | 0.2454 | 0.1718 |
 
-Δ MRR = −0.0205, 95% CI [−0.0638, +0.0287], p = 0.42 over n = 60.
+Δ MRR = −0.0205, 95% CI [−0.0638, +0.0287], p = 0.42 over n = 60 — an interval spanning
+zero, so no harm was demonstrated. The apparent explanation was the labelling: 62.6% of
+chunks carried no usable `section_type`, so the filter hid the corpus rather than
+focusing it. The conclusion drawn was "fix section detection first, then re-measure".
 
-**That interval spans zero, so this run does not show that routing hurts.** Sixty
-questions cannot resolve an effect this size. What it does bound is the upside: the
-interval's upper end is +0.029 MRR, so any benefit is small at best, and the feature is
-paying complexity and latency for it. The honest summary is "no measurable benefit", not
-"measurably worse" — a distinction worth keeping, because the point estimate is tempting
-to quote and would not survive a larger sample either way.
+*Section detection was then fixed.* Chunks now carry their full chain of enclosing
+headers and are classified from it — the outermost heading that can be classified wins,
+so "Experiments > Baseline Models" is `experiments` and "Model > Background" is
+`methodology` rather than `introduction`. The classification vocabulary was widened to
+cover how papers actually name sections, and the document title is excluded from the
+chain (it heads every path, so a paper titled "A Neural Model for Question Answering"
+would otherwise have every chunk tagged `methodology`).
 
-The *reason* it cannot help, however, is not a statistical question. Across the benchmark
-corpus:
+On the same 1,048-chunk corpus:
 
-| section_type | share of chunks |
+| section_type | before | after |
+|---|---|---|
+| `other` | 46.9% | 27.3% |
+| *(missing)* | 8.7% | 0% |
+| `unknown` | 7.0% | 0% |
+| `introduction` | 9.2% | 16.4% |
+| `methodology` | 5.1% | 12.8% |
+| `experiments` | 6.9% | 12.4% |
+| `dataset` | — | 7.1% |
+| `related_work` | 4.3% | 7.0% |
+| `conclusion` | 5.0% | 7.0% |
+| `results` | 3.4% | 4.3% |
+| `discussion` | 3.4% | 3.4% |
+| `acknowledgements` | — | 1.8% |
+| `appendix` | — | 0.4% |
+| `abstract` | 0.1% | 0.1% |
+| `references` | 0.1% | 0.1% |
+
+Chunks with no usable label fall from **62.6% to 27.3%**.
+
+`other` is now a real answer rather than a default. It covers headings that name
+something specific to one paper ("Latent Dirichlet Allocation", "Fakeddit"), and the
+front-matter chunk of every document, which sits above the first section and is
+deliberately left unlabelled — classifying it from the title would tag it with whatever
+keyword the title happens to contain.
+
+*Second pass: routing got worse.* Re-measured on the same 60 questions with the repaired
+labels:
+
+| Arm (60 routed questions) | MRR | NDCG@10 | Recall@5 | MAP |
+|---|---|---|---|---|
+| Hybrid + rerank | 0.2426 | 0.2521 | 0.3000 | 0.2003 |
+| + section routing, old labels | 0.2221 | 0.2178 | 0.2454 | 0.1718 |
+| + section routing, repaired labels | 0.1903 | 0.1518 | 0.1676 | 0.1208 |
+
+Δ MRR against no routing = −0.0523, 95% CI [−0.1310, +0.0233], p = 0.21. That interval
+still spans zero at n = 60, so this is again not a significant MRR result — but the
+point estimate doubled in the wrong direction, and Recall@5 fell by 44% relative.
+
+The mechanism is straightforward once seen. A filter that matches almost nothing does
+not restrict the search: it returns fewer candidates than requested, the pipeline widens
+back to the unfiltered pool, and the query is effectively unrouted. Repairing the labels
+made the filter match enough chunks to clear that threshold, so for the first time it
+actually restricted the search — and restricting the search is what costs accuracy. The
+old labels were not the problem; they were what was hiding it.
+
+Broadening the filter instead of narrowing it does not rescue this. Routing each
+question to a *group* of related sections (`results` → results, experiments, discussion)
+was measured on the same 60 questions and scored **0.1561** MRR — worse still, for the
+same reason: a broader filter is a filter that bites harder. That experiment is not in
+the shipped code.
+
+*What is actually wrong.* This one is not a statistical question, and it is measured
+directly rather than inferred from a metric. For each of the 60 routed questions, take
+the chunks QASPER marks as the evidence and look at the `section_type` those chunks
+actually carry:
+
+| | share of routed questions |
 |---|---|
-| `other` | 46.9% |
-| `introduction` | 9.2% |
-| *(missing)* | 8.7% |
-| `unknown` | 7.0% |
-| `experiments` | 6.9% |
-| `methodology` | 5.1% |
-| `conclusion` | 5.0% |
-| `related_work` | 4.3% |
-| `results` | 3.4% |
-| `discussion` | 3.4% |
-| `abstract` | 0.1% |
+| evidence is in the section routed to | **13.3%** |
+| evidence is in the routed section or a related one | 58.3% |
 
-63% of chunks carry no usable section label (`other`, missing, or `unknown`). Routing a
-question to `results` searches 3.4% of the corpus; routing to `abstract` searches a
-single chunk. The passage that answers the question is usually sitting in an
-`other`-tagged chunk, unreachable. That is a counted fact about the corpus, not an
-inference from the metrics, and it is sufficient on its own to explain why routing
-cannot be adding anything.
+Questions do not respect section boundaries. "What accuracy did they get?" routes to
+`results`, but on this corpus the numbers usually sit under `experiments`. "What is X?"
+routes to `abstract`, which is one chunk per paper. Across the routed questions the
+evidence is spread over `experiments` (21), `introduction` (14), `other` (13), `dataset`
+(10), `results` (9), `methodology` (8) and four more — no single section holds it.
 
-A partially populated filter is a particularly bad failure mode: because it returns
-*some* results, a zero-results fallback never fires. The pipeline now widens the search
-when an inferred filter leaves fewer candidates than requested — though on this corpus
-that changed nothing measurable, because BM25 ignores filters entirely and had already
-filled the candidate pool. Routing can also be disabled with `USE_SECTION_ROUTING=false`.
+A pre-filter that excludes the answer 86.7% of the time cannot help no matter how good
+the labels behind it are. The fix would have to be in the question→section mapping, not
+in the tagging, and this measurement bounds how much that could ever be worth.
 
-Routing is left **on** by default. It is existing behaviour, the measurement is on
-reconstructed QASPER text rather than PDFs, and no significant harm was demonstrated.
-The actionable finding is the labelling: fix section detection first, then re-measure.
+Routing is therefore **off by default** (`USE_SECTION_ROUTING=true` re-enables it). The
+label repair is kept: it is correct on its own terms, it makes `section_type` usable for
+display and for caller-supplied filters, and it is what made the real problem visible.
+
+The widening fallback stays as well. A partially populated filter is a bad failure mode
+precisely because it returns *some* results, so a zero-results check never fires; the
+pipeline widens when an inferred filter leaves fewer candidates than requested. It is
+the reason routing looked harmless in the first pass, which is worth keeping in mind
+when reading a benign measurement of a filter.
 
 ---
 
@@ -208,12 +301,19 @@ the absolute value is not.
 
 **Citation accuracy cannot be measured on QASPER, and is not reported.** The metric
 matches cited surnames against the source paper's authors, and QASPER carries no author
-or venue metadata. The reconstructed documents therefore have none either — the metadata
-extractor recovers fragments of the title (`["New Multimodal Benchmark Dataset", "Fake
-News Detection"]`) where authors should be. Scoring citations against that measures the
-benchmark corpus, not the system, and the resulting `Citation-F1 = 0.0` would read as a
-product failure it is not. The report keeps those figures under `not_applicable` with the
-reason attached.
+or venue metadata, so the reconstructed documents have none either. Scoring citations
+against an empty author list measures the benchmark corpus, not the system, and the
+resulting `Citation-F1 = 0.0` would read as a product failure it is not. The report keeps
+those figures under `not_applicable` with the reason attached.
+
+This used to be worse than "no authors". The extractor scanned the first 2000 characters
+with a bare Title-Case regex, which matches a title as readily as a name, so every
+reconstructed paper came back with authors like `["New Multimodal Benchmark Dataset",
+"Fake News Detection"]` — values that look real, are wrong, and flow into every citation
+the document produces. Extraction now returns an empty list when there is no author line,
+which is the truthful answer and makes the reason this metric is inapplicable explicit
+rather than disguised. It does not make the metric measurable: an author-less corpus
+cannot score author matching either way.
 
 The same trap nearly caught ROUGE. `rouge-score` was listed in `requirements.txt` but was
 not installed in the environment, and `to_dict()` published a flat `0.0` — a missing

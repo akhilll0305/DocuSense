@@ -206,10 +206,26 @@ def pipeline_with(processor_metadata, store):
     return pipeline
 
 
+@pytest.fixture
+def section_routing_on(monkeypatch):
+    """
+    Turn section routing on for one test.
+
+    It ships off (it costs accuracy on QASPER), so tests of the routing filter
+    have to ask for it rather than inherit whatever the default happens to be.
+    Two of these silently stopped exercising the filter when the default
+    changed, and still passed on the year filter alone.
+    """
+    from docusense.config.settings import settings
+
+    monkeypatch.setattr(settings, "use_section_routing", True)
+    return settings
+
+
 class TestInferredFilterFallback:
     """An inferred filter that finds nothing must not end the search."""
 
-    def test_section_filter_falls_back(self):
+    def test_section_filter_falls_back(self, section_routing_on):
         store = FakeVectorStore()
         pipeline = pipeline_with({"section_intent": "methodology"}, store)
 
@@ -237,7 +253,7 @@ class TestInferredFilterFallback:
         assert store.calls[0]["year"] == {"$gte": 2024}
         assert "year" not in store.calls[1]
 
-    def test_fallback_keeps_the_tenant_scope(self):
+    def test_fallback_keeps_the_tenant_scope(self, section_routing_on):
         """
         The caller's filters survive the retry.
 
@@ -259,7 +275,7 @@ class TestInferredFilterFallback:
         assert "section_type" not in store.calls[1]
         assert "year" not in store.calls[1]
 
-    def test_thin_filtered_result_is_widened_not_accepted(self):
+    def test_thin_filtered_result_is_widened_not_accepted(self, section_routing_on):
         """
         A filter that returns *some* results, but too few, is still widened.
 

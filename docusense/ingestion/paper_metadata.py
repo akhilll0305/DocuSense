@@ -255,7 +255,7 @@ class PaperMetadataExtractor:
         metadata.venue = self._extract_venue(markdown)
         metadata.abstract = self._extract_abstract(markdown)
         metadata.keywords = self._extract_keywords(markdown)
-        metadata.sections = self._extract_sections(markdown)
+        metadata.sections = self._extract_sections(markdown, metadata.title)
         metadata.citations = self._extract_citations(markdown)
         metadata.num_references = self._count_references(markdown)
         
@@ -788,16 +788,30 @@ class PaperMetadataExtractor:
         
         return keywords[:10]  # Max 10 keywords
     
-    def _extract_sections(self, markdown: str) -> List[PaperSection]:
+    def _extract_sections(
+        self,
+        markdown: str,
+        document_title: Optional[str] = None,
+    ) -> List[PaperSection]:
         """
         Extract section structure.
-        
+
         Detect:
         - Numbered sections (1. Introduction, 2.1 Method)
         - Named sections (## Methodology)
         - Section types (abstract, results, etc.)
+
+        Args:
+            markdown: Converted document text
+            document_title: Title heading, which is not a section label. It
+                names the paper, so classifying it applies one label to the
+                front matter -- "Adaptive Traffic Routing with Attention
+                Networks" would read as `methodology`.
         """
         sections = []
+        title_skeleton = (
+            self._normalize_for_compare(document_title) if document_title else ''
+        )
         
         # Find all Markdown headers
         # Pattern: ## Title or # Title or numbered sections
@@ -811,7 +825,10 @@ class PaperMetadataExtractor:
             start_pos = match.start()
             
             # Classify section type
-            section_type = self._classify_section(title)
+            if title_skeleton and self._normalize_for_compare(title) == title_skeleton:
+                section_type = "other"
+            else:
+                section_type = self._classify_section(title)
             
             section = PaperSection(
                 section_type=section_type,
@@ -968,10 +985,13 @@ class PaperMetadataExtractor:
 
         if (
             document_title
-            and len(parts) > 1
+            and parts
             and self._normalize_for_compare(parts[0])
             == self._normalize_for_compare(document_title)
         ):
+            # Dropped even when it is the only element: a chunk sitting in the
+            # front matter, under the title and above the first section, is not
+            # whatever the title happens to contain a keyword for.
             parts = parts[1:]
 
         for part in parts:

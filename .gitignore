@@ -56,10 +56,11 @@ data/.cache/
 data/*.db
 data/qdrant/
 data/benchmarks/*.json
-# The published ablation report backs the numbers quoted in the README, so it
-# is committed as evidence. Everything else under data/benchmarks/ is either
-# the downloaded QASPER dataset or a scratch run.
+# These two reports back the numbers quoted in the README and BENCHMARKS.md, so
+# they are committed as evidence. Everything else under data/benchmarks/ is
+# either the downloaded QASPER dataset or a scratch run.
 !data/benchmarks/qasper_ablation_report.json
+!data/benchmarks/routed_subset_report.json
 data/benchmarks/qasper/
 
 # Evaluation data (keep test sets but ignore results)

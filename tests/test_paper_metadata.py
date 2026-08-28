@@ -240,6 +240,26 @@ class TestSectionClassification:
     def test_an_unrecognized_heading_stays_other(self, extractor):
         assert extractor.classify_header_path("Latent Dirichlet Allocation") == "other"
 
+    def test_a_front_matter_chunk_is_not_labelled_from_the_title(self, extractor):
+        """
+        The chunk above the first section has only the title in its path.
+        Dropping the title only when something followed it left that chunk
+        classified from the title alone -- "Adaptive Traffic Routing with
+        Attention Networks" came back as `methodology`.
+        """
+        title = "Adaptive Traffic Routing with Attention Networks"
+        assert extractor.classify_header_path(title, document_title=title) == "other"
+
+    def test_the_title_section_is_not_classified_by_position_either(self, extractor):
+        """The offset fallback must not reintroduce what the path fix removed."""
+        markdown = (
+            "# Adaptive Traffic Routing with Attention Networks\n\n"
+            "## Abstract\nWe introduce ARTNet.\n\n"
+            "## Results\nDelay fell by 23.4%.\n"
+        )
+        meta = extractor.extract_from_markdown(markdown)
+        assert meta.get_section_type(0) == "other"
+
 
 # ==============================================================================
 # Confidence

@@ -13,7 +13,8 @@ which is the single orchestrator for the whole system.
 
 ```
 UploadFile
-  -> routes.ingest_document()        writes to a temp file
+  -> routes.ingest_document()        writes to a temp file; the uploaded name
+                                     travels separately as original_filename
   -> DocuSenseRAG.ingest()
        -> DocumentPipeline.process_document()
             converters.py        Markitdown -> Markdown (PyPDF2/pdfplumber fallback)
@@ -60,7 +61,7 @@ promotes the mode to `server` when both `QDRANT_URL` and `QDRANT_API_KEY` are se
 | `image_processor.py` | Figure/chart description via Gemini Vision, OCR fallback. Off by default (slow, rate-limited) |
 | `preprocessor.py` | Unicode normalization, whitespace collapsing, PDF artifact removal |
 | `paper_metadata.py` | The academic parser: bibliographic fields, 20+ section types, numbered and author-year citations, equation/table/figure counts, and a confidence score gating whether paper features apply |
-| `chunker.py` | Semantic chunking (200–800 tokens, target 500), splits on headers, keeps code blocks and tables intact, tracks `start_char`/`end_char`, and enriches each chunk with its section type |
+| `chunker.py` | Semantic chunking (200–800 tokens, target 500), splits on headers, keeps code blocks and tables intact, tracks `start_char`/`end_char` and the full chain of enclosing headers, and enriches each chunk with its section type |
 | `pipeline.py` | Orchestrates the above and writes to SQLite |
 
 ### `embeddings/`
@@ -259,15 +260,24 @@ Tracked honestly rather than hidden — see the README for current status.
   a few-second wait before text begins; progress events cover it.
 - **Payload indexes are server-only.** Qdrant's local disk mode ignores the eight academic
   indexes, so metadata filters fall back to full scans. Correct, but not fast at scale.
-- **Metadata extraction is heuristic.** Title, author, and section detection are
-  regex-based and tuned against a small sample; unusual layouts will still mis-parse.
-  Measured on the QASPER corpus, 63% of chunks end up with no usable `section_type`
-  (46.9% `other`, 8.7% missing, 7.0% `unknown`), which is what makes section routing
-  cost accuracy rather than add it — see below.
-- **Section routing costs accuracy on QASPER.** On the 60 of 259 benchmark questions it
-  fires on, routing lowers MRR by 8.5% and Recall@5 by 18.2%. It is left on by default
-  and can be turned off with `USE_SECTION_ROUTING=false`. The fix is better section
-  tagging, not a better filter. See [BENCHMARKS.md](BENCHMARKS.md).
+- **Metadata extraction is heuristic.** Title, author, section and year detection are
+  regex-based; unusual layouts will still mis-parse. It now fails toward "unknown"
+  rather than toward a confident wrong answer: a document with no author line gets no
+  authors, and an undetermined year is `None` and is left off the payload rather than
+  written as `0`. Measured on the QASPER corpus, 27.3% of chunks end up tagged `other`,
+  down from 62.6% with no usable label.
+- **Section routing costs accuracy, and is off by default.** On the 60 of 259 benchmark
+  questions it fires on, it lowers MRR from 0.2426 to 0.1903 and Recall@5 by 44%
+  relative. Repairing the section labels made it *worse*, not better, because a filter
+  that matches more chunks actually restricts the search instead of collapsing into the
+  widening fallback. The measured cause is the question→section mapping: the evidence
+  answering a question is in the section it routes to only 13.3% of the time. Enable
+  with `USE_SECTION_ROUTING=true`. See [BENCHMARKS.md](BENCHMARKS.md).
+- **Section labels come from headers.** A converted document with no headings at all
+  falls back to matching chunk offsets against detected sections, and those offsets are
+  measured on two different strings (sections on the raw markdown, chunks on the
+  preprocessed text). They agree only while preprocessing removes little, which is the
+  case today but is not guaranteed by anything.
 - **Reranking costs about 1.8s per query.** It is the largest single accuracy gain in
   the ablation (+25.8% MRR over hybrid alone) but takes retrieval from ~20ms to ~1.9s
   on CPU. Set `USE_RERANKING=false` to trade the accuracy back for latency.
@@ -307,7 +317,7 @@ defects, four of them in the product rather than in the harness:
 - **`USE_RERANKING` did nothing.** `DocuSenseRAG` built its `RetrievalPipeline` with the
   default `mode="balanced"`, which forces reranking off regardless of the setting. The
   shipped system scored 0.2041 MRR while the same components configured as documented
-  reached 0.2777 — a 36% gap that was purely configuration. The pipeline is now built in
+  reached 0.2824 — a 38% gap that was purely configuration. The pipeline is now built in
   `mode="accurate"` with `enable_reranking=settings.use_reranking`.
 
 One regression came out of that last fix and was caught by an existing test:
@@ -333,3 +343,62 @@ Recorded because the failure modes are instructive:
 - **Document deletion stranded vectors.** `delete_document()` removed SQLite rows only.
 
 Every one of these is now covered by `tests/test_integration.py`.
+
+## Fixed in the metadata pass
+
+Three defects in paper metadata extraction, all of the same shape: a field with no
+evidence behind it was filled with something that looked like evidence.
+
+- **The title was returned as the author list.** `_extract_authors` ran a bare
+  Title-Case regex over the first 2000 characters, which matches a title as readily as a
+  name, so a document with no author line came back with authors like
+  `["New Multimodal Benchmark Dataset"]`. Those values then flowed into every citation
+  the document produced, and are why citation accuracy could not be scored on QASPER.
+  The search is now bounded below the title and above the first front-matter section,
+  candidates must have the shape of a personal name, and the block must show positive
+  evidence that it is an author list — two or more names, an affiliation marker, or an
+  email. No author line now means no authors.
+- **An undetermined year was reported as 0.** `pm.year or 0` wrote a value that reads as
+  real and renders in a citation as "(Smith, 0)". The year is now omitted from both the
+  Qdrant payload and the chunk metadata when it is unknown, so it renders as "n.d.". The
+  extraction itself was also wrong: it took the maximum 20xx anywhere in the first 2000
+  characters, which picks up a year discussed in the abstract. Signals are now ordered by
+  what each is worth, and the frequency fallback is confined to the front matter.
+- **Fixing the authors nearly disabled all metadata.** Author presence was worth 0.15 of
+  the research-paper confidence score. Once extraction stopped inventing authors, 82 of
+  83 reconstructed QASPER papers fell below the 0.5 threshold — and below that threshold
+  no chunk is enriched, so every chunk silently loses its `section_type`. The scoring now
+  weights the structural signals (abstract, sections, references) that actually separate
+  a paper from a memo. This was caught by measuring the confidence distribution before
+  and after, not by a test; there was no test that would have failed.
+
+### Section tagging
+
+`section_type` was unusable on 62.6% of the benchmark corpus, now 27.3%. Four causes,
+all fixed:
+
+- **The classification vocabulary was too narrow.** Nine patterns covering the canonical
+  IMRaD labels. Real papers name sections "Data set", "Setup", "Ablation Study", "Error
+  Analysis", "Baselines" — all of which fell through to `other`. The patterns are now
+  ordered by specificity, because order is load-bearing: testing
+  `abstract: (abstract|summary)` first classified "Summary and Future Work" as an
+  abstract.
+- **Chunks were classified by character offset.** Section offsets are recorded on the raw
+  converted markdown; chunk offsets are recorded on the preprocessed text. Chunks now
+  carry their full header path and are classified from it — the outermost heading that
+  can be classified wins, so a subsection inherits its parent's role. Offsets remain only
+  as a fallback for header-less documents.
+- **The first section of every document was skipped.** `get_section_type` truth-tested
+  `start_char`, and the first section starts at character 0.
+
+- **The document title was classified as a section.** It heads every header path, so a
+  paper titled "A Neural Model for Question Answering" had every chunk tagged
+  `methodology`. Excluding it from the chain fixed most of that, but only where something
+  followed it -- the front-matter chunk, whose path is the title alone, was still
+  labelled from the title. Both the header path and the offset lookup now ignore the
+  title outright, and that chunk is `other`.
+
+Neither half of the last one showed up as a failing test. The first appeared as a 34%
+`methodology` share while measuring the label distribution; the second appeared as a
+`methodology` label on the abstract of a hand-written paper while checking a live upload.
+Both are now covered by `tests/test_paper_metadata.py`.

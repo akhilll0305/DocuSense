@@ -143,16 +143,26 @@ class Settings(BaseSettings):
     enable_strategy_planning: bool = True
 
     # Restrict a question to the section it seems to be about ("how did they
-    # train it?" -> methodology). Measured on QASPER it shows no detectable
-    # benefit: on the 60 of 259 questions it fires on the point estimate is
-    # -8.5% MRR, but the 95% interval spans zero (p=0.42), so that sample
-    # cannot separate a real penalty from noise -- it only bounds any gain as
-    # small. What is not statistical is the cause: section_type is absent on
-    # 63% of chunks, so the filter hides most of the corpus rather than
-    # focusing it. Left on by default because the behaviour predates the
-    # measurement and no harm was demonstrated; set USE_SECTION_ROUTING=false
-    # to turn it off. See docs/BENCHMARKS.md.
-    use_section_routing: bool = True
+    # train it?" -> methodology). Off by default: measured on QASPER, it costs
+    # accuracy, and the reason is not something better section labels fix.
+    #
+    # The first measurement blamed the labels -- 63% of chunks carried no
+    # usable section_type, so the filter hid the corpus rather than focusing
+    # it. Fixing the labels (down to 23%) made routing *worse*, not better,
+    # because a filter that matches more chunks actually restricts the search
+    # instead of collapsing into the widening fallback.
+    #
+    # The direct measurement explains it. Over the 60 of 259 benchmark
+    # questions routing fires on, the evidence that answers the question is in
+    # the section it routes to **13.3%** of the time. Questions do not respect
+    # section boundaries: "what accuracy did they get?" routes to `results`,
+    # while the numbers usually sit under `experiments`, and "what is X?"
+    # routes to `abstract`, which holds one chunk per paper.
+    #
+    # Kept as an option because it is cheap and a differently-structured corpus
+    # may behave differently: set USE_SECTION_ROUTING=true. See
+    # docs/BENCHMARKS.md.
+    use_section_routing: bool = False
     
     # ==================== Answer Generation ====================
     max_context_tokens: int = 3000
