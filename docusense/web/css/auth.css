@@ -17,12 +17,22 @@
      theme's gold: --gold-bright measured only 3.61:1 here. This clears AA. */
   --gold-on-navy: #eda54e;
 
+  /* Literal, not var(--navy). The token inverts in dark mode -- #1e3a5f
+     becomes the light blue #9db8d6 -- while everything painted on this panel
+     (the cream wordmark and headline, the gold accent) stays light because it
+     is hardcoded above. Following the token put gold on light blue at 1.02:1
+     and cream on light blue at 1.81:1: text that is not low-contrast but
+     absent. The panel is meant to be dark in both themes, which is what the
+     foreground colours here already assume, so it is pinned. The same trap is
+     noted on .btn-primary in design-system.css. */
+  --auth-panel: #1e3a5f;
+
   position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
   padding: var(--space-8) clamp(2rem, 5vw, var(--space-10));
-  background: var(--navy);
+  background: var(--auth-panel);
   color: #f4f1ea;
   overflow: hidden;
 }

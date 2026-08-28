@@ -215,9 +215,37 @@ Two rules the implementation enforces:
   class set by an inline head script, and a watchdog reveals everything after 4s. A
   throttled or backgrounded tab can delay IntersectionObserver indefinitely; without these
   guards the page renders blank, which was observed during development.
-- **Contrast is measured, not eyeballed.** Every text/background pair in both themes was
-  computed against WCAG AA. That found `--ink-faint` failing at 2.99:1 on sunk paper and the
-  auth panel's gold at 3.61:1 on navy; both were darkened until every pair cleared 4.5:1.
+- **Contrast is measured, not eyeballed.** Text/background pairs are computed against
+  WCAG AA. The first pass found `--ink-faint` failing at 2.99:1 on sunk paper and the auth
+  panel's gold at 3.61:1 on navy, and both were darkened.
+
+  That pass checked colours in the light theme and assumed they carried over. Re-measured
+  at a 430px viewport in **both** themes, four pairs were still failing, all of them the
+  same mistake: a foreground hardcoded as a literal against a background that inverts
+  between themes.
+
+  | | ratio | fixed |
+  |---|---|---|
+  | Auth panel: gold eyebrow and headline accent | **1.02:1** | Panel pinned to `#1e3a5f`; `var(--navy)` inverts to a light blue while the panel's cream and gold foregrounds are literals |
+  | Auth panel: cream wordmark | 1.81:1 | Same fix |
+  | `.btn-accent` label on gold, dark theme | 2.39:1 (1.91:1 hovered) | Label reads `var(--on-gold)`, which is near-white in light and near-black in dark |
+  | `--gold` on `--paper-sunk`, light theme | 4.31:1 | `--gold` darkened `#b45309` → `#a94e08` |
+  | `--ink-faint` on `--paper-raised`, dark theme | 4.45:1 | `--ink-faint` lightened `#8a7f70` → `#8f8475` |
+
+  The 1.02:1 pair was not low-contrast text; it was invisible text, and it had shipped.
+  Every text/background pair in both themes now clears 4.5:1, worst case 4.70:1.
+
+  The lesson is narrower than "check contrast": a colour token that inverts between themes
+  can only be paired with another token that inverts with it. `.btn-primary` already
+  carried a comment saying exactly this; `.auth__aside` and `.btn-accent` did not.
+
+- **The narrow layout is confirmed, not assumed.** All three pages were checked at a real
+  430px viewport: no element overflows horizontally on any of them, the landing page's
+  mobile nav opens with all five links, and the chat sidebar becomes a drawer that opens
+  over an overlay and closes again. One layout bug was found and fixed — the composer's
+  placeholder wraps to two lines at that width and a one-row textarea clipped the second
+  line behind its own scrollbar, so the placeholder shortens below 560px and the textarea
+  is sized to its contents at load rather than only on `input`.
 
 ---
 

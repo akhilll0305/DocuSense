@@ -79,8 +79,8 @@
 
           <p class="lede" data-reveal style="--reveal-delay:180ms">
             Sections, authors, venue, year, citations — parsed on the way in, then
-            used at the moment you ask. Questions about method search the methodology.
-            Questions about numbers search the results.
+            used at the moment you ask. Every passage it quotes comes back with the
+            section it came from and a citation you can check.
           </p>
 
           <div class="hero__actions" data-reveal style="--reveal-delay:260ms">
@@ -193,7 +193,7 @@
               <span class="compare__ref">(Devlin et al., 2018, results)</span>
             </blockquote>
             <ul class="compare__notes">
-              <li>Retrieved from the results section, because the question asked for a number</li>
+              <li>Traced to the results section, so you can see where the number came from</li>
               <li>Citation checked against the source before it is shown</li>
               <li>Reference list and BibTeX come with it</li>
             </ul>
@@ -223,11 +223,13 @@
 
           <article class="ledger__row" data-reveal>
             <span class="folio ledger__num">02</span>
-            <h3 class="ledger__title">It sends the question to the right section</h3>
+            <h3 class="ledger__title">It tells you which section an answer came from</h3>
             <p class="ledger__body">
-              “How did they train it?” searches methodology. “What accuracy?” searches
-              results. “Why is this better?” searches discussion. The routing is
-              pattern-based, so it works whether or not an LLM is reachable.
+              Every chunk is tagged with its section, read from the chain of headings
+              above it, so a passage under “Experiments › Baselines” is filed as
+              experiments. Answers cite the section alongside the author and year.
+              Restricting a search to one section is available too, and ships off:
+              measured on QASPER it hid the answer more often than it found it.
             </p>
           </article>
 

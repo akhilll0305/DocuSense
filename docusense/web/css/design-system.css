@@ -30,10 +30,15 @@
   --navy-deep:      #16293f;
 
   /* The reader's pen — used sparingly, like a citation mark */
-  --gold:           #b45309;
-  --gold-bright:    #d97706;
-  --gold-wash:      rgba(180, 83, 9, 0.10);
-  --gold-edge:      rgba(180, 83, 9, 0.32);
+  --gold:           #a94e08;
+  /* Hover darkens rather than lightens. #d97706 left the accent button's
+     near-white label at 3.14:1. */
+  --gold-bright:    #8f4205;
+  --gold-wash:      rgba(169, 78, 8, 0.10);
+  --gold-edge:      rgba(169, 78, 8, 0.32);
+  /* Whatever sits on a gold fill. Gold inverts between themes and this has to
+     invert with it -- see .btn-accent. */
+  --on-gold:        #fffdfa;
 
   /* Rules and hairlines — warm, never pure grey */
   --rule:           #ded6c9;
@@ -115,7 +120,7 @@
 
     --ink:          #f2ece1;
     --ink-soft:     #b9ad9c;
-    --ink-faint:    #8a7f70;
+    --ink-faint:    #8f8475;
     --ink-inverse:  #15120e;
 
     --navy:         #9db8d6;
@@ -125,6 +130,9 @@
     --gold-bright:  #f0ad55;
     --gold-wash:    rgba(224, 151, 63, 0.14);
     --gold-edge:    rgba(224, 151, 63, 0.38);
+    /* Dark theme's gold is a light amber, so a near-white label on it reads
+       2.39:1. The text on a gold fill goes dark here. */
+    --on-gold:      #15120e;
 
     --rule:         #342c22;
     --rule-strong:  #4a3f31;
@@ -149,7 +157,7 @@
 
   --ink:          #f2ece1;
   --ink-soft:     #b9ad9c;
-  --ink-faint:    #8a7f70;
+  --ink-faint:    #8f8475;
   --ink-inverse:  #15120e;
 
   --navy:         #9db8d6;
@@ -159,6 +167,9 @@
   --gold-bright:  #f0ad55;
   --gold-wash:    rgba(224, 151, 63, 0.14);
   --gold-edge:    rgba(224, 151, 63, 0.38);
+  /* Dark theme's gold is a light amber, so a near-white label on it reads
+     2.39:1. The text on a gold fill goes dark here. */
+  --on-gold:      #15120e;
 
   --rule:         #342c22;
   --rule-strong:  #4a3f31;
@@ -401,7 +412,10 @@ p { text-wrap: pretty; }
 
 .btn-accent {
   --btn-bg: var(--gold);
-  --btn-fg: #fffdfa;
+  /* Not a literal. --gold is a dark amber in light mode and a light one in
+     dark mode, so a hardcoded near-white label measured 2.39:1 in dark and
+     3.14:1 on hover in light. Same trap as .btn-primary below. */
+  --btn-fg: var(--on-gold);
   --btn-edge: var(--gold);
 }
 

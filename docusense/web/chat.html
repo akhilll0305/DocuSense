@@ -120,17 +120,17 @@
             <button class="chat__suggestion" data-query="What methodology did the authors use?">
               <span class="folio">01</span>
               <span class="chat__suggestion-text">What methodology did the authors use?</span>
-              <span class="chat__suggestion-hint">→ methodology</span>
+              <span class="chat__suggestion-hint">methodology</span>
             </button>
             <button class="chat__suggestion" data-query="What results did they report, with exact numbers?">
               <span class="folio">02</span>
               <span class="chat__suggestion-text">What results did they report, with exact numbers?</span>
-              <span class="chat__suggestion-hint">→ results</span>
+              <span class="chat__suggestion-hint">results</span>
             </button>
             <button class="chat__suggestion" data-query="What are the stated limitations and open problems?">
               <span class="folio">03</span>
               <span class="chat__suggestion-text">What are the stated limitations and open problems?</span>
-              <span class="chat__suggestion-hint">→ discussion</span>
+              <span class="chat__suggestion-hint">discussion</span>
             </button>
           </div>
         </div>
@@ -144,8 +144,11 @@
             </svg>
           </button>
 
+          <!-- data-placeholder-narrow is swapped in below 560px, where the
+               full placeholder wraps to two lines and is clipped. -->
           <textarea id="query-input" class="chat__textarea" rows="1"
                     placeholder="Ask about the papers on your shelf…"
+                    data-placeholder-narrow="Ask about your papers…"
                     aria-label="Type your question"></textarea>
 
           <button class="btn btn-accent chat__send" id="send-btn" aria-label="Send" disabled>

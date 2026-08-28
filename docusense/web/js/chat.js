@@ -35,6 +35,15 @@
   const uploadText  = $('#upload-text');
   const chatTitle   = $('#chat-title');
 
+  // Composer placeholder. Below this width the full text wraps to a second
+  // line that a one-row textarea clips. Declared here, with the other lookups,
+  // because `const` is not hoisted: declared next to fitComposer it sat in the
+  // temporal dead zone when setupEventListeners ran, and the ReferenceError
+  // took the send button and the Enter-to-send handler down with it.
+  const NARROW_COMPOSER = window.matchMedia('(max-width: 560px)');
+  const WIDE_PLACEHOLDER = queryInput.placeholder;
+  const NARROW_PLACEHOLDER = queryInput.dataset.placeholderNarrow || WIDE_PLACEHOLDER;
+
   // ── Init ──
   renderAccount();
   loadChats();
@@ -56,6 +65,31 @@
     if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
   }
 
+  /** Grow the composer to fit its content, up to a scrollable ceiling. */
+  function autosizeInput() {
+    queryInput.style.height = 'auto';
+    queryInput.style.height = Math.min(queryInput.scrollHeight, 150) + 'px';
+  }
+
+  /**
+   * Keep the composer usable at any width.
+   *
+   * Two things went wrong on a phone. The placeholder is long enough to wrap
+   * at 430px, and a one-row textarea clipped the second line behind its own
+   * scrollbar; and the initial height was whatever the browser picked,
+   * because autosize only ever ran on `input`.
+   *
+   * The placeholder is shortened rather than relying on the textarea growing
+   * to fit it: Chrome counts the placeholder in scrollHeight and Firefox does
+   * not, so autosize alone would fix this in one browser only.
+   */
+  function fitComposer() {
+    queryInput.placeholder = NARROW_COMPOSER.matches
+      ? NARROW_PLACEHOLDER
+      : WIDE_PLACEHOLDER;
+    autosizeInput();
+  }
+
   function setupEventListeners() {
     // Send message
     sendBtn.addEventListener('click', handleSend);
@@ -68,10 +102,18 @@
 
     // Auto-resize textarea
     queryInput.addEventListener('input', () => {
-      queryInput.style.height = 'auto';
-      queryInput.style.height = Math.min(queryInput.scrollHeight, 150) + 'px';
+      autosizeInput();
       sendBtn.disabled = !queryInput.value.trim();
     });
+
+    // The composer has to fit its contents before anyone types, too: an empty
+    // textarea is sized to its placeholder, and at narrow widths the full
+    // placeholder wraps to a second line that was being cut off.
+    fitComposer();
+    // The media query is what actually decides the placeholder, so listen to
+    // it directly; `resize` covers rewrapping of a draft already typed.
+    NARROW_COMPOSER.addEventListener('change', fitComposer);
+    window.addEventListener('resize', fitComposer);
 
     // New chat
     $('#new-chat-btn').addEventListener('click', startNewChat);
