@@ -90,6 +90,44 @@ def check_qdrant(settings):
         report(FAIL, f"Qdrant ({mode})", f"{type(e).__name__}: {e}{hint}")
 
 
+def check_generation(settings):
+    """
+    Check whichever backend is configured to generate answers.
+
+    Checking Ollama unconditionally would report a local server as missing on a
+    deployment that never intended to use one, and would say nothing about the
+    hosted backend that actually answers the questions.
+    """
+    provider = (settings.llm_provider or "ollama").strip().lower()
+    if provider == "groq":
+        return check_groq(settings)
+    if provider != "ollama":
+        report(FAIL, "Generation", f"unknown LLM_PROVIDER '{provider}' (expected ollama or groq)")
+        return
+    return check_ollama(settings)
+
+
+def check_groq(settings):
+    if not settings.groq_api_key:
+        report(
+            FAIL,
+            "Groq",
+            "LLM_PROVIDER=groq but GROQ_API_KEY is not set"
+            "\n        Key: https://console.groq.com — or set LLM_PROVIDER=ollama",
+        )
+        return
+    try:
+        from docusense.llms.groq_client import GroqClient
+
+        client = GroqClient()
+        if client.is_available():
+            report(OK, "Groq", f"'{settings.groq_model}' reachable")
+        else:
+            report(FAIL, "Groq", "key set but the API rejected it or is unreachable")
+    except Exception as e:
+        report(FAIL, "Groq", f"{type(e).__name__}: {e}")
+
+
 def check_ollama(settings):
     try:
         import ollama
@@ -173,7 +211,7 @@ def main() -> int:
     check_sqlite(settings)
     check_embeddings(settings)
     check_qdrant(settings)
-    check_ollama(settings)
+    check_generation(settings)
     check_gemini(settings)
 
     failures = sum(1 for s, _ in _results if s == FAIL)

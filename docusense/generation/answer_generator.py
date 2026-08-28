@@ -47,7 +47,8 @@ import time
 from loguru import logger
 
 from docusense.config.settings import settings
-from docusense.llms.ollama_client import OllamaClient
+from docusense.llms.base import LLMClient
+from docusense.llms.factory import get_llm_client
 
 if TYPE_CHECKING:
     from docusense.retrieval.retrieval_pipeline import RetrievalResult
@@ -189,7 +190,7 @@ class AnswerGenerator:
     
     def __init__(
         self,
-        ollama_client: Optional[OllamaClient] = None,
+        llm_client: Optional[LLMClient] = None,
         temperature: Optional[float] = None,
         max_context_tokens: Optional[int] = None,
         max_answer_tokens: Optional[int] = None,
@@ -199,13 +200,13 @@ class AnswerGenerator:
         Initialize AnswerGenerator.
         
         Args:
-            ollama_client: OllamaClient instance (creates new if None)
+            llm_client: Generation backend (built from LLM_PROVIDER if None)
             temperature: Generation temperature (0.0 = deterministic)
             max_context_tokens: Max tokens for context window
             max_answer_tokens: Max tokens for generated answer
             include_citations: Whether to request citations in answers
         """
-        self.client = ollama_client or OllamaClient()
+        self.client = llm_client or get_llm_client()
         self.temperature = temperature if temperature is not None else settings.temperature
         self.max_context_tokens = max_context_tokens or settings.max_context_tokens
         self.max_answer_tokens = max_answer_tokens or settings.answer_max_tokens

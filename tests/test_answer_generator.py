@@ -190,7 +190,7 @@ class TestOllamaClient:
 class TestAnswerGenerator:
     """Tests for AnswerGenerator."""
     
-    @patch("docusense.generation.answer_generator.OllamaClient")
+    @patch("docusense.generation.answer_generator.get_llm_client")
     def test_init(self, mock_client_class):
         """Test AnswerGenerator initialization."""
         from docusense.generation.answer_generator import AnswerGenerator
@@ -199,7 +199,7 @@ class TestAnswerGenerator:
         assert generator.client is not None
         assert generator.include_citations is True
     
-    @patch("docusense.generation.answer_generator.OllamaClient")
+    @patch("docusense.generation.answer_generator.get_llm_client")
     def test_build_context(self, mock_client_class):
         """Test context building from retrieval results."""
         from docusense.generation.answer_generator import AnswerGenerator
@@ -219,7 +219,7 @@ class TestAnswerGenerator:
         assert sources[0]["year"] == 2018
         assert sources[0]["section_type"] == "results"
     
-    @patch("docusense.generation.answer_generator.OllamaClient")
+    @patch("docusense.generation.answer_generator.get_llm_client")
     def test_build_context_by_paper(self, mock_client_class):
         """Test context grouping by paper."""
         from docusense.generation.answer_generator import AnswerGenerator
@@ -233,7 +233,7 @@ class TestAnswerGenerator:
         assert "BERT" in context
         assert "Language Models are Unsupervised" in context
     
-    @patch("docusense.generation.answer_generator.OllamaClient")
+    @patch("docusense.generation.answer_generator.get_llm_client")
     def test_generate_answer(self, mock_client_class):
         """Test answer generation with mocked LLM."""
         from docusense.generation.answer_generator import AnswerGenerator
@@ -264,7 +264,7 @@ class TestAnswerGenerator:
         assert answer.model_used == "llama3.2:3b"
         assert len(answer.papers_cited) == 2  # BERT and GPT-2 papers
     
-    @patch("docusense.generation.answer_generator.OllamaClient")
+    @patch("docusense.generation.answer_generator.get_llm_client")
     def test_compare_papers(self, mock_client_class):
         """Test multi-paper comparison."""
         from docusense.generation.answer_generator import AnswerGenerator
@@ -289,7 +289,7 @@ class TestAnswerGenerator:
         assert answer.is_multi_paper is True
         assert len(answer.papers_cited) >= 1
     
-    @patch("docusense.generation.answer_generator.OllamaClient")
+    @patch("docusense.generation.answer_generator.get_llm_client")
     def test_format_author_string(self, mock_client_class):
         """Test author formatting for citations."""
         from docusense.generation.answer_generator import AnswerGenerator
@@ -310,7 +310,7 @@ class TestAnswerGenerator:
         # Empty
         assert AnswerGenerator._format_author_string([]) == ""
     
-    @patch("docusense.generation.answer_generator.OllamaClient")
+    @patch("docusense.generation.answer_generator.get_llm_client")
     def test_estimate_confidence(self, mock_client_class):
         """Test confidence estimation."""
         from docusense.generation.answer_generator import AnswerGenerator
@@ -332,7 +332,7 @@ class TestAnswerGenerator:
         conf_no_results = AnswerGenerator._estimate_confidence([], "Some answer")
         assert conf_no_results == 0.0
     
-    @patch("docusense.generation.answer_generator.OllamaClient")
+    @patch("docusense.generation.answer_generator.get_llm_client")
     def test_check_has_citations(self, mock_client_class):
         """Test citation detection in answer text."""
         from docusense.generation.answer_generator import AnswerGenerator
@@ -347,7 +347,7 @@ class TestAnswerGenerator:
             "BERT achieved 93.5% accuracy"
         ) is False
     
-    @patch("docusense.generation.answer_generator.OllamaClient")
+    @patch("docusense.generation.answer_generator.get_llm_client")
     def test_extract_unique_papers(self, mock_client_class):
         """Test paper deduplication."""
         from docusense.generation.answer_generator import AnswerGenerator
@@ -362,7 +362,7 @@ class TestAnswerGenerator:
         papers = AnswerGenerator._extract_unique_papers(sources)
         assert papers == ["Paper A", "Paper B"]
     
-    @patch("docusense.generation.answer_generator.OllamaClient")
+    @patch("docusense.generation.answer_generator.get_llm_client")
     def test_generate_answer_handles_llm_error(self, mock_client_class):
         """Test graceful handling when LLM fails."""
         from docusense.generation.answer_generator import AnswerGenerator

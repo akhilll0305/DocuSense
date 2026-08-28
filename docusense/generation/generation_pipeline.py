@@ -64,7 +64,8 @@ import time
 
 from loguru import logger
 
-from docusense.llms.ollama_client import OllamaClient
+from docusense.llms.base import LLMClient
+from docusense.llms.factory import get_llm_client
 from docusense.generation.answer_generator import AnswerGenerator, GeneratedAnswer
 from docusense.generation.citation_formatter import (
     CitationFormatter,
@@ -167,7 +168,7 @@ class GenerationPipeline:
     def __init__(
         self,
         retrieval_pipeline: Optional[RetrievalPipeline] = None,
-        ollama_client: Optional[OllamaClient] = None,
+        llm_client: Optional[LLMClient] = None,
         answer_generator: Optional[AnswerGenerator] = None,
         citation_formatter: Optional[CitationFormatter] = None,
         citation_style: CitationStyle = CitationStyle.INLINE,
@@ -179,7 +180,7 @@ class GenerationPipeline:
         
         Args:
             retrieval_pipeline: RetrievalPipeline for document search
-            ollama_client: OllamaClient instance
+            llm_client: Generation backend (built from LLM_PROVIDER if None)
             answer_generator: AnswerGenerator instance
             citation_formatter: CitationFormatter instance
             citation_style: Default citation style
@@ -192,9 +193,9 @@ class GenerationPipeline:
         self.include_bibtex = include_bibtex
         
         # Initialize components
-        self.client = ollama_client or OllamaClient()
+        self.client = llm_client or get_llm_client()
         self.answer_generator = answer_generator or AnswerGenerator(
-            ollama_client=self.client
+            llm_client=self.client
         )
         self.citation_formatter = citation_formatter or CitationFormatter()
         

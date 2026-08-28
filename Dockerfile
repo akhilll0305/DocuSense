@@ -54,7 +54,14 @@ WORKDIR /app
 
 COPY --chown=app:app docusense ./docusense
 COPY --chown=app:app scripts ./scripts
+COPY --chown=app:app docker/entrypoint.sh ./docker/entrypoint.sh
 COPY --chown=app:app pyproject.toml README.md ./
+
+# The demo papers a public instance seeds itself with on start. Free hosting
+# tiers have ephemeral storage, so these belong in the image.
+COPY --chown=app:app data/demo ./data/demo
+
+RUN chmod +x ./docker/entrypoint.sh
 
 RUN mkdir -p /app/data /app/logs && chown -R app:app /app
 USER app
@@ -65,10 +72,15 @@ from sentence_transformers import SentenceTransformer, CrossEncoder; \
 SentenceTransformer('all-MiniLM-L6-v2'); \
 CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
 
+# Hugging Face Spaces and most PaaS hosts inject the port to listen on; 8000
+# is the local default.
+ENV PORT=8000
 EXPOSE 8000
 
 # Hits the one endpoint that needs no authentication.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-    CMD curl -fsS http://localhost:8000/api/health || exit 1
+    CMD curl -fsS "http://localhost:${PORT}/api/health" || exit 1
 
-CMD ["uvicorn", "docusense.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Seeds the demo shelf when SEED_DEMO is set, then serves. Seeding happens on
+# every start because the free tiers this targets have ephemeral storage.
+CMD ["./docker/entrypoint.sh"]

@@ -44,6 +44,17 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2:3b"  # Free local model
     ollama_vision_model: str = "llava:7b"  # Free vision model (backup)
+
+    # Which backend generates answers: "ollama" (local, the default) or "groq"
+    # (hosted). Local is right for development and for keeping documents on the
+    # machine; a public instance cannot run Ollama on a free tier, because
+    # llama3.2:3b needs ~4GB of RAM and answers in ~27s on a shared CPU.
+    llm_provider: str = "ollama"
+
+    # Groq (FREE tier - hosted inference, used for deployments)
+    groq_api_key: Optional[str] = None
+    groq_model: str = "llama-3.3-70b-versatile"
+    groq_base_url: str = "https://api.groq.com/openai/v1"
     
     # Default LLM models (FREE OPTIONS)
     default_llm_provider: str = "ollama"  # FREE: Ollama local models
@@ -67,6 +78,22 @@ class Settings(BaseSettings):
     # File handling
     allowed_file_types: list[str] = [".pdf", ".docx", ".txt", ".md", ".pptx", ".xlsx"]
     max_file_size_mb: int = 100  # Maximum file size in MB
+
+    # Per-account ceiling on stored documents. 0 means no limit, which is the
+    # right default locally: it is your own machine and your own disk. A public
+    # instance sets a real number, because an open sign-up form and an
+    # unlimited upload endpoint are the same thing as a public disk.
+    max_documents_per_user: int = 0
+
+    # A public instance seeds one account with a couple of papers already
+    # ingested, so a visitor's first click lands on a working system instead of
+    # an empty shelf. Off locally: a local install should not grow an account
+    # whose password is published. The credentials are meant to be shared --
+    # the account owns nothing but the demo papers, and per-user isolation
+    # keeps it out of everyone else's documents.
+    seed_demo: bool = False
+    demo_email: str = "demo@docusense.app"
+    demo_password: str = "read-the-papers"
     
     # Document conversion
     convert_to_markdown: bool = True  # Always convert to Markdown first

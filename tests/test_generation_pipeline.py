@@ -103,7 +103,7 @@ def make_mock_results() -> list:
 class TestGenerationPipeline:
     """Tests for GenerationPipeline."""
     
-    @patch("docusense.generation.generation_pipeline.OllamaClient")
+    @patch("docusense.generation.generation_pipeline.get_llm_client")
     def test_init(self, mock_client_class):
         """Test pipeline initialization."""
         from docusense.generation.generation_pipeline import GenerationPipeline
@@ -116,7 +116,7 @@ class TestGenerationPipeline:
         assert pipeline.include_references is True
         assert pipeline.include_bibtex is True
     
-    @patch("docusense.generation.generation_pipeline.OllamaClient")
+    @patch("docusense.generation.generation_pipeline.get_llm_client")
     def test_generate_from_results(self, mock_client_class):
         """Test answer generation from pre-retrieved results."""
         from docusense.generation.generation_pipeline import GenerationPipeline
@@ -149,7 +149,7 @@ class TestGenerationPipeline:
         assert response.model_used == "llama3.2:3b"
         assert response.generation_mode == "answer"
     
-    @patch("docusense.generation.generation_pipeline.OllamaClient")
+    @patch("docusense.generation.generation_pipeline.get_llm_client")
     def test_generate_from_results_with_citations(self, mock_client_class):
         """Test that citations are properly formatted in response."""
         from docusense.generation.generation_pipeline import GenerationPipeline
@@ -180,7 +180,7 @@ class TestGenerationPipeline:
         assert "@" in response.bibtex
         assert "BERT" in response.bibtex
     
-    @patch("docusense.generation.generation_pipeline.OllamaClient")
+    @patch("docusense.generation.generation_pipeline.get_llm_client")
     def test_generate_comparison_mode(self, mock_client_class):
         """Test multi-paper comparison mode."""
         from docusense.generation.generation_pipeline import GenerationPipeline
@@ -205,7 +205,7 @@ class TestGenerationPipeline:
         assert response.generation_mode == "compare"
         assert "BERT" in response.answer
     
-    @patch("docusense.generation.generation_pipeline.OllamaClient")
+    @patch("docusense.generation.generation_pipeline.get_llm_client")
     def test_generate_conflicts_mode(self, mock_client_class):
         """Test conflict detection mode."""
         from docusense.generation.generation_pipeline import GenerationPipeline
@@ -226,7 +226,7 @@ class TestGenerationPipeline:
         
         assert response.generation_mode == "conflicts"
     
-    @patch("docusense.generation.generation_pipeline.OllamaClient")
+    @patch("docusense.generation.generation_pipeline.get_llm_client")
     def test_generate_requires_retrieval_pipeline(self, mock_client_class):
         """Test that generate() requires retrieval pipeline."""
         from docusense.generation.generation_pipeline import GenerationPipeline
@@ -236,7 +236,7 @@ class TestGenerationPipeline:
         with pytest.raises(RuntimeError, match="No retrieval pipeline"):
             pipeline.generate("test query")
     
-    @patch("docusense.generation.generation_pipeline.OllamaClient")
+    @patch("docusense.generation.generation_pipeline.get_llm_client")
     def test_generate_with_retrieval(self, mock_client_class):
         """Test full pipeline with mocked retrieval."""
         from docusense.generation.generation_pipeline import GenerationPipeline
@@ -266,7 +266,7 @@ class TestGenerationPipeline:
         assert response.total_time >= 0
         mock_retrieval.retrieve.assert_called_once()
     
-    @patch("docusense.generation.generation_pipeline.OllamaClient")
+    @patch("docusense.generation.generation_pipeline.get_llm_client")
     def test_generate_no_results(self, mock_client_class):
         """Test pipeline when retrieval returns no results."""
         from docusense.generation.generation_pipeline import GenerationPipeline
@@ -282,7 +282,7 @@ class TestGenerationPipeline:
         
         assert "No relevant documents" in response.answer
     
-    @patch("docusense.generation.generation_pipeline.OllamaClient")
+    @patch("docusense.generation.generation_pipeline.get_llm_client")
     def test_get_pipeline_config(self, mock_client_class):
         """Test pipeline configuration report."""
         from docusense.generation.generation_pipeline import GenerationPipeline

@@ -32,6 +32,7 @@ from loguru import logger
 
 from docusense.api.deps import get_current_user, get_rag
 from docusense.auth import User
+from docusense.config.settings import settings
 
 from docusense.api.schemas import (
     IngestResponse,
@@ -133,6 +134,20 @@ async def ingest_document(
     """
     logger.info(f"📥 API: Ingesting {file.filename}")
 
+    # Per-account ceiling, checked before reading the body. On a public
+    # instance an open sign-up form plus an unlimited upload endpoint is a
+    # public disk; MAX_DOCUMENTS_PER_USER=0 (the local default) means no limit.
+    if settings.max_documents_per_user > 0:
+        owned = len(rag.list_documents(user_id=user.user_id))
+        if owned >= settings.max_documents_per_user:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"This account already holds {owned} documents, which is "
+                    f"the limit on this instance. Delete one to add another."
+                ),
+            )
+
     # Save uploaded file to temp location. The temp basename is a throwaway,
     # so the name the user uploaded is passed alongside it — otherwise it is
     # what gets stored and the document list reads "tmpXXXXXXXX.pdf".
@@ -142,6 +157,20 @@ async def ingest_document(
         content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
+
+    # Size is enforced here as well as in the converter. The converter checks
+    # the file it is handed, which is already on disk by then; on a public
+    # instance the point is to refuse the write, not to notice it afterwards.
+    max_bytes = settings.max_file_size_mb * 1024 * 1024
+    if len(content) > max_bytes:
+        Path(tmp_path).unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"File is {len(content) / 1024 / 1024:.1f} MB; the limit on "
+                f"this instance is {settings.max_file_size_mb} MB."
+            ),
+        )
 
     try:
         result = rag.ingest(

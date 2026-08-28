@@ -25,6 +25,11 @@ htmlcov/
 data/
 logs/
 
+# ...except the demo papers, which a public instance seeds itself with on
+# start. Free hosting tiers have ephemeral storage, so this has to be in the
+# image rather than something loaded once by hand.
+!data/demo/
+
 # Version control and CI
 .git/
 .github/

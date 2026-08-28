@@ -195,6 +195,49 @@ class TestIngestEndpoint:
         assert mock_rag.ingest.call_args.kwargs["original_filename"] == "passwd.pdf"
 
 
+class TestIngestLimits:
+    """
+    A public instance has an open sign-up form; without these an upload
+    endpoint is a public disk.
+    """
+
+    def test_no_limit_by_default(self, client, mock_rag):
+        """Locally it is the user's own machine and their own disk."""
+        from docusense.config.settings import settings
+
+        assert settings.max_documents_per_user == 0
+        r = client.post(
+            "/api/ingest",
+            files={"file": ("a.pdf", io.BytesIO(b"x"), "application/pdf")},
+        )
+        assert r.status_code == 200
+
+    def test_document_count_limit_is_enforced(self, client, mock_rag, monkeypatch):
+        from docusense.config.settings import settings
+
+        monkeypatch.setattr(settings, "max_documents_per_user", 1)
+        # The fixture's user already owns one document.
+        r = client.post(
+            "/api/ingest",
+            files={"file": ("second.pdf", io.BytesIO(b"x"), "application/pdf")},
+        )
+        assert r.status_code == 409
+        assert "limit" in r.json()["detail"].lower()
+        mock_rag.ingest.assert_not_called()
+
+    def test_oversized_upload_is_refused(self, client, mock_rag, monkeypatch):
+        from docusense.config.settings import settings
+
+        monkeypatch.setattr(settings, "max_file_size_mb", 1)
+        r = client.post(
+            "/api/ingest",
+            files={"file": ("big.pdf", io.BytesIO(b"x" * 2 * 1024 * 1024),
+                            "application/pdf")},
+        )
+        assert r.status_code == 413
+        mock_rag.ingest.assert_not_called()
+
+
 class TestAskEndpoint:
     def test_ask_question(self, client):
         """Test asking a question."""

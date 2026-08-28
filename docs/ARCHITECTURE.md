@@ -97,6 +97,24 @@ Caller filters are never dropped: `user_id` is one of them, and widening past it
 would search another tenant's documents. A caller who explicitly asks for
 `year=2021` gets an empty result rather than a silently broadened one.
 
+### `llms/`
+| File | Responsibility |
+|---|---|
+| `base.py` | `LLMClient`, the four-method surface the generation pipeline depends on |
+| `ollama_client.py` | Local inference. The default: no per-query cost, no rate limit, documents stay on the machine |
+| `groq_client.py` | Hosted inference over Groq's OpenAI-compatible API, for deployments. A thin `httpx` client, no SDK added |
+| `factory.py` | `get_llm_client()` — one place reads `LLM_PROVIDER` |
+
+Generation is a seam rather than a hardcoded client because the right backend
+differs by where the system runs. Locally, Ollama wins on every axis that
+matters. On a free hosting tier it is not an option: `llama3.2:3b` needs about
+4GB of RAM and answers in ~27s on a shared CPU. Nothing downstream of
+`get_llm_client()` knows which backend it got.
+
+An unknown provider name raises rather than falling back to Ollama. A silent
+fallback would leave a deployment believing it is using a hosted model while
+trying to reach a local server that is not there.
+
 ### `generation/`
 | File | Responsibility |
 |---|---|
