@@ -133,20 +133,25 @@ async def ingest_document(
     """
     logger.info(f"📥 API: Ingesting {file.filename}")
 
-    # Save uploaded file to temp location
-    suffix = Path(file.filename).suffix if file.filename else ".pdf"
+    # Save uploaded file to temp location. The temp basename is a throwaway,
+    # so the name the user uploaded is passed alongside it — otherwise it is
+    # what gets stored and the document list reads "tmpXXXXXXXX.pdf".
+    upload_name = Path(file.filename).name if file.filename else "unknown"
+    suffix = Path(upload_name).suffix or ".pdf"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
 
     try:
-        result = rag.ingest(tmp_path, user_id=user.user_id)
+        result = rag.ingest(
+            tmp_path, user_id=user.user_id, original_filename=upload_name
+        )
 
         return IngestResponse(
             success=result.success,
             document_id=result.document_id,
-            filename=file.filename or "unknown",
+            filename=result.filename,
             num_chunks=result.num_chunks,
             num_embeddings=result.num_embeddings,
             is_research_paper=result.is_research_paper,

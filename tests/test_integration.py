@@ -181,3 +181,40 @@ def test_delete_document_removes_vectors(rag, tmp_path):
 
     assert after == before - result.num_chunks
     assert result.document_id not in {d["document_id"] for d in rag.list_documents()}
+
+
+@pytest.mark.integration
+def test_uploaded_filename_survives_the_temp_file(rag, tmp_path):
+    """
+    An upload is written to a NamedTemporaryFile before ingestion, so the path
+    the pipeline sees has a throwaway basename. The name the user uploaded has
+    to reach the stored document row, or the document list reads
+    "tmp185or2yx.pdf" — which is what it did.
+    """
+    temp_named = tmp_path / "tmp7f3a91cd.md"
+    temp_named.write_text(PAPER_TEXT, encoding="utf-8")
+
+    result = rag.ingest(
+        temp_named,
+        user_id="filename_test",
+        original_filename="Attention Routing for Traffic Networks.pdf",
+    )
+    assert result.success, result.error
+    assert result.filename == "Attention Routing for Traffic Networks.pdf"
+
+    listed = {
+        d["document_id"]: d["filename"]
+        for d in rag.list_documents(user_id="filename_test")
+    }
+    assert listed[result.document_id] == "Attention Routing for Traffic Networks.pdf"
+    assert "tmp7f3a91cd" not in listed[result.document_id]
+
+
+@pytest.mark.integration
+def test_ingest_without_an_original_name_uses_the_path(rag, tmp_path):
+    """CLI ingestion reads files in place, so the basename is the right name."""
+    doc = tmp_path / "in_place_paper.md"
+    doc.write_text(PAPER_TEXT, encoding="utf-8")
+
+    result = rag.ingest(doc, user_id="filename_test")
+    assert result.filename == "in_place_paper.md"

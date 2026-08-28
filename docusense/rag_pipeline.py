@@ -323,7 +323,8 @@ class DocuSenseRAG:
         file_path: str | Path,
         document_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
+        original_filename: Optional[str] = None
     ) -> IngestResult:
         """
         Ingest a document: convert → chunk → embed → store in Qdrant.
@@ -334,6 +335,9 @@ class DocuSenseRAG:
             metadata: Optional metadata dict
             user_id: Owning user. Stored on the document row and stamped onto
                 every vector payload so retrieval can filter by tenant.
+            original_filename: Name to record for the document. Uploads arrive
+                as a temp file, so without this the stored name is the
+                temp basename and the document list shows `tmpXXXXXXXX.pdf`.
 
         Returns:
             IngestResult with success status and details
@@ -341,19 +345,22 @@ class DocuSenseRAG:
         file_path = Path(file_path)
         start_time = time.time()
 
-        logger.info(f"📥 Ingesting: {file_path.name}")
+        display_name = original_filename or file_path.name
+
+        logger.info(f"📥 Ingesting: {display_name}")
 
         # Step 1: Run ingestion pipeline (convert → chunk → store in SQLite)
         try:
             pipeline_result = self.ingestion_pipeline.process_document(
-                file_path, document_id, metadata, user_id=user_id
+                file_path, document_id, metadata, user_id=user_id,
+                original_filename=display_name
             )
         except Exception as e:
             logger.error(f"❌ Ingestion failed: {e}")
             return IngestResult(
                 success=False,
                 document_id=document_id or "unknown",
-                filename=file_path.name,
+                filename=display_name,
                 error=str(e),
                 processing_time=time.time() - start_time
             )
@@ -362,7 +369,7 @@ class DocuSenseRAG:
             return IngestResult(
                 success=False,
                 document_id=pipeline_result.document_id,
-                filename=file_path.name,
+                filename=display_name,
                 error=pipeline_result.error,
                 processing_time=time.time() - start_time
             )
@@ -373,7 +380,7 @@ class DocuSenseRAG:
             return IngestResult(
                 success=True,
                 document_id=pipeline_result.document_id,
-                filename=file_path.name,
+                filename=display_name,
                 num_chunks=0,
                 processing_time=time.time() - start_time
             )
@@ -390,7 +397,7 @@ class DocuSenseRAG:
             return IngestResult(
                 success=False,
                 document_id=pipeline_result.document_id,
-                filename=file_path.name,
+                filename=display_name,
                 num_chunks=len(chunks),
                 error=f"Embedding failed: {e}",
                 processing_time=time.time() - start_time
@@ -423,13 +430,17 @@ class DocuSenseRAG:
                     payload.update({
                         "paper_title": pm.title or "",
                         "authors": pm.authors or [],
-                        "year": pm.year or 0,
                         "venue": pm.venue or "",
                         "section_type": chunk.metadata.get("section_type", ""),
                         "paper_type": pm.paper_type or "",
                         "has_equations": chunk.metadata.get("has_equations", False),
                         "has_citations": chunk.metadata.get("has_citations", False),
                     })
+                    # An unknown year is left off the payload rather than
+                    # written as 0. A 0 matches no useful filter and renders
+                    # as "(Smith, 0)"; an absent key renders as "n.d.".
+                    if pm.year:
+                        payload["year"] = pm.year
 
                 if PointStruct is not None:
                     points.append(PointStruct(
@@ -458,7 +469,7 @@ class DocuSenseRAG:
             return IngestResult(
                 success=False,
                 document_id=pipeline_result.document_id,
-                filename=file_path.name,
+                filename=display_name,
                 num_chunks=len(chunks),
                 num_embeddings=len(embeddings),
                 error=f"Qdrant storage failed: {e}",
@@ -475,7 +486,7 @@ class DocuSenseRAG:
         result = IngestResult(
             success=True,
             document_id=pipeline_result.document_id,
-            filename=file_path.name,
+            filename=display_name,
             num_chunks=len(chunks),
             num_embeddings=len(embeddings),
             is_research_paper=is_paper,

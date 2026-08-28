@@ -150,7 +150,8 @@ class DocumentPipeline:
         file_path: str | Path,
         document_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
+        original_filename: Optional[str] = None
     ) -> PipelineResult:
         """
         Process a single document through the entire pipeline.
@@ -166,24 +167,33 @@ class DocumentPipeline:
             file_path: Path to document file
             document_id: Optional custom document ID (auto-generated if None)
             metadata: Optional metadata dict to attach to document
+            user_id: Owning user, stored on the document row
+            original_filename: Name to display for this document. API uploads
+                land in a NamedTemporaryFile, so `file_path.name` is a
+                throwaway like `tmp185or2yx.pdf`; the caller passes the name
+                the user actually uploaded.
         
         Returns:
             PipelineResult with success status and details
         """
         file_path = Path(file_path)
         start_time = datetime.now()
-        
+
+        # The name to show the user. Falls back to the path's own basename for
+        # callers (CLI ingestion, tests) that read a file in place.
+        display_name = original_filename or file_path.name
+
         # Generate document ID if not provided
         if document_id is None:
             document_id = self._generate_document_id(file_path)
         
-        logger.info(f"🚀 Processing document: {file_path.name}")
+        logger.info(f"🚀 Processing document: {display_name}")
         logger.info(f"   Document ID: {document_id}")
         
         result = PipelineResult(
             success=False,
             document_id=document_id,
-            filename=file_path.name,
+            filename=display_name,
             file_path=str(file_path)
         )
         
@@ -317,9 +327,9 @@ class DocumentPipeline:
             
             document_record = DocumentRecord(
                 document_id=document_id,
-                filename=file_path.name,
+                filename=display_name,
                 file_path=str(file_path),
-                file_type=file_path.suffix.lstrip('.'),
+                file_type=Path(display_name).suffix.lstrip('.'),
                 total_chunks=len(chunks),
                 processing_date=datetime.now().isoformat(),
                 metadata=doc_metadata,

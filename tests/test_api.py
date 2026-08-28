@@ -167,6 +167,33 @@ class TestIngestEndpoint:
         assert data["success"] is True
         assert data["num_chunks"] == 10
 
+    def test_ingest_passes_the_uploaded_name_not_the_temp_name(self, client, mock_rag):
+        """
+        The upload is written to a NamedTemporaryFile, so the path handed to
+        rag.ingest() has a throwaway basename. The name the user uploaded has
+        to travel separately or it is what gets persisted, and the document
+        list reads "tmp185or2yx.pdf".
+        """
+        client.post(
+            "/api/ingest",
+            files={"file": ("Attention Is All You Need.pdf",
+                            io.BytesIO(b"%PDF-1.4 fake"), "application/pdf")},
+        )
+        args, kwargs = mock_rag.ingest.call_args
+        assert kwargs["original_filename"] == "Attention Is All You Need.pdf"
+        # The positional path really is a temp file, so the kwarg is load-bearing.
+        temp_path = args[0]
+        assert "Attention" not in str(temp_path)
+
+    def test_ingest_strips_directories_from_the_uploaded_name(self, client, mock_rag):
+        """A client-supplied filename is untrusted; only the basename is kept."""
+        client.post(
+            "/api/ingest",
+            files={"file": ("../../etc/passwd.pdf",
+                            io.BytesIO(b"x"), "application/pdf")},
+        )
+        assert mock_rag.ingest.call_args.kwargs["original_filename"] == "passwd.pdf"
+
 
 class TestAskEndpoint:
     def test_ask_question(self, client):
