@@ -53,40 +53,67 @@ async def lifespan(app: FastAPI):
     user_store.close()
 
 
-app = FastAPI(
-    title="DocuSense",
-    description=(
-        "Research Paper Analysis RAG System — "
-        "Ingest papers, ask questions, get answers with citations."
-    ),
-    version="1.0.0",
-    lifespan=lifespan,
-)
+def create_app() -> FastAPI:
+    """
+    Build the ASGI application.
 
-# CORS. The web UI is served from this same origin, so cross-origin access is
-# only needed for external clients and is opt-in via CORS_ALLOW_ORIGINS.
-# "*" with allow_credentials is rejected by browsers anyway, so credentials are
-# only enabled for an explicit origin list.
-_origins = settings.cors_allow_origins
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_origins,
-    allow_credentials=_origins != ["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    A factory rather than a module-level literal so the environment-dependent
+    parts below can be exercised by a test instead of asserted about.
+    """
+    # The interactive API docs are a development tool, not part of the
+    # product. On a deployment they are also third-party JavaScript —
+    # FastAPI serves Swagger UI and ReDoc from cdn.jsdelivr.net — running on
+    # the same origin that holds the session token in localStorage. That is a
+    # bad trade for a page nothing links to, so /docs, /redoc and
+    # /openapi.json are off when ENVIRONMENT=prod and on everywhere else,
+    # where they are genuinely useful and the origin holds nothing.
+    #
+    # This is not access control: every endpoint stays exactly as reachable
+    # with curl as it was, and the schema is in this repository. It removes a
+    # surface, not a permission.
+    is_prod = settings.environment == "prod"
 
-# Register API routes
-app.include_router(auth_router)
-app.include_router(router)
+    app = FastAPI(
+        title="DocuSense",
+        description=(
+            "Research Paper Analysis RAG System — "
+            "Ingest papers, ask questions, get answers with citations."
+        ),
+        version="1.0.0",
+        lifespan=lifespan,
+        docs_url=None if is_prod else "/docs",
+        redoc_url=None if is_prod else "/redoc",
+        openapi_url=None if is_prod else "/openapi.json",
+    )
 
-# Serve static web UI files
-if WEB_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(WEB_DIR)), name="static")
-    logger.info(f"📁 Serving web UI from {WEB_DIR}")
+    # CORS. The web UI is served from this same origin, so cross-origin access is
+    # only needed for external clients and is opt-in via CORS_ALLOW_ORIGINS.
+    # "*" with allow_credentials is rejected by browsers anyway, so credentials are
+    # only enabled for an explicit origin list.
+    _origins = settings.cors_allow_origins
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_origins,
+        allow_credentials=_origins != ["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Register API routes
+    app.include_router(auth_router)
+    app.include_router(router)
+
+    # Serve static web UI files
+    if WEB_DIR.exists():
+        app.mount("/static", StaticFiles(directory=str(WEB_DIR)), name="static")
+        logger.info(f"📁 Serving web UI from {WEB_DIR}")
+
+    @app.get("/")
+    async def root():
+        """Redirect to the landing page."""
+        return RedirectResponse(url="/static/index.html")
+
+    return app
 
 
-@app.get("/")
-async def root():
-    """Redirect to the landing page."""
-    return RedirectResponse(url="/static/index.html")
+app = create_app()

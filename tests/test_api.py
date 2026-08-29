@@ -371,3 +371,47 @@ class TestHealthReportsTheGenerationBackend:
 
         monkeypatch.setattr(settings, "llm_provider", "something-new")
         assert client.get("/api/health").json()["generation"] == "hosted"
+
+
+# ==============================================================================
+# What a deployment exposes by URL
+# ==============================================================================
+
+class TestInteractiveDocsAreDevOnly:
+    """
+    The landing page no longer links /docs, but an unlinked route is still a
+    served route. FastAPI's Swagger UI and ReDoc pages load their JavaScript
+    from cdn.jsdelivr.net onto the app's own origin, which is where the
+    session token lives, so they are off when ENVIRONMENT=prod.
+
+    These build the app the way uvicorn does rather than inspecting the
+    setting, because the setting being right proves nothing about the routes.
+    """
+
+    @staticmethod
+    def _client(monkeypatch, environment):
+        from fastapi.testclient import TestClient
+        from docusense.config.settings import settings
+        from docusense.api.app import create_app
+
+        monkeypatch.setattr(settings, "environment", environment)
+        # No `with`: the real lifespan builds the whole RAG stack, and none of
+        # these three routes needs it.
+        return TestClient(create_app())
+
+    @pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
+    def test_served_in_development(self, monkeypatch, path):
+        assert self._client(monkeypatch, "dev").get(path).status_code == 200
+
+    @pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
+    def test_not_served_in_production(self, monkeypatch, path):
+        assert self._client(monkeypatch, "prod").get(path).status_code == 404
+
+    def test_the_api_itself_is_unaffected(self, monkeypatch):
+        """
+        Turning the docs off must not turn anything else off. The landing
+        page redirect is the cheapest route that proves the app still serves.
+        """
+        r = self._client(monkeypatch, "prod").get("/", follow_redirects=False)
+        assert r.status_code == 307
+        assert r.headers["location"] == "/static/index.html"

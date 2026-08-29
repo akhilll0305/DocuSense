@@ -284,6 +284,15 @@ via `Depends`. Components inside it are lazily initialized, so heavy models (emb
 reranker) load on first use rather than at boot. The web UI is dependency-free
 HTML/CSS/JS served as static files from the same origin, so no CORS or build step.
 
+`create_app()` builds it, so what depends on the environment can be tested rather than
+asserted. One thing does: the interactive API docs. FastAPI serves Swagger UI and ReDoc
+by loading their JavaScript from `cdn.jsdelivr.net` onto the app's own origin — which is
+the origin holding the session token in `localStorage` — so `/docs`, `/redoc` and
+`/openapi.json` are served when `ENVIRONMENT` is `dev` or `test` and return `404` under
+`prod`. Nothing links them, including the landing page. This removes a surface, not a
+permission: every endpoint stays as reachable with `curl` as it was, and the schema is
+in this repository.
+
 #### Visual design — "The Reading Room"
 
 The interface is styled as an academic journal rather than a dark SaaS product: warm paper
