@@ -7,9 +7,8 @@ research paper — title, authors, venue, year, sections, citations — and uses
 time. Every chunk is tagged with the section it came from, and every answer comes back
 with citations checked against the sources they claim.
 
-**[Try it live](https://akhilll0305--docusense-web.modal.run)** — sign in with
-`demo@docusense.app` / `read-the-papers`. It sleeps when idle, so the first load takes a
-few seconds.
+**[Try it live](https://akhilll0305--docusense-web.modal.run)** — it sleeps when idle, so
+the first load takes a few seconds.
 
 ---
 
