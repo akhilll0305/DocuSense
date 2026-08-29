@@ -45,7 +45,8 @@
         <ul class="auth__facts">
           <li><span class="folio">01</span> Answers cite the section they came from</li>
           <li><span class="folio">02</span> Citations are verified before you see them</li>
-          <li><span class="folio">03</span> Generation runs locally — nothing is sent out</li>
+          <li><span class="folio">03</span> <span data-local-claim
+              data-hosted-claim="Answers are written by a hosted model, so your text is sent to it">Generation runs locally — nothing is sent out</span></li>
         </ul>
       </div>
 
@@ -100,7 +101,8 @@
         <section class="auth__card auth__card--hidden" id="signup-card" aria-labelledby="signup-heading">
           <p class="eyebrow">Begin</p>
           <h2 id="signup-heading" class="auth__title">Open a shelf</h2>
-          <p class="auth__sub">Free, local, and private to you.</p>
+          <p class="auth__sub"><span data-local-claim
+              data-hosted-claim="Free to try. A public demo — see the notes on the home page.">Free, local, and private to you.</span></p>
 
           <form id="signup-form" class="auth__form" novalidate>
             <div class="field">
@@ -247,6 +249,25 @@
         document.getElementById('signup-name').value.trim()
       );
     });
+  </script>
+
+  <!-- The three statements above about local generation are true of a local
+       install and false of a deployment using a hosted model, so they are
+       corrected from /api/health rather than left to mislead. Failing to
+       reach it leaves the local wording in place, which is the wording that
+       is correct for anyone running this themselves. -->
+  <script>
+    (async () => {
+      try {
+        const r = await fetch('/api/health');
+        if (!r.ok) return;
+        const { generation } = await r.json();
+        if (generation !== 'hosted') return;
+        document.querySelectorAll('[data-local-claim]').forEach((el) => {
+          el.textContent = el.dataset.hostedClaim;
+        });
+      } catch { /* leave the local wording */ }
+    })();
   </script>
 </body>
 </html>

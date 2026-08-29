@@ -335,3 +335,39 @@ class TestSystemEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["total_queries"] == 5
+
+
+# ==============================================================================
+# What the marketing pages are allowed to claim
+# ==============================================================================
+
+class TestHealthReportsTheGenerationBackend:
+    """
+    The landing and sign-in pages state that generation is local and that a
+    document never leaves the machine. That is true of a local install and
+    false of a deployment pointed at a hosted model — and one of those
+    statements sits directly above a password field. The pages correct
+    themselves from this field, so it has to be right.
+    """
+
+    def test_ollama_reports_local(self, client, monkeypatch):
+        from docusense.config.settings import settings
+
+        monkeypatch.setattr(settings, "llm_provider", "ollama")
+        assert client.get("/api/health").json()["generation"] == "local"
+
+    def test_groq_reports_hosted(self, client, monkeypatch):
+        from docusense.config.settings import settings
+
+        monkeypatch.setattr(settings, "llm_provider", "groq")
+        assert client.get("/api/health").json()["generation"] == "hosted"
+
+    def test_an_unknown_provider_is_not_assumed_local(self, client, monkeypatch):
+        """
+        Anything that is not Ollama sends the text somewhere. Defaulting the
+        unknown case to "local" would be the one wrong answer here.
+        """
+        from docusense.config.settings import settings
+
+        monkeypatch.setattr(settings, "llm_provider", "something-new")
+        assert client.get("/api/health").json()["generation"] == "hosted"

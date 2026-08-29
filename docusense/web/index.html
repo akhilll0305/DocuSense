@@ -94,7 +94,8 @@
           </div>
 
           <p class="hero__note" data-reveal style="--reveal-delay:340ms">
-            Runs on local models. Your papers never leave the machine.
+            <span data-local-claim
+                  data-hosted-claim="This demo answers with a hosted model, so questions and the passages they match are sent to it.">Runs on local models. Your papers never leave the machine.</span>
           </p>
         </div>
 
@@ -313,7 +314,8 @@
           Your papers, <span class="mark" data-mark>actually searchable.</span>
         </h2>
         <p class="lede close__lede">
-          Free, local, and private. Nothing is uploaded anywhere you did not put it.
+          <span data-local-claim
+                data-hosted-claim="Free to try. This is a public demo: uploads are visible only to your account, and answers are written by a hosted model.">Free, local, and private. Nothing is uploaded anywhere you did not put it.</span>
         </p>
         <a href="/static/auth.html#signup" class="btn btn-accent btn-lg">
           Create an account
@@ -351,12 +353,32 @@
         <div class="colophon__meta">
           <p class="colophon__heading">Set in</p>
           <p>Crimson Pro &amp; Atkinson Hyperlegible</p>
-          <p class="folio">Qdrant · BM25 · Ollama</p>
+          <p class="folio"><span data-local-claim
+                data-hosted-claim="Qdrant · BM25 · Groq">Qdrant · BM25 · Ollama</span></p>
         </div>
       </div>
     </div>
   </footer>
 
   <script src="/static/js/animations.js"></script>
+
+  <!-- The three statements above about local generation are true of a local
+       install and false of a deployment using a hosted model, so they are
+       corrected from /api/health rather than left to mislead. Failing to
+       reach it leaves the local wording in place, which is the wording that
+       is correct for anyone running this themselves. -->
+  <script>
+    (async () => {
+      try {
+        const r = await fetch('/api/health');
+        if (!r.ok) return;
+        const { generation } = await r.json();
+        if (generation !== 'hosted') return;
+        document.querySelectorAll('[data-local-claim]').forEach((el) => {
+          el.textContent = el.dataset.hostedClaim;
+        });
+      } catch { /* leave the local wording */ }
+    })();
+  </script>
 </body>
 </html>

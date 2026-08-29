@@ -90,6 +90,11 @@ image = (
             "USE_IMAGE_UNDERSTANDING": "false",
             # Measured on QASPER: rewriting costs 18% MRR. See BENCHMARKS.md.
             "QUERY_LLM_BACKEND": "off",
+            # The local default of 500 is sized for a 3B model answering in
+            # ~27s. A hosted model is fast enough to finish a thought, and the
+            # demo question asks for a structured comparison: at 500 the
+            # flagship answer was cut off mid-word.
+            "ANSWER_MAX_TOKENS": "1200",
         }
     )
     .add_local_dir(REPO / "scripts", "/root/scripts")

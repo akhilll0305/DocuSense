@@ -143,6 +143,11 @@ class HealthResponse(BaseModel):
     status: str = "healthy"
     version: str = "1.0.0"
     components: Dict[str, bool] = {}
+    # Which backend writes the answers, and therefore whether the text of a
+    # document leaves this machine. The landing and sign-in pages both claim
+    # it does not, which is true of a local install and false of a deployment
+    # using a hosted model, so they read this rather than assert it.
+    generation: str = "local"
 
 
 class StatsResponse(BaseModel):

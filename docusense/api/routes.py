@@ -431,7 +431,11 @@ async def health_check(rag=Depends(get_rag)):
     return HealthResponse(
         status="healthy",
         version="1.0.0",
-        components=status.get("components", {})
+        components=status.get("components", {}),
+        generation=(
+            "local" if (settings.llm_provider or "ollama").strip().lower() == "ollama"
+            else "hosted"
+        ),
     )
 
 
