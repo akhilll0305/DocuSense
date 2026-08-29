@@ -211,6 +211,11 @@ class AnswerGenerator:
         self.max_context_tokens = max_context_tokens or settings.max_context_tokens
         self.max_answer_tokens = max_answer_tokens or settings.answer_max_tokens
         self.include_citations = include_citations if include_citations is not None else settings.include_citations
+        # `compare` and `conflicts` ask for a structured comparison across every
+        # paper retrieved — a table, a section per axis, a synthesis. One budget
+        # for "answer this question" and "compare these papers" is the wrong
+        # shape: at the answer budget the comparison stopped mid-word.
+        self.max_comparison_tokens = self.max_answer_tokens * 3
         
         logger.info("📝 AnswerGenerator initialized")
         logger.info(f"  Max context: {self.max_context_tokens} tokens")
@@ -428,7 +433,7 @@ class AnswerGenerator:
                 prompt=prompt,
                 system_prompt=COMPARISON_SYSTEM_PROMPT,
                 temperature=self.temperature,
-                max_tokens=self.max_answer_tokens
+                max_tokens=self.max_comparison_tokens
             )
         except Exception as e:
             logger.error(f"❌ Comparison generation failed: {e}")
@@ -481,7 +486,7 @@ class AnswerGenerator:
                 prompt=prompt,
                 system_prompt=CONFLICT_DETECTION_PROMPT,
                 temperature=self.temperature,
-                max_tokens=self.max_answer_tokens
+                max_tokens=self.max_comparison_tokens
             )
         except Exception as e:
             logger.error(f"❌ Conflict detection failed: {e}")

@@ -385,3 +385,35 @@ class TestEmptyAnswer:
         assert "500" in message and "reasoning" in message
         # Deterministic at temperature 0: retrying just spends the budget again.
         assert http.post.call_count == 1
+
+
+class TestTruncationIsReported:
+    def test_a_truncated_answer_warns(self):
+        """
+        A cut-off answer reads as a model that trailed off, not one that ran
+        out of budget. The text is still returned — it is real — but the log
+        is the only place that can say why it stopped.
+        """
+        client = GroqClient(api_key="test-key", max_tokens=500, max_retries=1)
+        response = MagicMock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            "choices": [{
+                "finish_reason": "length",
+                "message": {"content": "An answer that stops mid-"},
+            }]
+        }
+        # loguru does not route through pytest's caplog; give it its own sink.
+        from loguru import logger
+
+        captured = []
+        sink = logger.add(captured.append, level="WARNING")
+        try:
+            with patch("httpx.Client") as ctor:
+                ctor.return_value.__enter__.return_value.post.return_value = response
+                out = client.generate("question")
+        finally:
+            logger.remove(sink)
+
+        assert out == "An answer that stops mid-"
+        assert any("cut off" in str(m) for m in captured), captured

@@ -338,6 +338,14 @@ class GroqClient:
                 result = (choice["message"].get("content") or "").strip()
                 if not result:
                     raise self._empty_answer_error(choice)
+                if choice.get("finish_reason") == "length":
+                    # Not an error — the caller gets real text — but a truncated
+                    # answer reads as a model that trailed off rather than one
+                    # that ran out of budget, and only the log can tell them.
+                    logger.warning(
+                        f"⚠️ Answer hit the {payload['max_tokens']}-token limit and "
+                        f"was cut off. Raise ANSWER_MAX_TOKENS if this recurs."
+                    )
                 logger.success(
                     f"✅ Generated {len(result)} chars in {time.time() - start:.2f}s "
                     f"(attempt {attempt})"

@@ -113,7 +113,7 @@ python scripts/ingest.py path/to/paper.pdf     # or a whole directory
 python scripts/doctor.py                       # check Qdrant / models / provider
 python scripts/reset_password.py --list        # operator account recovery
 
-pip install -r requirements-dev.txt && pytest  # 337 tests
+pip install -r requirements-dev.txt && pytest  # 338 tests
 python scripts/benchmark.py --papers 80        # QASPER ablation
 ```
 
@@ -175,7 +175,7 @@ docusense/
 docs/               Architecture notes, benchmarks and methodology
 deploy/             Modal app, Cloud Run script, deployment notes
 scripts/            doctor, ingest, benchmark, seed_demo, reset_password
-tests/              337 tests, unit and integration
+tests/              338 tests, unit and integration
 ```
 
 Architecture and known limitations: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
