@@ -10,6 +10,15 @@ license: mit
 short_description: A research-paper RAG system that understands academic structure
 ---
 
+<!--
+  This is the Space card, not a deployment plan. Hugging Face is NOT the current
+  target: on a free account both `sdk: docker` and `sdk: gradio` refuse to create
+  a Space with "hosting Gradio and Docker Spaces on free cpu-basic requires a PRO
+  subscription" (HTTP 402), and only `sdk: static` is free. The file is kept
+  because it is correct and complete for the day this account has PRO — the
+  Dockerfile is what a Docker Space builds. The live plan is deploy/DEPLOY.md.
+-->
+
 # DocuSense
 
 Ask questions of research papers and get answers with verified citations.

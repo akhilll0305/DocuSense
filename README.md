@@ -73,7 +73,7 @@ email channel, and resetting on request alone would hand any account to anyone w
 its address. Recovery is `python scripts/reset_password.py <email>`, run by whoever
 operates the instance. See [Known limitations](docs/ARCHITECTURE.md#known-limitations).
 
-Tests: 289 passing (unit + integration).
+Tests: 298 passing (unit + integration).
 Run `python scripts/doctor.py` to check your environment before reporting a problem.
 
 ---
@@ -237,7 +237,7 @@ python scripts/ingest.py --reset data/papers/    # wipe the vector store first
 ### Test
 
 ```bash
-pytest                          # everything (289 tests)
+pytest                          # everything (298 tests)
 pytest -m integration           # real components, no mocks
 pytest -m "not integration"     # unit tests only
 python scripts/doctor.py        # check Qdrant / Ollama / Gemini / embeddings
@@ -275,7 +275,15 @@ is in the repo: the image reads `PORT`, seeds a demo account from `data/demo/` o
 start (free tiers have ephemeral storage), and caps documents and upload size
 because a public URL with open sign-up is otherwise a public disk.
 
-Step by step, including which secrets to set: **[deploy/DEPLOY.md](deploy/DEPLOY.md)**.
+What retrieval still needs locally is memory: torch, the embedding model and the
+cross-encoder peak at **730 MB** answering one question, and 627 MB with
+reranking switched off — so the 512 MB free tiers cannot run this at all, and
+the target is Google Cloud Run at 1–2 GiB. Hugging Face Spaces was the previous
+plan and is no longer available on a free account: both the Docker and Gradio
+SDKs now answer `402 … requires a PRO subscription`.
+
+Step by step, with the measurements behind those numbers:
+**[deploy/DEPLOY.md](deploy/DEPLOY.md)**.
 
 ---
 
@@ -296,6 +304,7 @@ The ones that matter most:
 | `USE_SECTION_ROUTING` | `false` | Restrict a question to the section it seems to be about. Measured to cost accuracy on QASPER — see [BENCHMARKS.md](docs/BENCHMARKS.md) |
 | `LLM_PROVIDER` | `ollama` | Which backend generates answers. `groq` points at a hosted model for deployments, where a 3B local model does not fit — see [deploy/DEPLOY.md](deploy/DEPLOY.md) |
 | `GROQ_API_KEY` | — | Required only when `LLM_PROVIDER=groq` |
+| `GROQ_MODEL` | `qwen/qwen3.8-27b` | Which hosted model answers. Groq retires ids without notice, so `doctor.py` checks the id against the account's model list and a failed answer names the models the key can actually use |
 | `MAX_DOCUMENTS_PER_USER` | `0` | Per-account document cap; `0` means no limit. Set a real number on a public instance |
 | `SEED_DEMO` | `false` | Seed a shared demo account from `data/demo/` on start. For public instances with ephemeral storage |
 
@@ -326,7 +335,8 @@ scripts/            doctor.py (environment diagnostics), ingest.py (bulk ingesti
                     benchmark.py (QASPER retrieval ablation),
                     reset_password.py (operator account recovery),
                     seed_demo.py (demo shelf for a public instance)
-deploy/             DEPLOY.md and the Hugging Face Space card
+deploy/             DEPLOY.md, the Cloud Run deploy script, and a
+                    Hugging Face Space card kept for a PRO account
 
 Dockerfile          Two-stage build; models baked in so the first query isn't a download
 docker-compose.yml  API + Qdrant + Ollama

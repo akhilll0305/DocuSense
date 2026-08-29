@@ -115,6 +115,12 @@ An unknown provider name raises rather than falling back to Ollama. A silent
 fallback would leave a deployment believing it is using a hosted model while
 trying to reach a local server that is not there.
 
+`GroqClient.is_available()` checks that the configured model id is in the
+account's model list, not merely that `/models` answers. Hosted model ids are
+retired without notice, and a key that still authenticates against an endpoint
+whose models have moved on is the shape of failure this cost a session to find
+— see [Fixed in the deployment pass](#fixed-in-the-deployment-pass).
+
 ### `generation/`
 | File | Responsibility |
 |---|---|
@@ -490,3 +496,43 @@ Neither half of the last one showed up as a failing test. The first appeared as 
 `methodology` share while measuring the label distribution; the second appeared as a
 `methodology` label on the abstract of a hand-written paper while checking a live upload.
 Both are now covered by `tests/test_paper_metadata.py`.
+
+---
+
+## Fixed in the deployment pass
+
+The hosted generation backend had never answered a question. Sixteen mocked
+tests passed against an endpoint that returned `404` in reality.
+
+- **The default `GROQ_MODEL` had been retired.** `llama-3.3-70b-versatile` no
+  longer exists on Groq. The key was valid, `GET /models` returned `200`, and
+  every `POST /chat/completions` returned `404`. The default is now
+  `qwen/qwen3.8-27b`, chosen by running the real `rag.ask()` path against each
+  candidate the account can address rather than a raw prompt: it answers in
+  1.3–2.7s and keeps its `(Author, Year)` citations, where `qwen3.6-27b` leaks
+  its `<think>` block into the answer text.
+- **`is_available()` could not see the problem.** It called `/models` and
+  returned `True` on a `200`, which is why a dead model looked healthy in
+  `scripts/doctor.py`. It now requires the configured id to be *in* that list,
+  and says which models the account can use when it is not.
+- **A retired model id was retried three times, with backoff.** It is a
+  configuration error, not a transient one. `404` and `401` now raise
+  immediately — `GroqModelUnavailableError` names the model, says it has most
+  likely been retired, and lists every model the key can use for generation;
+  streamed answers raise the same thing rather than putting a bare status code
+  into an SSE error event.
+- **An empty answer was returned as an empty answer.** The `gpt-oss` models
+  return their chain of thought in a separate `reasoning` field that is charged
+  against `max_tokens`; at `ANSWER_MAX_TOKENS=500` the whole budget can go there
+  and `content` comes back `""` with `finish_reason: length` — a `200` carrying
+  a blank answer to the UI. That is now `GroqEmptyAnswerError`, with the cause
+  spelled out.
+- **A failed answer told the user to start Ollama.** Whichever backend failed,
+  the message read "Please ensure Ollama is running" — the wrong instruction
+  entirely on a hosted deployment. It now names the backend that actually
+  failed.
+- **Two tests only passed on a machine with no Groq key.** `GroqClient(api_key="")`
+  does not mean "no key": the constructor falls back to `settings.groq_api_key`,
+  so once a real key was in `.env` those two made live API calls and failed.
+  The module now pins the setting for every test in it, which is also what keeps
+  the suite off the network.
