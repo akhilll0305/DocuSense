@@ -6,7 +6,7 @@ SQLite and Qdrant.
 
 Usage:
     python scripts/ingest.py path/to/paper.pdf
-    python scripts/ingest.py data/test_documents/          # whole directory
+    python scripts/ingest.py data/demo/                    # whole directory
     python scripts/ingest.py data/papers/ --images         # describe figures too
     python scripts/ingest.py --reset data/papers/          # wipe the store first
 """

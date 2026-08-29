@@ -203,7 +203,8 @@ source venv/Scripts/activate      # Windows (Git Bash)
 
 # 2. Dependencies
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements.txt              # to run it
+pip install -r requirements-dev.txt          # to run the tests too
 
 # 3. Configuration
 cp .env.example .env
@@ -356,7 +357,7 @@ docusense/
 ├── auth/           Password hashing, JWT, user store
 ├── config/         Centralized pydantic-settings configuration
 ├── ingestion/      Converters, preprocessing, paper metadata, chunking
-├── embeddings/     embedding models, and the runtime seam (ONNX or torch)
+├── embeddings/     Embedding models, and the runtime seam (ONNX or torch)
 ├── vectorstore/    Qdrant client + academic payload indexes
 ├── retrieval/      Query processing, hybrid search, reranking
 ├── generation/     Answer generation, citations, conversation memory
@@ -367,7 +368,8 @@ docusense/
 
 tests/              Unit + integration tests (test_integration.py, test_auth.py)
 docs/               Architecture notes, benchmark results and methodology;
-                    docs/archive/ holds the original course plan
+                    docs/archive/ holds the original course plan, kept as a
+                    record of what was planned rather than what was built
 data/               Local documents, SQLite DB, vector store (gitignored)
 scripts/            doctor.py (environment diagnostics), ingest.py (bulk ingestion),
                     benchmark.py (QASPER retrieval ablation),
@@ -376,8 +378,13 @@ scripts/            doctor.py (environment diagnostics), ingest.py (bulk ingesti
 deploy/             DEPLOY.md, modal_app.py, the Cloud Run deploy script,
                     and a Hugging Face Space card kept for a PRO account
 
+docker/             entrypoint.sh — seeds the demo shelf, then serves on $PORT
+
 Dockerfile          Two-stage build; models baked in so the first query isn't a download
 docker-compose.yml  API + Qdrant + Ollama
+requirements.txt    What a running instance needs, and nothing else
+requirements-dev.txt  Tests, linters, benchmark metrics
+requirements-torch.txt  The torch model runtime, for MODEL_RUNTIME=torch
 .github/workflows/  CI: lint, tests on Python 3.11 and 3.13, Docker build
 ```
 

@@ -1,0 +1,36 @@
+# Test, lint and evaluation tooling.
+#
+# Separate from requirements.txt because everything in that file ends up in the
+# deployed image, and a running instance has no use for a test runner. This was
+# not free: pytest, mypy, black, ruff, coverage, nltk and rouge-score were all
+# being installed into the container and pulled on every cold start.
+#
+#     pip install -r requirements.txt -r requirements-dev.txt
+#
+# CI installs both. The Dockerfile installs only requirements.txt.
+
+-r requirements.txt
+
+# ==================== Tests ====================
+pytest>=7.4.3
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.1
+
+# ==================== Lint and types ====================
+black>=23.12.0
+# Pinned, not floating. A linter's rule set grows between releases, so an
+# unpinned `ruff>=...` means CI can fail on code nobody touched: CI resolved
+# 0.16.4 while this venv had 0.15.0, and the newer default rule set flagged
+# nine pre-existing __all__ blocks. Local and CI now run the same tool, and
+# upgrading is a deliberate commit that fixes any new findings with it.
+ruff==0.15.0
+mypy>=1.7.1
+
+# ==================== Benchmark metrics ====================
+# Required for `scripts/benchmark.py --answers N`. Without rouge-score the
+# ROUGE columns are reported as null rather than 0.0, so a missing install
+# cannot be mistaken for a genuine score of zero.
+rouge-score>=0.1.2            # ROUGE metrics for answer quality
+# bert-score is optional and not installed even here: it pulls in a second
+# transformer model for a metric the benchmark does not currently rely on.
+# Install it to populate the BERTScore columns.

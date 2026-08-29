@@ -29,12 +29,7 @@ class Settings(BaseSettings):
     environment: Literal["dev", "test", "prod"] = "dev"
     
     # ==================== LLM Providers ====================
-    # OpenAI (optional, for comparison/experimentation only)
-    openai_api_key: Optional[str] = None
-    anthropic_api_key: Optional[str] = None
     
-    # HuggingFace (FREE)
-    huggingface_api_key: Optional[str] = None  # Free tier available
     
     # Gemini (FREE tier - for image processing & query rewriting)
     gemini_api_key: Optional[str] = None  # FREE: 1500 images/day, 15 req/min
@@ -69,10 +64,6 @@ class Settings(BaseSettings):
     groq_model: str = "qwen/qwen3.8-27b"
     groq_base_url: str = "https://api.groq.com/openai/v1"
     
-    # Default LLM models (FREE OPTIONS)
-    default_llm_provider: str = "ollama"  # FREE: Ollama local models
-    default_chat_model: str = "llama3.2:3b"  # FREE: Fast, good quality
-    default_smart_model: str = "llama3.2:3b"  # FREE: Can upgrade to llama3.1:8b for better quality
     
     # ==================== Embedding Settings (Phase 2) ====================
     # FREE OPTIONS ONLY
@@ -151,7 +142,6 @@ class Settings(BaseSettings):
     embedding_token_limit: int = 512  # Hard limit for embedding model
     
     # Chunking strategy
-    chunk_size: int = 500  # Legacy - use target_chunk_tokens
     chunk_overlap: int = 50
     chunking_strategy: Literal["fixed", "semantic", "sliding"] = "semantic"
     
@@ -164,7 +154,6 @@ class Settings(BaseSettings):
     # ==================== Vector Store Settings (Phase 2) ====================
     
     # Qdrant configuration
-    vector_store_type: Literal["qdrant", "faiss", "chroma"] = "qdrant"
     qdrant_mode: Literal["memory", "disk", "server"] = "disk"  # memory=testing, disk=local, server=remote
     qdrant_path: Path = PROJECT_ROOT / "data" / "qdrant"  # For disk mode
     qdrant_url: Optional[str] = None  # For server mode: http://localhost:6333
@@ -224,7 +213,6 @@ class Settings(BaseSettings):
     # exists to consume it.
     enable_query_expansion: bool = False
     enable_intent_classification: bool = False
-    enable_strategy_planning: bool = True
 
     # Restrict a question to the section it seems to be about ("how did they
     # train it?" -> methodology). Off by default: measured on QASPER, it costs
@@ -294,21 +282,9 @@ class Settings(BaseSettings):
     api_reload: bool = True  # Auto-reload in dev
     api_title: str = "DocuSense API"
     api_description: str = "Intelligent Document Q&A using RAG"
-    
-    # ==================== UI Settings (Gradio) ====================
-    ui_share: bool = False  # Create shareable link
-    ui_server_name: str = "0.0.0.0"
-    ui_server_port: int = 7860
-    
-    # ==================== Deployment (Modal.com) ====================
-    modal_deployment: bool = False
-    modal_gpu: str = "any"  # "any", "a10g", "a100", etc.
-    modal_cpu: int = 2
-    modal_memory: int = 4096  # MB
-    modal_timeout: int = 600  # seconds
-    
+
+
     # ==================== Evaluation ====================
-    golden_dataset_path: str = "data/evaluation/golden_queries.json"
     enable_query_logging: bool = True
     
     # ==================== Rate Limiting ====================
@@ -343,7 +319,7 @@ class Settings(BaseSettings):
         if self.jwt_secret_key:
             return
 
-        if self.is_production:
+        if self.environment == "prod":
             raise ValueError(
                 "JWT_SECRET_KEY must be set when ENVIRONMENT=prod. "
                 "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
@@ -357,49 +333,6 @@ class Settings(BaseSettings):
             "Sessions will not survive a restart."
         )
     
-    @property
-    def is_production(self) -> bool:
-        """Check if running in production environment."""
-        return self.environment == "prod"
-    
-    @property
-    def is_development(self) -> bool:
-        """Check if running in development environment."""
-        return self.environment == "dev"
-    
-    def get_llm_config(self, task: str = "default") -> dict:
-        """Get LLM configuration for specific task (FREE models only)."""
-        task_models = {
-            "planning": self.default_smart_model,
-            "classification": self.default_chat_model,
-            "synthesis": self.default_smart_model,
-            "reranking": self.default_chat_model,
-            "default": self.default_chat_model
-        }
-        
-        return {
-            "provider": self.default_llm_provider,
-            "model": task_models.get(task, self.default_chat_model),
-            "temperature": self.temperature,
-            "max_tokens": self.answer_max_tokens,
-            "timeout": self.timeout,
-            "base_url": self.ollama_base_url if self.default_llm_provider == "ollama" else None
-        }
-    
-    @property
-    def is_using_free_models(self) -> bool:
-        """Check if using 100% free models."""
-        return (
-            self.default_llm_provider in ["ollama", "huggingface"] and
-            self.embedding_provider == "sentence-transformers"
-        )
-    
-    @property
-    def deployment_ready(self) -> bool:
-        """Check if configuration is ready for modal.com deployment."""
-        # Modal.com deployment requires no external API dependencies for free tier
-        return self.is_using_free_models
-
 
 # Global settings instance
 settings = Settings()

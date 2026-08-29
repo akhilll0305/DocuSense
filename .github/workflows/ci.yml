@@ -49,7 +49,7 @@ jobs:
         # CPU-only torch: the default wheel pulls ~2GB of unused CUDA libraries.
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Cache sentence-transformers models
         uses: actions/cache@v5

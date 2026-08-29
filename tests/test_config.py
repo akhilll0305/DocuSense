@@ -16,5 +16,6 @@ def test_settings():
     from docusense.config import settings
     
     assert settings.project_name == "DocuSense"
-    assert settings.chunk_size > 0
+    # chunk_size was the legacy knob; the chunker works in token targets.
+    assert settings.target_chunk_tokens > 0
     assert settings.top_k_results > 0
