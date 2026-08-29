@@ -69,6 +69,7 @@ class GroqClient:
         max_tokens: Optional[int] = None,
         max_retries: int = 3,
         retry_delay: float = 1.0,
+        max_retry_wait: float = 65.0,
         timeout: float = 60.0,
     ):
         self.model = model or settings.groq_model
@@ -78,6 +79,7 @@ class GroqClient:
         self.max_tokens = max_tokens or settings.answer_max_tokens
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.max_retry_wait = max_retry_wait
         self.timeout = timeout
 
         logger.info("🤖 GroqClient initialized")
@@ -218,6 +220,26 @@ class GroqClient:
             f"(finish_reason: {reason}).{cause}"
         )
 
+    def _backoff_for(self, error: Exception, attempt: int) -> float:
+        """
+        How long to wait before the next attempt.
+
+        A rate limit is the one failure that says how long to wait, and the
+        answer is often much longer than a linear backoff would guess: Groq's
+        free tier meters tokens per minute, so a `retry-after` of 40s is
+        normal and 1s of backoff simply burns the remaining attempts. Capped
+        so a pathological header cannot hang a request behind it.
+        """
+        if isinstance(error, httpx.HTTPStatusError) and error.response.status_code == 429:
+            header = error.response.headers.get("retry-after")
+            if header:
+                try:
+                    return min(float(header), self.max_retry_wait)
+                except ValueError:
+                    pass
+            return min(self.retry_delay * 10 * attempt, self.max_retry_wait)
+        return self.retry_delay * attempt
+
     @staticmethod
     def _is_model_not_found(error: Exception) -> bool:
         """Whether an httpx error is Groq's 'this model does not exist'."""
@@ -340,7 +362,7 @@ class GroqClient:
                     f"⚠️ Groq generation failed (attempt {attempt}): {self._scrub(e)}"
                 )
                 if attempt < self.max_retries:
-                    time.sleep(self.retry_delay * attempt)
+                    time.sleep(self._backoff_for(e, attempt))
 
         raise RuntimeError(
             f"Groq generation failed after {self.max_retries} attempts: "

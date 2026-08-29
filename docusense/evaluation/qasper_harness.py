@@ -236,6 +236,11 @@ class ArmResult:
     per_query_rr: List[float] = field(default_factory=list)
     per_query_ndcg10: List[float] = field(default_factory=list)
 
+    # How much of the query LLM actually ran. A rewrite that failed and fell
+    # back to the original query scores exactly like a rewrite that did not
+    # help, so a report of this arm is unreadable without it.
+    query_llm: Dict[str, Any] = field(default_factory=dict)
+
     def to_dict(self, include_per_query: bool = True) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
             "arm": self.arm.to_dict(),
@@ -244,6 +249,8 @@ class ArmResult:
             "median_latency_ms": round(self.median_latency_ms, 1),
             "queries_with_no_results": self.empty_results,
         }
+        if self.query_llm:
+            payload["query_llm"] = self.query_llm
         if self.result.retrieval:
             payload["retrieval_metrics"] = self.result.retrieval.to_dict()
         if self.result.answer:
@@ -773,6 +780,19 @@ class QASPERHarness:
             latencies_sorted[len(latencies_sorted) // 2] if latencies_sorted else 0.0
         )
 
+        # Read off the processor this arm actually used, rather than from the
+        # settings it was built from: the two differ the moment a backend
+        # trips its breaker mid-run.
+        processor = getattr(pipeline, "query_processor", None)
+        query_llm: Dict[str, Any] = {}
+        if processor is not None and arm.enable_query_processing:
+            query_llm = {
+                "backend": getattr(processor, "backend", "off"),
+                "available": bool(getattr(processor, "_llm_ready", lambda: False)()),
+                "disabled_reason": getattr(processor, "_llm_disabled_reason", None),
+                **getattr(processor, "stats", {}),
+            }
+
         return ArmResult(
             arm=arm,
             result=result,
@@ -783,6 +803,7 @@ class QASPERHarness:
             latencies_ms=latencies,
             per_query_rr=per_query_rr,
             per_query_ndcg10=per_query_ndcg10,
+            query_llm=query_llm,
         )
 
     def run_ablation(

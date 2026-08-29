@@ -14,7 +14,17 @@ USE_SECTION_ROUTING=true python scripts/benchmark.py --papers 80 --reuse-corpus 
 
 which writes
 [`data/benchmarks/routed_subset_report.json`](../data/benchmarks/routed_subset_report.json).
-Both files are committed as the evidence behind these tables.
+The query-rewriting numbers come from
+
+```bash
+LLM_PROVIDER=groq QUERY_LLM_BACKEND=provider python scripts/benchmark.py \
+    --papers 80 --reuse-corpus --arms hybrid_rerank,full \
+    --out data/benchmarks/query_rewriting_report.json
+```
+
+which writes
+[`data/benchmarks/query_rewriting_report.json`](../data/benchmarks/query_rewriting_report.json).
+All three files are committed as the evidence behind these tables.
 
 ---
 
@@ -84,11 +94,12 @@ committed report. It comes from a separate run with `--arms legacy_default`, kep
 because it is what the system scored before reranking was switched on. Reproduce it with
 `python scripts/benchmark.py --papers 80 --arms legacy_default --reuse-corpus`.
 
-The last two rows are identical to four decimal places because, on this benchmark, query
-processing currently does nothing at all. Its three components are LLM rewriting, which
-was unavailable (the Gemini key returns 403/429); academic metadata filters, which fire
-on none of the 259 questions, since QASPER questions do not mention years, authors or
-venues; and section routing, which is now off by default. Every query in both arms
+The last two rows are identical to four decimal places because, in the shipped
+configuration, query processing does nothing at all. Its three components are LLM
+rewriting, which is off by default (`QUERY_LLM_BACKEND=off`; switched on it is
+measurably *harmful*, [below](#what-the-numbers-say)); academic metadata filters, which
+fire on none of the 259 questions, since QASPER questions do not mention years, authors
+or venues; and section routing, which is now off by default. Every query in both arms
 produced the same ranking — the paired difference is exactly 0.0000 with p = 1.0, not a
 small effect that failed to reach significance. The arm is kept in the ladder because it
 is the shipped default, and stating a cost of zero is worth as much as stating a gain.
@@ -272,6 +283,94 @@ pipeline widens when an inferred filter leaves fewer candidates than requested. 
 the reason routing looked harmless in the first pass, which is worth keeping in mind
 when reading a benign measurement of a filter.
 
+**LLM query rewriting costs accuracy, and it had never run.** This is the
+feature the ablation table above reports as an exact zero. That zero was
+honest about what it measured and misleading about why: rewriting was wired to
+Gemini alone, the key on this project returns 403, and so every run measured
+the feature as **absent** rather than as ineffective. "No effect" and "never
+executed" are not the same claim.
+
+Rewriting now goes through the same seam that generation does
+(`QUERY_LLM_BACKEND=provider` uses whatever `LLM_PROVIDER` points at), so it
+can be run wherever answers can. Measured on the same 259 questions and the
+same 1,048 chunks, with `qwen/qwen3.8-27b` doing the rewriting:
+
+| Arm | MRR | NDCG@10 | P@1 | Recall@5 | Recall@10 | MAP | ms/query |
+|---|---|---|---|---|---|---|---|
+| Hybrid + rerank *(current default)* | **0.2824** | **0.2771** | **0.2046** | **0.3149** | **0.3816** | **0.2223** | 1932 |
+| + LLM query rewriting | 0.2305 | 0.2407 | 0.1467 | 0.2759 | 0.3536 | 0.1879 | 2600 |
+
+Δ MRR = **−0.0519**, 95% CI [−0.0859, −0.0174], p = 0.0033, n = 259. The
+interval excludes zero, so unlike section routing this is a demonstrated
+*harm*, not an unproven one. P@1 falls by 28% relative and each query costs
+about 670ms more.
+
+The run rewrote **259 of 259** queries — none fell back — so this measures the
+feature working rather than failing. The report carries that count under
+`query_llm`, because a rewrite that errored and fell back to the original
+query scores identically to one that simply did not help, and a number that
+cannot tell those apart is the trap this whole exercise came out of.
+
+Per query, against no rewriting:
+
+| | count |
+|---|---|
+| worse | 57 |
+| better | 27 |
+| unchanged | 175 |
+| had the evidence at rank 1, lost it | 24 of 53 |
+| gained rank 1 | 9 |
+| found evidence in the top 10, then found none | 21 |
+| found none, then found some | 9 |
+
+*Why.* The rewriter cannot see the corpus, so when a question is
+under-specified it supplies the missing context from its own priors — and on a
+question about one particular paper, those priors are usually wrong. Over a
+30-question sample it rewrote every one, keeping 88 content terms, dropping
+20, and **adding 146**: the rewritten query is mostly words the asker never
+wrote.
+
+```
+What are the five domains?
+  -> What are the five domains of the CompTIA A+ certification exam?
+
+How long is the vocabulary of subwords?
+  -> What is the typical size of the subword vocabulary used in modern
+     natural language processing models?
+
+Which of two design architectures have better performance?
+  -> Which of the two proposed software design architectures demonstrates
+     superior performance in terms of speed, efficiency, and resource
+     utilization?
+```
+
+The first invents a certification exam that appears nowhere in the paper. The
+second turns a question about *this* paper's vocabulary into a question about
+the field. The third decides the architectures are software. Each added term
+is something BM25 will now match against a corpus that does not contain it,
+and something the embedding will pull toward a topic the paper is not about.
+
+This is the same shape as the section-routing result: a component that sounds
+obviously helpful, is measured, and turns out to cost accuracy — for a reason
+that is specific and visible once looked at. `QUERY_LLM_BACKEND` therefore
+defaults to `off`, and the ablation table's exact zero remains the honest
+description of the shipped default.
+
+*What this does not say.* QASPER questions are already well-formed: they were
+written by NLP practitioners as questions about a paper. Rewriting is meant to
+help the opposite case — a vague, conversational query — and this benchmark
+contains none. The measurement bounds what rewriting is worth on well-posed
+questions, which is what an academic search box mostly receives; it is not
+evidence that rewriting is worthless everywhere.
+
+*Two other LLM calls were removed from the query path entirely.* Query
+expansion and intent classification each cost a round trip per query, and
+neither could ever change a result: `retrieval_pipeline` searches on
+`rewritten_query` alone, and reads `expanded_queries` and `intent` only to
+count them in a metrics field. They are now off by default
+(`ENABLE_QUERY_EXPANSION`, `ENABLE_INTENT_CLASSIFICATION`) and stay available
+for a caller who wants the metadata.
+
 ---
 
 ## Answer quality
@@ -348,6 +447,9 @@ python scripts/benchmark.py --papers 80 --answers 30      # + answer quality (ne
 python scripts/benchmark.py --papers 80 --reuse-corpus    # skip re-ingestion
 python scripts/benchmark.py --papers 80 --only-routed \
     --arms hybrid_rerank,full                             # section routing, where it fires
+LLM_PROVIDER=groq QUERY_LLM_BACKEND=provider \
+  python scripts/benchmark.py --papers 80 --reuse-corpus \
+    --arms hybrid_rerank,full                             # LLM query rewriting
 python scripts/benchmark.py --papers 5 --arms vector,hybrid   # quick smoke test
 ```
 
@@ -357,10 +459,12 @@ Notes:
   out of your own documents, BM25 index, and search results; `--reuse-corpus` reuses
   them, and the default re-ingests from scratch.
 - Local Qdrant disk mode allows one process at a time. Stop any running `uvicorn` first.
-- Query rewriting via Gemini was **unavailable** during these runs (the API key returns
-  403/429). Section routing and academic filters are pattern-based and did run; LLM-based
-  rewriting and expansion did not. The "query processing" arm therefore measures the
-  pattern-based half only.
+- In the four-arm ladder, LLM rewriting is off (`QUERY_LLM_BACKEND=off`), so the
+  "query processing" arm measures the pattern-based half only — section routing and
+  academic filters. Rewriting is measured separately, with `QUERY_LLM_BACKEND=provider`,
+  [above](#what-the-numbers-say). Gemini was never reachable from this project at all:
+  its key returns 403, which is what hid the feature behind an exact zero for three
+  benchmark runs.
 - The corpus is rebuilt from QASPER's parsed text, not from PDFs, so PDF extraction
   quality is not in scope here. Real uploads go through Markitdown and will chunk
   differently.

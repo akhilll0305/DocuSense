@@ -107,7 +107,9 @@ class QueryProcessor:
         model: Optional[str] = None,
         enable_rewriting: bool = True,
         enable_expansion: bool = True,
-        enable_intent_classification: bool = True
+        enable_intent_classification: bool = True,
+        backend: Optional[str] = None,
+        llm_client: Optional[Any] = None,
     ):
         """
         Initialize QueryProcessor.
@@ -118,52 +120,108 @@ class QueryProcessor:
             enable_rewriting: Enable query rewriting
             enable_expansion: Enable multi-query expansion
             enable_intent_classification: Enable intent detection
+            backend: "gemini", "provider" or "off" (uses settings if None)
+            llm_client: Backend for the "provider" path, built from
+                LLM_PROVIDER if None
         """
         self.api_key = api_key or settings.gemini_api_key
         self.model_name = model or settings.gemini_model
-        # Tripped when Gemini is unreachable or unauthorized, so a dead API
-        # does not produce three identical warnings on every single query.
-        self._gemini_disabled_reason: Optional[str] = None
+        self.backend = (backend or settings.query_llm_backend or "off").strip().lower()
+        # Tripped when the query LLM is unreachable or unauthorized, so a dead
+        # API does not produce an identical warning on every single query.
+        self._llm_disabled_reason: Optional[str] = None
         self.enable_rewriting = enable_rewriting and settings.enable_query_rewriting
-        self.enable_expansion = enable_expansion
-        self.enable_intent_classification = enable_intent_classification and settings.enable_intent_classification
-        
-        # Initialize Gemini if available and API key provided
+        self.enable_expansion = enable_expansion and settings.enable_query_expansion
+        self.enable_intent_classification = (
+            enable_intent_classification and settings.enable_intent_classification
+        )
+
         self.gemini_model = None
-        if GEMINI_AVAILABLE and self.api_key:
-            try:
-                genai.configure(api_key=self.api_key)
-                self.gemini_model = genai.GenerativeModel(self.model_name)
-                logger.info(f"QueryProcessor initialized with Gemini {self.model_name}")
-            except Exception as e:
-                logger.warning(f"Failed to initialize Gemini: {e}")
-                logger.info("Query processing will use basic expansion only")
+        self._llm_client = llm_client
+
+        # Counted because a rewrite that quietly falls back to the original
+        # query is indistinguishable, in the results, from a rewrite that did
+        # not help. A measurement of this feature has to be able to say how
+        # many of the queries it actually rewrote.
+        self.stats = {"rewrites_attempted": 0, "rewrites_succeeded": 0}
+
+        if self.backend == "gemini":
+            if GEMINI_AVAILABLE and self.api_key:
+                try:
+                    genai.configure(api_key=self.api_key)
+                    self.gemini_model = genai.GenerativeModel(self.model_name)
+                    logger.info(f"QueryProcessor initialized with Gemini {self.model_name}")
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Gemini: {e}")
+                    logger.info("Query processing will use basic expansion only")
+            else:
+                logger.info("QueryProcessor: backend=gemini but no key; basic mode")
+        elif self.backend == "provider":
+            if self._llm_client is None:
+                # Imported here rather than at module scope: this package is
+                # imported by the ingestion path too, which has no business
+                # constructing a generation client.
+                from docusense.llms.factory import get_llm_client
+                try:
+                    self._llm_client = get_llm_client()
+                except Exception as e:
+                    logger.warning(f"QueryProcessor could not build an LLM client: {e}")
+            if self._llm_client is not None:
+                logger.info(
+                    f"QueryProcessor initialized with "
+                    f"{getattr(self._llm_client, 'model', 'provider')}"
+                )
         else:
-            logger.info("QueryProcessor initialized (basic mode - no Gemini)")
-    
+            logger.info("QueryProcessor initialized (basic mode - no query LLM)")
+
     # Errors that will not resolve by retrying the next query.
-    _PERMANENT_GEMINI_ERRORS = (
+    _PERMANENT_LLM_ERRORS = (
         "no longer available", "not found", "404",
         "denied access", "permission", "403",
         "api key", "unauthorized", "401",
+        "not available to this api key",
     )
 
-    def _handle_gemini_error(self, stage: str, error: Exception) -> None:
+    def _llm_ready(self) -> bool:
+        """Whether an LLM is configured for the query path and still healthy."""
+        if self._llm_disabled_reason:
+            return False
+        if self.backend == "gemini":
+            return self.gemini_model is not None
+        if self.backend == "provider":
+            return self._llm_client is not None
+        return False
+
+    def _llm_generate(self, prompt: str, max_tokens: int = 200) -> str:
         """
-        Log a Gemini failure and trip the circuit breaker for permanent errors.
+        One completion from whichever backend the query path is using.
+
+        Short by construction: every prompt here asks for a sentence or a
+        label, so an unbounded budget on a hosted model buys latency for text
+        that gets truncated anyway.
+        """
+        if self.backend == "gemini":
+            return self.gemini_model.generate_content(prompt).text
+        return self._llm_client.generate(
+            prompt=prompt, temperature=0.0, max_tokens=max_tokens
+        )
+
+    def _handle_llm_error(self, stage: str, error: Exception) -> None:
+        """
+        Log a query-LLM failure and trip the breaker for permanent errors.
 
         Transient failures (timeouts, rate limits) stay retryable; a retired
         model or a revoked key would otherwise log the same warning on every
         query for the life of the process.
         """
         msg = str(error)
-        if any(tok in msg.lower() for tok in self._PERMANENT_GEMINI_ERRORS):
-            self._gemini_disabled_reason = msg
+        if any(tok in msg.lower() for tok in self._PERMANENT_LLM_ERRORS):
+            self._llm_disabled_reason = msg
             logger.warning(
-                f"{stage} failed: {msg}\n"
-                f"Disabling Gemini query enhancement for this session. "
+                f"{stage} failed: {msg}"
+                f"\nDisabling LLM query enhancement for this session. "
                 f"Section routing and academic filters are pattern-based and still active. "
-                f"Update GEMINI_MODEL/GEMINI_API_KEY in .env to re-enable."
+                f"Check QUERY_LLM_BACKEND and that backend's credentials."
             )
         else:
             logger.warning(f"{stage} failed: {msg}")
@@ -192,41 +250,39 @@ class QueryProcessor:
         expanded = []
         intent = None
         
-        gemini_available = self.gemini_model and not self._gemini_disabled_reason
-
-        # 1. Query Rewriting (if Gemini available)
-        if self.enable_rewriting and gemini_available:
+        # 1. Query rewriting. The only LLM step whose output reaches the
+        #    search: `rewritten_query` is what the retrieval pipeline uses.
+        if self.enable_rewriting and self._llm_ready():
+            self.stats["rewrites_attempted"] += 1
             try:
                 rewritten = self._rewrite_query(query, context)
+                self.stats["rewrites_succeeded"] += 1
                 logger.info(f"Rewritten: '{rewritten}'")
             except Exception as e:
-                self._handle_gemini_error("Query rewriting", e)
+                self._handle_llm_error("Query rewriting", e)
                 rewritten = query
 
-        gemini_available = self.gemini_model and not self._gemini_disabled_reason
-
-        # 2. Query Expansion (if enabled)
-        if self.enable_expansion and gemini_available:
+        # 2. Query expansion. Off by default: nothing downstream searches on
+        #    these, so the round trip buys a longer metadata field.
+        if self.enable_expansion and self._llm_ready():
             try:
                 expanded = self._expand_query(rewritten, num_expansions)
                 logger.info(f"Generated {len(expanded)} expanded queries")
             except Exception as e:
-                self._handle_gemini_error("Query expansion", e)
+                self._handle_llm_error("Query expansion", e)
                 expanded = []
 
-        gemini_available = self.gemini_model and not self._gemini_disabled_reason
-
-        # 3. Intent Classification (if enabled)
-        if self.enable_intent_classification and gemini_available:
+        # 3. Intent classification. Off by default, for the same reason.
+        if self.enable_intent_classification and self._llm_ready():
             try:
                 intent = self._classify_intent(query)
                 logger.info(f"Intent: {intent.intent_type} ({intent.confidence:.2f})")
             except Exception as e:
-                self._handle_gemini_error("Intent classification", e)
+                self._handle_llm_error("Intent classification", e)
 
-        # 4. Fallback: Basic expansion when Gemini is unavailable.
-        #    Section routing and academic filters below are pattern-based and
-        #    keep working regardless, so retrieval quality degrades gracefully.
+        # 4. Fallback: pattern-based expansion when no LLM ran. Section
+        #    routing and academic filters below are pattern-based and keep
+        #    working regardless, so retrieval degrades gracefully.
         if not expanded:
             expanded = self._basic_expansion(query)
         
@@ -251,7 +307,9 @@ class QueryProcessor:
             intent=intent,
             metadata={
                 "context_provided": context is not None,
-                "gemini_available": self.gemini_model is not None,
+                "query_llm_backend": self.backend,
+                "query_llm_available": self._llm_ready(),
+                "query_rewritten": rewritten != query,
                 "section_intent": section_intent,  # NEW
                 "academic_filters": academic_filters,  # NEW
                 "is_academic_query": bool(section_intent or academic_filters)  # NEW
@@ -279,8 +337,7 @@ User Query: {query}
 
 Rewritten Query:"""
         
-        response = self.gemini_model.generate_content(prompt)
-        rewritten = response.text.strip()
+        rewritten = self._llm_generate(prompt, max_tokens=120).strip()
         
         # Remove quotes if present
         rewritten = rewritten.strip('"\'')
@@ -304,8 +361,7 @@ Original Query: {query}
 
 Generate {num_variations} variations (one per line, no numbering):"""
         
-        response = self.gemini_model.generate_content(prompt)
-        text = response.text.strip()
+        text = self._llm_generate(prompt, max_tokens=200).strip()
         
         # Parse variations (split by newlines, remove numbering/bullets)
         variations = []
@@ -337,8 +393,7 @@ Intent: [intent_type]
 Confidence: [0.0-1.0]
 Strategy: [recommended retrieval strategy]"""
         
-        response = self.gemini_model.generate_content(prompt)
-        text = response.text.strip()
+        text = self._llm_generate(prompt, max_tokens=120).strip()
         
         # Parse response
         intent_type = "conversational"  # default

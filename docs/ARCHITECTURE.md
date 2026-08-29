@@ -97,6 +97,13 @@ Caller filters are never dropped: `user_id` is one of them, and widening past it
 would search another tenant's documents. A caller who explicitly asks for
 `year=2021` gets an empty result rather than a silently broadened one.
 
+The query LLM is the same seam. `QueryProcessor` takes a `backend` of `gemini`,
+`provider` or `off`; `provider` builds its client from `LLM_PROVIDER`, so query
+rewriting runs wherever generation already does. It was wired to Gemini alone
+until the benchmark showed why that matters: the key returns 403, the feature
+never executed, and three runs reported it as an exact zero that read like "no
+effect" and meant "never ran".
+
 ### `llms/`
 | File | Responsibility |
 |---|---|
@@ -367,6 +374,16 @@ Tracked honestly rather than hidden — see the README for current status.
   widening fallback. The measured cause is the question→section mapping: the evidence
   answering a question is in the section it routes to only 13.3% of the time. Enable
   with `USE_SECTION_ROUTING=true`. See [BENCHMARKS.md](BENCHMARKS.md).
+- **LLM query rewriting costs accuracy, and is off by default.** Switched on, it
+  rewrote all 259 benchmark queries and dropped MRR from 0.2824 to 0.2305 — Δ −0.0519,
+  95% CI [−0.0859, −0.0174], p = 0.0033 — because the rewriter cannot see the corpus and
+  fills an under-specified question's gaps from its own priors. `QUERY_LLM_BACKEND=off`;
+  `provider` or `gemini` re-enables it. See [BENCHMARKS.md](BENCHMARKS.md).
+- **Query expansion and intent classification reach nothing.** `ProcessedQuery` carries
+  both, and `retrieval_pipeline` searches on `rewritten_query` alone — the other two are
+  read by one line, a counter in the retrieval metrics. Each cost an LLM round trip per
+  query and could not change a ranking, so both are off by default. Making them matter
+  means multi-query retrieval with fusion, which does not exist here yet.
 - **Section labels come from headers.** A converted document with no headings at all
   falls back to matching chunk offsets against detected sections, and those offsets are
   measured on two different strings (sections on the raw markdown, chunks on the

@@ -73,7 +73,7 @@ email channel, and resetting on request alone would hand any account to anyone w
 its address. Recovery is `python scripts/reset_password.py <email>`, run by whoever
 operates the instance. See [Known limitations](docs/ARCHITECTURE.md#known-limitations).
 
-Tests: 298 passing (unit + integration).
+Tests: 315 passing (unit + integration).
 Run `python scripts/doctor.py` to check your environment before reporting a problem.
 
 ---
@@ -100,11 +100,18 @@ What holds up under a significance test, and what does not:
 - **Reranking helps most.** +25.8% MRR over hybrid alone — Δ +0.0581, 95% CI
   [+0.0194, +0.0962], p = 0.0044. It doubles P@1 and costs ~1.8s per query on CPU.
 - **Query processing does nothing at all here.** Not "not significant" — the difference
-  is exactly 0.0000 on all 259 queries. All three of its parts are inert on this
-  benchmark: LLM rewriting was unavailable, academic filters fire on no QASPER question,
-  and section routing is now off. That is a statement about what this benchmark
-  exercises, not proof the feature is worthless.
-  [Details.](docs/BENCHMARKS.md#retrieval-ablation)
+  is exactly 0.0000 on all 259 queries. All three of its parts are inert in the shipped
+  configuration: LLM rewriting is off, academic filters fire on no QASPER question,
+  and section routing is now off. [Details.](docs/BENCHMARKS.md#retrieval-ablation)
+- **LLM query rewriting was never running, and when switched on it costs accuracy.**
+  It was wired to Gemini alone, whose key on this project returns 403 — so three
+  benchmark runs measured it as *absent* and reported an exact zero. Routed through the
+  same seam generation uses, it rewrote 259 of 259 queries and dropped MRR from 0.2824
+  to 0.2305 — Δ −0.0519, 95% CI [−0.0859, −0.0174], p = 0.0033 — losing the top-ranked
+  evidence on 24 of the 53 questions that had it. The rewriter cannot see the corpus,
+  so it fills gaps from its own priors: *"What are the five domains?"* became *"...of
+  the CompTIA A+ certification exam"*. Off by default.
+  [The whole investigation.](docs/BENCHMARKS.md#what-the-numbers-say)
 - **Section routing costs accuracy, so it is off by default.** On the 60 questions it
   fires on it drops MRR from 0.2426 to 0.1903 and Recall@5 by 44% relative. The reason is
   not the section labels — those were repaired, and routing got *worse*. The evidence
@@ -136,6 +143,7 @@ python scripts/benchmark.py --papers 80        # reproduce (~20 min, CPU)
 | **Paper metadata extraction** | Pulls title, authors, year, venue, DOI/arXiv ID, abstract, 20+ section types, and both numbered `[1]` and author-year `(Smith, 2020)` citations — with a confidence score for "is this actually a paper?" |
 | **Section-tagged chunks** | Every chunk carries the section it came from, classified from its full chain of enclosing headers, so "Experiments > Baseline Models" is tagged `experiments` and "Model > Background" is tagged `methodology` rather than `introduction`. **Measured: chunks with no usable label fell from 62.6% to 27.3%** on the benchmark corpus |
 | **Section-aware routing** *(off by default)* | `detect_section_intent()` maps question phrasing to a section and filters on it. **Measured: it costs accuracy** — the evidence answering a question is in the section it routes to only 13.3% of the time, so the filter hides the answer more often than it finds it. `USE_SECTION_ROUTING=true` to enable — [the numbers, and why better labels made it worse](docs/BENCHMARKS.md#what-the-numbers-say) |
+| **Query rewriting** *(off by default)* | An LLM restates the question before it is searched, through the same seam that generates answers, so it runs wherever generation does. **Measured: it costs 18% MRR** (p = 0.0033) — the rewriter cannot see the corpus, so it invents the context an under-specified question is missing. Kept, off, with [the numbers published](docs/BENCHMARKS.md#what-the-numbers-say) |
 | **Metadata filtering from natural language** | `extract_academic_filters()` parses "recent papers", "2020–2023", "by Yoshua Bengio", "NeurIPS papers" into structured Qdrant filters — ranges included, which is what the benchmark caught: they raised a validation error and returned nothing until `build_filter()` learned to emit `Range` |
 | **Hybrid retrieval** | Vector search for meaning + BM25 for exact terms (`BERT-base` shouldn't match `RoBERTa`), fused with Reciprocal Rank Fusion. **Measured: +20.2% MRR** over vector-only (p = 0.0003) |
 | **Cross-encoder reranking** | Retrieves a wide candidate set, then reranks for precision. **Measured: +25.8% MRR** over hybrid alone (p = 0.0044), for ~1.8s per query |
@@ -237,7 +245,7 @@ python scripts/ingest.py --reset data/papers/    # wipe the vector store first
 ### Test
 
 ```bash
-pytest                          # everything (298 tests)
+pytest                          # everything (315 tests)
 pytest -m integration           # real components, no mocks
 pytest -m "not integration"     # unit tests only
 python scripts/doctor.py        # check Qdrant / Ollama / Gemini / embeddings
@@ -303,6 +311,7 @@ The ones that matter most:
 | `USE_RERANKING` | `true` | Cross-encoder reranking. Worth +25.8% MRR for ~1.8s per query; set `false` to trade accuracy for latency |
 | `USE_SECTION_ROUTING` | `false` | Restrict a question to the section it seems to be about. Measured to cost accuracy on QASPER — see [BENCHMARKS.md](docs/BENCHMARKS.md) |
 | `LLM_PROVIDER` | `ollama` | Which backend generates answers. `groq` points at a hosted model for deployments, where a 3B local model does not fit — see [deploy/DEPLOY.md](deploy/DEPLOY.md) |
+| `QUERY_LLM_BACKEND` | `off` | Which model rewrites the query before searching: `gemini`, `provider` (whatever `LLM_PROVIDER` points at), or `off`. Measured on QASPER it costs 18% MRR — [why](docs/BENCHMARKS.md#what-the-numbers-say) |
 | `GROQ_API_KEY` | — | Required only when `LLM_PROVIDER=groq` |
 | `GROQ_MODEL` | `qwen/qwen3.8-27b` | Which hosted model answers. Groq retires ids without notice, so `doctor.py` checks the id against the account's model list and a failed answer names the models the key can actually use |
 | `MAX_DOCUMENTS_PER_USER` | `0` | Per-account document cap; `0` means no limit. Set a real number on a public instance |

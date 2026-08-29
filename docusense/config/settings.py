@@ -178,8 +178,28 @@ class Settings(BaseSettings):
     rerank_top_k: int = 20  # Retrieve 20, rerank to top_k
     
     # ==================== Query Processing ====================
+    # Which model rewrites the query before it is searched.
+    #
+    #   "gemini"   the original path; needs GEMINI_API_KEY
+    #   "provider" the same backend that writes answers (LLM_PROVIDER)
+    #   "off"      no LLM in the query path
+    #
+    # This is a seam because the Gemini-only version had never run: the key on
+    # this project returns 403, so every benchmark run measured rewriting as
+    # absent rather than as ineffective. Routing it through LLM_PROVIDER makes
+    # the feature reachable wherever generation already works.
+    query_llm_backend: Literal["gemini", "provider", "off"] = "off"
     enable_query_rewriting: bool = True
-    enable_intent_classification: bool = True
+
+    # Expansion and intent classification are off because nothing consumes
+    # them. `ProcessedQuery.expanded_queries` and `.intent` are read by exactly
+    # one line in the whole system — a counter in the retrieval metrics — while
+    # only `rewritten_query` reaches the search. Each cost an LLM round trip
+    # per query and could not change a ranking. Turning either on is a request
+    # for the metadata, not for better retrieval, until multi-query retrieval
+    # exists to consume it.
+    enable_query_expansion: bool = False
+    enable_intent_classification: bool = False
     enable_strategy_planning: bool = True
 
     # Restrict a question to the section it seems to be about ("how did they
