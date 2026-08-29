@@ -3,8 +3,12 @@
 The target is an always-reachable URL that shows a working system on the first
 click — a link that can sit on a CV.
 
-Everything the deployment needs is in the repository. What is left is a Google
-Cloud project and three secrets, which only you can create.
+Everything the deployment needs is in the repository. What is left is one
+browser sign-in and two secrets, which only you can create.
+
+The target is **Modal**: it is the only host with enough memory for this that
+does not ask for a credit card. Google Cloud Run is documented
+[below](#google-cloud-run) as the alternative for anyone willing to attach one.
 
 ---
 
@@ -71,17 +75,108 @@ out.
 
 **Fly.io, Railway — no free allowance** that fits a 1GB always-on machine.
 
-**Modal — $30/month of credits and no card required**, and it would work; it
-needs a Modal-specific wrapper around the ASGI app plus a Volume for state,
-which Cloud Run does not.
+**Google Cloud Run — works, but wants a billing account.** It takes the image
+in this repository unchanged and lets memory be a number rather than a tier.
+It is the right answer the moment a card is acceptable; the steps are
+[below](#google-cloud-run).
+
+---
+
+## Modal
+
+Modal's Starter plan gives $30/month of compute credits and no monthly fee, and
+memory is a parameter rather than a tier — which is what this needs, given the
+730MB measured above. `deploy/modal_app.py` builds the same environment the
+`Dockerfile` builds, for the same reasons, and serves the same
+`docusense.api.app:app`.
+
+Two things to know before starting:
+
+- **It scales to zero, so the first visitor after an idle period waits.**
+  Measured on this image locally: 25s from container start to a healthy
+  `/api/health` — the demo shelf is seeded in that window — then 20s for the
+  first query, which is where the embedding model and the cross-encoder load.
+  Every query after that is about a second. `scaledown_window=900` keeps a
+  container alive for fifteen minutes of idle, so a visitor reading an answer
+  and asking a follow-up does not pay it twice.
+- **Storage is ephemeral.** A restart clears registered accounts and uploads,
+  and the demo shelf reseeds itself. To make it persistent, uncomment the
+  `Volume` in `deploy/modal_app.py` and drop `SEED_DEMO` — but leave
+  `max_containers=1` where it is, because a Volume shared by two containers is
+  a corrupted SQLite file and a corrupted Qdrant store.
+
+### Deploy
+
+**1. Accounts.** [Groq](https://console.groq.com) for the API key, and
+[Modal](https://modal.com) — sign-in is through GitHub or Google.
+
+**2. Install and authenticate.** `modal setup` opens a browser and writes a
+token; it is the only interactive step.
+
+```bash
+pip install modal
+modal setup
+```
+
+**3. Store the two secrets.** They are read by name from inside the container,
+so they never appear in the source or in a shell history file:
+
+```bash
+modal secret create docusense \
+    GROQ_API_KEY=gsk_... \
+    JWT_SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(48))")
+```
+
+Without `JWT_SECRET_KEY` the app mints a random key per restart, so every
+session dies whenever the container recycles. `ENVIRONMENT=prod` is set in the
+image, which makes the app refuse to start rather than do that quietly — and
+`required_keys` on the Secret turns a missing one into a named failure at
+deploy time instead of a 500 on the first question.
+
+**4. Deploy.** The first build takes roughly ten minutes, most of it torch and
+the two models being baked in so the first query is not also a download.
+Rebuilds reuse the layers.
+
+```bash
+modal deploy deploy/modal_app.py
+```
+
+It prints the URL, of the form `https://<workspace>--docusense-web.modal.run`.
+
+**5. Check it answers, not just that it started.**
+
+```bash
+curl -s https://<workspace>--docusense-web.modal.run/api/health
+```
+
+Then open it, sign in as `demo@docusense.app` / `read-the-papers`, and ask
+*"How do these two papers disagree about learned signal control?"* — the two
+seeded papers reach opposite conclusions from the same benchmarks, so the
+answer should cite both, by author and year. If it cites only one, the shelf
+seeded half-way: `modal app logs docusense` will show why, and memory is the
+usual reason.
+
+### What is unverified here
+
+`deploy/modal_app.py` has not been deployed. Building the app graph is checked
+— importing the module constructs the `App`, the `Image` and the function
+against modal 1.5.5, which is what catches a renamed parameter, and this API
+has renamed several (`concurrency_limit` → `max_containers`,
+`container_idle_timeout` → `scaledown_window`, Mounts → `add_local_dir`). What
+has *not* been checked is the deploy itself, because that needs an account only
+the owner can create. The image contents are the part with prior evidence: the
+same package list, the same two models and the same seeded shelf were built and
+run under a 1GiB container limit, and answered the demo question citing both
+papers in 1.7s.
 
 ---
 
 ## Google Cloud Run
 
-Cloud Run takes the image in this repository unchanged: it reads `PORT`, runs
-as a non-root user, and has a healthcheck. Memory is a number you choose rather
-than a tier you are stuck with.
+The alternative, for anyone willing to attach a card. Cloud Run takes the image
+in this repository unchanged: it reads `PORT`, runs as a non-root user, and has
+a healthcheck. Memory is a number you choose rather than a tier you are stuck
+with.
 
 Two things to know before starting:
 

@@ -283,12 +283,13 @@ is in the repo: the image reads `PORT`, seeds a demo account from `data/demo/` o
 start (free tiers have ephemeral storage), and caps documents and upload size
 because a public URL with open sign-up is otherwise a public disk.
 
-What retrieval still needs locally is memory: torch, the embedding model and the
+What retrieval still needs is memory: torch, the embedding model and the
 cross-encoder peak at **730 MB** answering one question, and 627 MB with
-reranking switched off — so the 512 MB free tiers cannot run this at all, and
-the target is Google Cloud Run at 1–2 GiB. Hugging Face Spaces was the previous
-plan and is no longer available on a free account: both the Docker and Gradio
-SDKs now answer `402 … requires a PRO subscription`.
+reranking switched off — so the 512 MB free tiers cannot run this at all. The
+target is **Modal**, the one host with enough memory that asks for no card;
+Google Cloud Run is documented as the alternative. Hugging Face Spaces was the
+previous plan and is not available on a free account: both the Docker and
+Gradio SDKs answer `402 … requires a PRO subscription`.
 
 Step by step, with the measurements behind those numbers:
 **[deploy/DEPLOY.md](deploy/DEPLOY.md)**.
@@ -344,8 +345,8 @@ scripts/            doctor.py (environment diagnostics), ingest.py (bulk ingesti
                     benchmark.py (QASPER retrieval ablation),
                     reset_password.py (operator account recovery),
                     seed_demo.py (demo shelf for a public instance)
-deploy/             DEPLOY.md, the Cloud Run deploy script, and a
-                    Hugging Face Space card kept for a PRO account
+deploy/             DEPLOY.md, modal_app.py, the Cloud Run deploy script,
+                    and a Hugging Face Space card kept for a PRO account
 
 Dockerfile          Two-stage build; models baked in so the first query isn't a download
 docker-compose.yml  API + Qdrant + Ollama
