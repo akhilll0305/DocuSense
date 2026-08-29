@@ -7,14 +7,9 @@ research paper — title, authors, venue, year, sections, citations — and uses
 time. Every chunk is tagged with the section it came from, and every answer comes back
 with citations checked against the sources they claim.
 
-**[Try it live](https://akhilll0305--docusense-web.modal.run)** — sign in as
-`demo@docusense.app` / `read-the-papers` and ask *"How do these two papers disagree about
-learned signal control?"* Two papers are already on the shelf and they contradict each
-other, so the answer should cite both.
-
-<sub>The first click after a quiet spell waits ~15s while the container wakes. Storage is
-ephemeral: the demo shelf reseeds itself, and an account registered there does not survive
-a restart.</sub>
+**[Try it live](https://akhilll0305--docusense-web.modal.run)** — sign in with
+`demo@docusense.app` / `read-the-papers`. It sleeps when idle, so the first load takes a
+few seconds.
 
 ---
 
