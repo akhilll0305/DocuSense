@@ -13,12 +13,17 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from docusense.config.settings import settings
 from docusense.llms.base import LLMClient
 from docusense.llms.factory import describe_provider, get_llm_client
-from docusense.llms.groq_client import GroqClient
+from docusense.llms.groq_client import (
+    GroqClient,
+    GroqEmptyAnswerError,
+    GroqModelUnavailableError,
+)
 
 
 # ==============================================================================
@@ -55,8 +60,8 @@ class TestProviderSelection:
 
     def test_describe_provider_names_the_model(self, monkeypatch):
         monkeypatch.setattr(settings, "llm_provider", "groq")
-        monkeypatch.setattr(settings, "groq_model", "llama-3.3-70b-versatile")
-        assert describe_provider() == "groq:llama-3.3-70b-versatile"
+        monkeypatch.setattr(settings, "groq_model", "qwen/qwen3.8-27b")
+        assert describe_provider() == "groq:qwen/qwen3.8-27b"
 
 
 # ==============================================================================
@@ -80,6 +85,20 @@ def test_both_clients_satisfy_the_protocol():
 # ==============================================================================
 # Groq client behaviour (no network)
 # ==============================================================================
+
+@pytest.fixture(autouse=True)
+def offline(monkeypatch):
+    """
+    Keep every test in this module off the network.
+
+    `GroqClient(api_key="")` does not mean "no key": the constructor falls back
+    to `settings.groq_api_key`, so on a machine with a real key in .env these
+    tests quietly called the live API — and two of them failed for that reason
+    rather than for the behaviour they describe. Pinning the setting makes the
+    intent explicit and the result the same everywhere.
+    """
+    monkeypatch.setattr(settings, "groq_api_key", "test-key-not-real")
+
 
 def _completion(text: str) -> MagicMock:
     response = MagicMock()
@@ -108,17 +127,19 @@ class TestGroqClient:
         assert sent[0] == {"role": "system", "content": "be terse"}
         assert sent[1] == {"role": "user", "content": "question"}
 
-    def test_missing_key_is_reported_not_retried(self):
+    def test_missing_key_is_reported_not_retried(self, monkeypatch):
         """
         A missing key is not a transient failure. Say what to set, and say that
         local generation is the alternative.
         """
-        client = GroqClient(api_key="", max_retries=3)
+        monkeypatch.setattr(settings, "groq_api_key", "")
+        client = GroqClient(max_retries=3)
         with pytest.raises(RuntimeError, match="GROQ_API_KEY"):
             client.generate("anything")
 
-    def test_is_available_is_false_without_a_key_and_does_not_raise(self):
-        assert GroqClient(api_key="").is_available() is False
+    def test_is_available_is_false_without_a_key_and_does_not_raise(self, monkeypatch):
+        monkeypatch.setattr(settings, "groq_api_key", "")
+        assert GroqClient().is_available() is False
 
     def test_generation_retries_then_gives_up(self):
         client = GroqClient(api_key="test-key", max_retries=2, retry_delay=0)
@@ -187,3 +208,180 @@ class TestGroqClient:
         assert info["provider"] == "groq"
         assert info["configured"] is True
         assert "sk-secret-value" not in json.dumps(info)
+
+
+# ==============================================================================
+# Model availability
+#
+# These exist because the mocked tests above all passed while every real answer
+# returned HTTP 404: the default GROQ_MODEL had been retired, and the only
+# availability check was "does /models answer at all". A mock that never
+# describes which models the account has cannot catch that, so these mocks
+# describe the model list and the 404 the API actually returns.
+# ==============================================================================
+
+def _model_list(*models: dict) -> MagicMock:
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"data": list(models)}
+    return response
+
+
+def _chat_model(model_id: str, context: int = 131072, **overrides) -> dict:
+    entry = {
+        "id": model_id,
+        "active": True,
+        "input_modalities": ["text"],
+        "output_modalities": ["text"],
+        "context_window": context,
+    }
+    entry.update(overrides)
+    return entry
+
+
+def _http_error(status: int, url: str = "https://api.groq.com/openai/v1/chat/completions"):
+    request = httpx.Request("POST", url)
+    response = httpx.Response(status, request=request, json={
+        "error": {
+            "message": "The model `x` does not exist or you do not have access to it.",
+            "type": "invalid_request_error",
+            "code": "model_not_found",
+        }
+    })
+    return httpx.HTTPStatusError("404 Not Found", request=request, response=response)
+
+
+class TestModelAvailability:
+    def test_available_when_the_configured_model_is_in_the_account_list(self):
+        client = GroqClient(api_key="test-key", model="qwen/qwen3.8-27b")
+        with patch("httpx.Client") as ctor:
+            ctor.return_value.__enter__.return_value.get.return_value = _model_list(
+                _chat_model("qwen/qwen3.8-27b"), _chat_model("openai/gpt-oss-120b")
+            )
+            assert client.is_available() is True
+
+    def test_unavailable_when_the_model_was_retired(self):
+        """
+        The regression this whole section exists for: a valid key, a reachable
+        /models, and a model id the account cannot address. Reporting that as
+        available is how a dead default shipped.
+        """
+        client = GroqClient(api_key="test-key", model="llama-3.3-70b-versatile")
+        with patch("httpx.Client") as ctor:
+            ctor.return_value.__enter__.return_value.get.return_value = _model_list(
+                _chat_model("qwen/qwen3.8-27b")
+            )
+            assert client.is_available() is False
+
+    def test_is_available_does_not_raise_when_the_api_is_unreachable(self):
+        client = GroqClient(api_key="test-key")
+        with patch("httpx.Client") as ctor:
+            ctor.return_value.__enter__.return_value.get.side_effect = RuntimeError("down")
+            assert client.is_available() is False
+
+    def test_usable_models_exclude_what_cannot_generate_an_answer(self):
+        """
+        The account list is not a list of chat models. Suggesting a speech
+        model or a 512-token classifier as a replacement would be worse than
+        suggesting nothing.
+        """
+        client = GroqClient(api_key="test-key")
+        models = [
+            _chat_model("qwen/qwen3.8-27b"),
+            _chat_model("speech", output_modalities=["speech"]),
+            _chat_model("whisper", input_modalities=["audio"],
+                        output_modalities=["transcription"]),
+            _chat_model("tiny-classifier", context=512),
+            _chat_model("retired-but-listed", active=False),
+        ]
+        assert client.usable_chat_models(models) == ["qwen/qwen3.8-27b"]
+
+
+class TestModelNotFound:
+    def test_a_404_names_the_model_and_lists_the_alternatives(self):
+        client = GroqClient(api_key="test-key", model="llama-3.3-70b-versatile",
+                            max_retries=3, retry_delay=0)
+        with patch("httpx.Client") as ctor:
+            http = ctor.return_value.__enter__.return_value
+            failed = MagicMock()
+            failed.raise_for_status.side_effect = _http_error(404)
+            http.post.return_value = failed
+            http.get.return_value = _model_list(_chat_model("qwen/qwen3.8-27b"))
+
+            with pytest.raises(GroqModelUnavailableError) as excinfo:
+                client.generate("What is BERT?")
+
+        message = str(excinfo.value)
+        assert "llama-3.3-70b-versatile" in message
+        assert "qwen/qwen3.8-27b" in message
+        assert "GROQ_MODEL" in message
+
+    def test_a_404_is_not_retried(self):
+        """
+        A retired model id fails identically every time. Retrying it three
+        times with backoff turns a configuration error into a slow one.
+        """
+        client = GroqClient(api_key="test-key", max_retries=3, retry_delay=0)
+        with patch("httpx.Client") as ctor:
+            http = ctor.return_value.__enter__.return_value
+            failed = MagicMock()
+            failed.raise_for_status.side_effect = _http_error(404)
+            http.post.return_value = failed
+            http.get.return_value = _model_list()
+
+            with pytest.raises(GroqModelUnavailableError):
+                client.generate("question")
+        assert http.post.call_count == 1
+
+    def test_a_rejected_key_is_not_retried_and_says_what_to_check(self):
+        client = GroqClient(api_key="test-key", max_retries=3, retry_delay=0)
+        with patch("httpx.Client") as ctor:
+            http = ctor.return_value.__enter__.return_value
+            failed = MagicMock()
+            failed.raise_for_status.side_effect = _http_error(401)
+            http.post.return_value = failed
+
+            with pytest.raises(RuntimeError, match="GROQ_API_KEY"):
+                client.generate("question")
+        assert http.post.call_count == 1
+
+    def test_streaming_reports_a_retired_model_rather_than_a_status_code(self):
+        client = GroqClient(api_key="test-key", model="llama-3.3-70b-versatile")
+        with patch("httpx.Client") as ctor:
+            http = ctor.return_value.__enter__.return_value
+            response = MagicMock()
+            response.raise_for_status.side_effect = _http_error(404)
+            http.stream.return_value.__enter__.return_value = response
+            http.get.return_value = _model_list(_chat_model("qwen/qwen3.8-27b"))
+
+            with pytest.raises(GroqModelUnavailableError):
+                list(client.generate_stream("question"))
+
+
+class TestEmptyAnswer:
+    def test_an_empty_answer_is_an_error_not_an_empty_string(self):
+        """
+        Measured on gpt-oss-20b: a 200 response whose whole token budget went
+        to the `reasoning` field, leaving `content` empty. Returning "" puts a
+        blank answer in the UI with nothing logged.
+        """
+        client = GroqClient(api_key="test-key", model="openai/gpt-oss-20b",
+                            max_tokens=500, max_retries=3, retry_delay=0)
+        response = MagicMock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            "choices": [{
+                "finish_reason": "length",
+                "message": {"content": "", "reasoning": "thinking " * 200},
+            }]
+        }
+        with patch("httpx.Client") as ctor:
+            http = ctor.return_value.__enter__.return_value
+            http.post.return_value = response
+            with pytest.raises(GroqEmptyAnswerError) as excinfo:
+                client.generate("question")
+
+        message = str(excinfo.value)
+        assert "500" in message and "reasoning" in message
+        # Deterministic at temperature 0: retrying just spends the budget again.
+        assert http.post.call_count == 1

@@ -52,8 +52,21 @@ class Settings(BaseSettings):
     llm_provider: str = "ollama"
 
     # Groq (FREE tier - hosted inference, used for deployments)
+    #
+    # Hosted model ids drift: llama-3.3-70b-versatile was the default here until
+    # Groq retired it, and the key stayed valid while every answer 404'd. Groq
+    # publishes no alias equivalent to gemini-flash-latest, so this is a concrete
+    # id and it will eventually go the same way. GroqClient.is_available() checks
+    # the id against the account's model list rather than only pinging /models,
+    # so a retirement is reported instead of discovered mid-answer.
+    #
+    # qwen3.8-27b is chosen on a measured comparison through the real pipeline:
+    # it answers in ~1.3-2.7s, keeps its (Author, Year) citations, and returns
+    # its answer in `content`. The gpt-oss models spend the answer_max_tokens
+    # budget on a separate `reasoning` field and can come back with an empty
+    # answer; qwen3.6-27b leaks its <think> block into the answer text.
     groq_api_key: Optional[str] = None
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "qwen/qwen3.8-27b"
     groq_base_url: str = "https://api.groq.com/openai/v1"
     
     # Default LLM models (FREE OPTIONS)

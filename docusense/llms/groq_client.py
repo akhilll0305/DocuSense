@@ -29,6 +29,27 @@ from loguru import logger
 from docusense.config.settings import settings
 
 
+class GroqModelUnavailableError(RuntimeError):
+    """
+    The configured model id is not one this key can use.
+
+    Its own type because it is not a transient failure and must not be retried:
+    a retired model id 404s identically three times, a second apart, and then
+    reports a network-shaped error for a configuration problem.
+    """
+
+
+class GroqEmptyAnswerError(RuntimeError):
+    """
+    The API answered, and the answer was empty.
+
+    Reasoning models (the gpt-oss family) return their chain of thought in a
+    separate `reasoning` field that is charged against `max_tokens`. A budget
+    small enough to be spent entirely on reasoning yields `finish_reason:
+    length` with `content: ""` — a 200 response carrying nothing to show.
+    """
+
+
 class GroqClient:
     """
     Generation through Groq's OpenAI-compatible chat completions API.
@@ -100,6 +121,117 @@ class GroqClient:
         messages.append({"role": "user", "content": prompt})
         return messages
 
+    def list_models(self) -> List[Dict[str, Any]]:
+        """
+        Every model this key can address, as the API describes them.
+
+        Raises rather than returning [] on failure: an empty list and an
+        unreachable API are different facts, and the callers below only use
+        this to explain a failure that has already happened.
+        """
+        with httpx.Client(timeout=10.0) as client:
+            r = client.get(f"{self.base_url}/models", headers=self._headers())
+        r.raise_for_status()
+        return r.json().get("data", [])
+
+    def usable_chat_models(
+        self, models: Optional[List[Dict[str, Any]]] = None
+    ) -> List[str]:
+        """
+        The subset of the account's models that could generate an answer here.
+
+        The account list is not a list of chat models — it also carries speech
+        synthesis, transcription and prompt classifiers, and offering those as
+        alternatives would be worse than offering none. Filtered on what the
+        API states rather than on a hardcoded list of names: text in, text out,
+        active, and a context window that can hold this deployment's prompt.
+        """
+        needed = settings.max_context_tokens + settings.answer_max_tokens
+        try:
+            models = models if models is not None else self.list_models()
+        except Exception as e:
+            logger.debug(f"Could not list Groq models: {self._scrub(e)}")
+            return []
+
+        usable = []
+        for m in models:
+            if not m.get("active", True):
+                continue
+            if "text" not in (m.get("input_modalities") or ["text"]):
+                continue
+            if "text" not in (m.get("output_modalities") or ["text"]):
+                continue
+            if (m.get("context_window") or 0) < needed:
+                continue
+            usable.append(m["id"])
+        return sorted(usable)
+
+    def _unavailable_model_error(self) -> GroqModelUnavailableError:
+        """
+        Say which model is missing and what the account can use instead.
+
+        Groq answers a retired id with a plain 404, which reaches a log or an
+        SSE error event as `Client error '404 Not Found'` — true, and useless
+        for the one thing that fixes it.
+        """
+        alternatives = self.usable_chat_models()
+        if alternatives:
+            options = "\n  ".join(alternatives)
+            suggestion = (
+                f"\nModels this key can use for generation:\n  {options}"
+                f"\nSet GROQ_MODEL to one of them."
+            )
+        else:
+            suggestion = (
+                "\nThe model list could not be read, so there is nothing to "
+                "suggest. Check the key at https://console.groq.com."
+            )
+        return GroqModelUnavailableError(
+            f"Groq model '{self.model}' is not available to this API key — it "
+            f"has most likely been retired.{suggestion}"
+        )
+
+    def _empty_answer_error(self, choice: Dict[str, Any]) -> GroqEmptyAnswerError:
+        """
+        Explain a 200 that carried no answer.
+
+        Measured on this account: openai/gpt-oss-20b, asked a comparison
+        question with max_tokens=500, spent all 500 tokens on `reasoning` and
+        returned an empty `content`. Returning "" from here would put a blank
+        answer in the UI with nothing logged.
+        """
+        reason = choice.get("finish_reason") or "unknown"
+        reasoning = (choice.get("message", {}).get("reasoning") or "").strip()
+        if reasoning and reason == "length":
+            cause = (
+                f" The model spent its whole {self.max_tokens}-token budget on "
+                f"an internal reasoning trace ({len(reasoning)} chars) and left "
+                f"nothing for the answer. Raise ANSWER_MAX_TOKENS, or use a "
+                f"model that does not reason separately."
+            )
+        elif reason == "length":
+            cause = f" It stopped at the {self.max_tokens}-token limit."
+        else:
+            cause = ""
+        return GroqEmptyAnswerError(
+            f"Groq model '{self.model}' returned an empty answer "
+            f"(finish_reason: {reason}).{cause}"
+        )
+
+    @staticmethod
+    def _is_model_not_found(error: Exception) -> bool:
+        """Whether an httpx error is Groq's 'this model does not exist'."""
+        if not isinstance(error, httpx.HTTPStatusError):
+            return False
+        return error.response.status_code == 404
+
+    @staticmethod
+    def _is_auth_failure(error: Exception) -> bool:
+        return (
+            isinstance(error, httpx.HTTPStatusError)
+            and error.response.status_code in (401, 403)
+        )
+
     @staticmethod
     def _scrub(error: Exception) -> str:
         """
@@ -116,21 +248,33 @@ class GroqClient:
     # ------------------------------------------------------------------
 
     def is_available(self) -> bool:
-        """Whether a key is configured and the model list is reachable."""
+        """
+        Whether a key is configured *and* the configured model exists.
+
+        Checking only that /models answers is what made a dead default look
+        healthy: the key was valid, the endpoint returned 200, and every
+        /chat/completions call 404'd because the model had been retired. A
+        reachable API with an unusable model is not availability.
+        """
         if not self.api_key:
             logger.warning("Groq selected but GROQ_API_KEY is not set")
             return False
         try:
-            with httpx.Client(timeout=10.0) as client:
-                r = client.get(f"{self.base_url}/models", headers=self._headers())
-            if r.status_code == 200:
-                logger.info(f"✅ Groq available with model: {self.model}")
-                return True
-            logger.warning(f"❌ Groq returned {r.status_code} for the model list")
-            return False
+            models = self.list_models()
         except Exception as e:
             logger.warning(f"❌ Groq not reachable: {self._scrub(e)}")
             return False
+
+        if any(m.get("id") == self.model for m in models):
+            logger.info(f"✅ Groq available with model: {self.model}")
+            return True
+
+        alternatives = self.usable_chat_models(models)
+        logger.warning(
+            f"❌ Groq model '{self.model}' is not available to this key. "
+            f"Usable for generation: {', '.join(alternatives) or 'none found'}"
+        )
+        return False
 
     def generate(
         self,
@@ -168,13 +312,29 @@ class GroqClient:
                         json=payload,
                     )
                 r.raise_for_status()
-                result = r.json()["choices"][0]["message"]["content"].strip()
+                choice = r.json()["choices"][0]
+                result = (choice["message"].get("content") or "").strip()
+                if not result:
+                    raise self._empty_answer_error(choice)
                 logger.success(
                     f"✅ Generated {len(result)} chars in {time.time() - start:.2f}s "
                     f"(attempt {attempt})"
                 )
                 return result
+            except (GroqModelUnavailableError, GroqEmptyAnswerError):
+                raise
             except Exception as e:
+                # A model that does not exist and a key that is rejected will
+                # fail identically on every attempt. Retrying them turns a
+                # legible configuration error into a slow, network-shaped one.
+                if self._is_model_not_found(e):
+                    raise self._unavailable_model_error() from e
+                if self._is_auth_failure(e):
+                    raise RuntimeError(
+                        f"Groq rejected the API key ({self._scrub(e)}). Check "
+                        f"GROQ_API_KEY, or set LLM_PROVIDER=ollama to generate "
+                        f"locally."
+                    ) from e
                 last_error = e
                 logger.warning(
                     f"⚠️ Groq generation failed (attempt {attempt}): {self._scrub(e)}"
@@ -230,6 +390,14 @@ class GroqClient:
                         content = delta.get("content")
                         if content:
                             yield content
+        except httpx.HTTPStatusError as e:
+            # A streamed 404 reaches the browser as an SSE error event, which
+            # is the one place a bare status code helps nobody.
+            if self._is_model_not_found(e):
+                logger.error(f"❌ Groq stream failed: model '{self.model}' unavailable")
+                raise self._unavailable_model_error() from e
+            logger.error(f"❌ Groq stream failed: {self._scrub(e)}")
+            raise
         except Exception as e:
             logger.error(f"❌ Groq stream failed: {self._scrub(e)}")
             raise

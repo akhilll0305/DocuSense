@@ -216,7 +216,29 @@ class AnswerGenerator:
         logger.info(f"  Max context: {self.max_context_tokens} tokens")
         logger.info(f"  Max answer: {self.max_answer_tokens} tokens")
         logger.info(f"  Citations: {self.include_citations}")
-    
+
+    def _backend_hint(self) -> str:
+        """
+        Name the backend that failed, in the message the user reads.
+
+        Generation is a seam, so this text cannot assume Ollama: telling
+        someone on a hosted deployment to start a local server they never
+        installed sends them the wrong way entirely.
+        """
+        info = {}
+        try:
+            info = self.client.get_model_info() or {}
+        except Exception:  # a diagnostic must not raise inside an error path
+            pass
+        model = info.get("model") or getattr(self.client, "model", "unknown")
+        provider = (info.get("provider") or "").lower()
+        if provider == "ollama":
+            return f"Check that Ollama is running with the {model} model."
+        if provider:
+            return f"Generation backend: {provider} ({model})."
+        return f"Generation model: {model}."
+
+
     def generate_answer_stream(
         self,
         query: str,
@@ -265,8 +287,7 @@ class AnswerGenerator:
             error = str(e)
             yield (
                 "error",
-                f"Answer generation failed: {e}. "
-                f"Please ensure Ollama is running with the {self.client.model} model.",
+                f"Answer generation failed: {e} {self._backend_hint()}",
             )
 
         answer_text = "".join(parts)
@@ -340,8 +361,8 @@ class AnswerGenerator:
         except Exception as e:
             logger.error(f"❌ Answer generation failed: {e}")
             answer_text = (
-                f"I was unable to generate an answer due to a technical issue: {e}. "
-                f"Please ensure Ollama is running with the {self.client.model} model."
+                f"I was unable to generate an answer due to a technical issue: "
+                f"{e} {self._backend_hint()}"
             )
         
         # Drop any citation the retrieved sources do not support.

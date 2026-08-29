@@ -16,6 +16,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# A Windows console defaults to cp1252, which cannot encode the em dashes in
+# these hints; without this they arrive as replacement characters in the one
+# output whose job is to be readable.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 OK, WARN, FAIL = "[ OK ]", "[WARN]", "[FAIL]"
 _results: list[tuple[str, str]] = []
 
@@ -120,10 +129,27 @@ def check_groq(settings):
         from docusense.llms.groq_client import GroqClient
 
         client = GroqClient()
-        if client.is_available():
-            report(OK, "Groq", f"'{settings.groq_model}' reachable")
-        else:
-            report(FAIL, "Groq", "key set but the API rejected it or is unreachable")
+        try:
+            models = client.list_models()
+        except Exception as e:
+            report(FAIL, "Groq", f"model list unreachable: {type(e).__name__}: {e}")
+            return
+
+        if any(m.get("id") == settings.groq_model for m in models):
+            report(OK, "Groq", f"'{settings.groq_model}' available to this key")
+            return
+
+        # A valid key with a retired model id was the exact failure this check
+        # used to pass: /models answered 200, and every answer 404'd.
+        usable = client.usable_chat_models(models)
+        options = "\n        ".join(usable) if usable else "(none found)"
+        report(
+            FAIL,
+            "Groq",
+            f"GROQ_MODEL '{settings.groq_model}' is not available to this key"
+            f"\n        The key works — the model id does not. Usable for"
+            f" generation:\n        {options}",
+        )
     except Exception as e:
         report(FAIL, "Groq", f"{type(e).__name__}: {e}")
 
