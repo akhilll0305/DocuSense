@@ -1,0 +1,15 @@
+# The torch model runtime, for MODEL_RUNTIME=torch.
+#
+# Not in requirements.txt because it is not the default and it is not small:
+# torch plus sentence-transformers cost 758MB resident against ONNX Runtime's
+# 326MB for the same two models and the same outputs, and roughly 2.4GB of
+# image against 0.6GB. Install it when you want a GPU, or when you want to
+# check the two runtimes still agree.
+#
+#     pip install -r requirements.txt -r requirements-torch.txt
+#     MODEL_RUNTIME=torch python -m pytest tests/test_model_runtime.py
+
+-r requirements.txt
+
+sentence-transformers>=5.0.0  # Local embeddings + cross-encoder reranker
+torch>=2.4.0                  # Backend for sentence-transformers

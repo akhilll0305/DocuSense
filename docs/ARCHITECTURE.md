@@ -104,6 +104,28 @@ until the benchmark showed why that matters: the key returns 403, the feature
 never executed, and three runs reported it as an exact zero that read like "no
 effect" and meant "never ran".
 
+### `embeddings/`
+| File | Responsibility |
+|---|---|
+| `embedding_generator.py` | Batching, normalisation and the chunk-store integration |
+| `backends.py` | `MODEL_RUNTIME` — the same models on ONNX Runtime or on torch |
+
+The runtime is a seam for the same reason generation is: what is right locally
+is not what is right on a free tier. torch and ONNX Runtime run the *same
+weights* — `all-MiniLM-L6-v2` and the ONNX export of
+`ms-marco-MiniLM-L-6-v2` — and produce the same numbers, verified both
+directly (cosine 1.000000 on embeddings, byte-identical cross-encoder scores)
+and end to end (the whole 259-question ablation reproduces to four decimal
+places after a full re-ingestion). ONNX costs 326MB resident where torch costs
+758MB, and 1.6GB of image where torch costs 3.18GB.
+
+The ONNX loader sets the tokenizer's truncation to the length the torch model
+uses, and its padding to the longest item in the batch. Neither is optional:
+fastembed truncates at 128 tokens where sentence-transformers uses 256, which
+silently changes the embedding of any chunk past that length, and it pads to a
+fixed width, which makes a batch of mixed lengths ragged. Both are asserted in
+`tests/test_model_runtime.py` rather than trusted.
+
 ### `llms/`
 | File | Responsibility |
 |---|---|
@@ -389,9 +411,17 @@ Tracked honestly rather than hidden — see the README for current status.
   measured on two different strings (sections on the raw markdown, chunks on the
   preprocessed text). They agree only while preprocessing removes little, which is the
   case today but is not guaranteed by anything.
-- **Reranking costs about 1.8s per query.** It is the largest single accuracy gain in
-  the ablation (+25.8% MRR over hybrid alone) but takes retrieval from ~20ms to ~1.9s
-  on CPU. Set `USE_RERANKING=false` to trade the accuracy back for latency.
+- **Reranking is most of the query time, and it needs a real CPU.** It is the
+  largest single accuracy gain in the ablation (+25.8% MRR over hybrid alone) but
+  takes retrieval from ~30ms to ~3.4s on this machine. On a 0.1-vCPU host the same
+  query takes **71 seconds**, measured in a capped container — which is why the
+  free-tier recommendation turns on vCPU rather than on memory. Set
+  `USE_RERANKING=false` to trade the accuracy back.
+- **ONNX Runtime does not batch by length.** sentence-transformers sorts a batch so
+  short candidates are not padded up to the longest; fastembed takes them as given.
+  `OnnxCrossEncoder.predict` sorts before handing them over, which recovers it on
+  mixed-length candidates (3162ms to 1787ms on 40 of them) and does nothing on a
+  corpus of uniform chunks.
 - **Answer quality is bounded by a 3B local model.** Retrieval is measured over 259
   questions; generation quality is measured over 30 and is limited by `llama3.2:3b`,
   which answers tersely.
@@ -553,3 +583,35 @@ tests passed against an endpoint that returned `404` in reality.
   so once a real key was in `.env` those two made live API calls and failed.
   The module now pins the setting for every test in it, which is also what keeps
   the suite off the network.
+
+---
+
+## Fixed in the runtime pass
+
+Moving the models off torch was a hosting decision — 326MB against 758MB — and
+it is only sound because the outputs are identical. Two ways it nearly was not,
+neither of which raised anything:
+
+- **The tokenizers truncate at different lengths.** fastembed defaults to 128
+  tokens, `all-MiniLM-L6-v2` under sentence-transformers uses 256, and this
+  project chunks to ~500. The two runtimes agreed to a cosine of 1.000000 on a
+  one-sentence check and disagreed on every real chunk: 0.976 at ~180 tokens,
+  0.921 at ~600. Retrieval would have drifted with nothing to attribute it to.
+  The loader now sets the length and reads it back.
+- **Fixing that made mixed-length batches ragged**, because fastembed pads to a
+  fixed width equal to its truncation length. Padding to the longest item in the
+  batch is what sentence-transformers does, cannot change a vector, and is
+  three times faster on a short query (7.9ms against 25.8ms) because a 15-token
+  question stops being padded out to 256 tokens of arithmetic.
+
+Two more things were found while looking for the memory:
+
+- **The query path was importing the document converter.** `_load_bm25_corpus`
+  reached the chunk store through `ingestion_pipeline.storage`, which built the
+  whole conversion stack — markitdown, magika, pandas, PIL — to run a SELECT.
+  145MB, on a process that only answers questions. There is now a `storage`
+  property that does not go through it, and a test that fails if markitdown
+  reappears on that path.
+- **`google.generativeai` was imported at module scope** in the query processor
+  and the image processor, for a backend that defaults to off, and it drags PIL
+  with it: 60MB, plus a deprecation warning on every start. Imported on use now.

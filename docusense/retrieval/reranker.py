@@ -66,11 +66,11 @@ import time
 from loguru import logger
 
 try:
-    from sentence_transformers import CrossEncoder
+    from docusense.embeddings.backends import load_cross_encoder_backend
     CROSS_ENCODER_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover - neither runtime installed
     CROSS_ENCODER_AVAILABLE = False
-    logger.warning("sentence-transformers not installed. Reranking disabled.")
+    logger.warning("No model runtime installed. Reranking disabled.")
 
 from docusense.config.settings import settings
 
@@ -131,18 +131,21 @@ class Reranker:
         # Load cross-encoder model
         if CROSS_ENCODER_AVAILABLE:
             try:
-                logger.info(f"Loading cross-encoder: {self.model_name}")
-                self.model = CrossEncoder(
+                logger.info(
+                    f"Loading cross-encoder: {self.model_name} "
+                    f"({settings.model_runtime})"
+                )
+                self.model = load_cross_encoder_backend(
                     self.model_name,
                     max_length=max_length,
-                    device=device
+                    device=device,
                 )
                 logger.success(f"✅ Reranker loaded: {self.model_name}")
             except Exception as e:
                 logger.error(f"Failed to load cross-encoder: {e}")
                 logger.warning("Reranking will be disabled")
         else:
-            logger.warning("Reranker initialization skipped (sentence-transformers not available)")
+            logger.warning("Reranker initialization skipped (no model runtime available)")
     
     def rerank(
         self,

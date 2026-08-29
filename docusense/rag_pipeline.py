@@ -114,6 +114,7 @@ class DocuSenseRAG:
 
         # Component placeholders (lazy init)
         self._ingestion_pipeline = None
+        self._storage = None
         self._embedding_generator = None
         self._qdrant_store = None
         self._conversation_managers: Dict[str, Any] = {}
@@ -138,11 +139,29 @@ class DocuSenseRAG:
         if self._ingestion_pipeline is None:
             from docusense.ingestion.pipeline import DocumentPipeline
             self._ingestion_pipeline = DocumentPipeline(
+                storage=self.storage,
                 enable_images=self.enable_images,
                 enable_paper_extraction=self.enable_paper_extraction
             )
             logger.info("📄 Ingestion pipeline initialized")
         return self._ingestion_pipeline
+
+    @property
+    def storage(self):
+        """
+        The chunk store, without the document converter attached to it.
+
+        `ingestion_pipeline.storage` is the same object, but reaching it that
+        way builds the whole conversion stack first — markitdown, magika (an
+        ONNX file-type classifier), pandas and PIL. Answering a question does
+        not convert any documents, and a process that only ever answers should
+        not be carrying the machinery for it: measured, that import chain cost
+        145MB on the query path.
+        """
+        if self._storage is None:
+            from docusense.storage import get_storage
+            self._storage = get_storage()
+        return self._storage
 
     @property
     def embedding_generator(self):
@@ -174,7 +193,7 @@ class DocuSenseRAG:
                 use — a shared corpus would let BM25 surface another user's text.
         """
         try:
-            records = self.ingestion_pipeline.storage.get_all_chunks(user_id=user_id)
+            records = self.storage.get_all_chunks(user_id=user_id)
         except Exception as e:
             logger.warning(f"Could not load chunks for BM25: {e}")
             return []
@@ -696,7 +715,7 @@ class DocuSenseRAG:
     def list_documents(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """List ingested documents, scoped to a user when given."""
         try:
-            storage = self.ingestion_pipeline.storage
+            storage = self.storage
             docs = storage.get_all_documents(user_id=user_id)
             return [
                 {
@@ -722,7 +741,7 @@ class DocuSenseRAG:
         """
         if user_id is None:
             return True
-        owner = self.ingestion_pipeline.storage.get_document_owner(document_id)
+        owner = self.storage.get_document_owner(document_id)
         return owner == user_id
 
     def delete_document(self, document_id: str, user_id: Optional[str] = None) -> bool:
@@ -747,7 +766,7 @@ class DocuSenseRAG:
             return False
 
         try:
-            deleted = self.ingestion_pipeline.storage.delete_document(document_id)
+            deleted = self.storage.delete_document(document_id)
         except Exception as e:
             logger.error(f"❌ Failed to delete document record: {e}")
             return False
@@ -784,7 +803,12 @@ class DocuSenseRAG:
     def close(self):
         """Close all components."""
         if self._ingestion_pipeline:
+            # Owns the same ChunkStorage this object holds, and closes it.
             self._ingestion_pipeline.close()
+            self._storage = None
+        elif self._storage is not None:
+            self._storage.close()
+            self._storage = None
         for manager in self._conversation_managers.values():
             manager.close()
         logger.info("📚 DocuSenseRAG closed")

@@ -18,7 +18,7 @@ set -euo pipefail
 
 SERVICE="${SERVICE:-docusense}"
 REGION="${REGION:-us-central1}"
-MEMORY="${MEMORY:-2Gi}"
+MEMORY="${MEMORY:-1Gi}"
 CPU="${CPU:-2}"
 
 GROQ_SECRET="${GROQ_SECRET:-docusense-groq-key}"

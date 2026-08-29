@@ -62,6 +62,7 @@ data/benchmarks/*.json
 !data/benchmarks/qasper_ablation_report.json
 !data/benchmarks/routed_subset_report.json
 !data/benchmarks/query_rewriting_report.json
+!data/benchmarks/onnx_ablation_report.json
 data/benchmarks/qasper/
 
 # Evaluation data (keep test sets but ignore results)

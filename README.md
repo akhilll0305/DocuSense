@@ -73,7 +73,7 @@ email channel, and resetting on request alone would hand any account to anyone w
 its address. Recovery is `python scripts/reset_password.py <email>`, run by whoever
 operates the instance. See [Known limitations](docs/ARCHITECTURE.md#known-limitations).
 
-Tests: 315 passing (unit + integration).
+Tests: 334 passing (unit + integration).
 Run `python scripts/doctor.py` to check your environment before reporting a problem.
 
 ---
@@ -88,17 +88,23 @@ resamples. Full methodology, including what was dropped and why:
 
 | Retrieval | MRR | NDCG@10 | P@1 | Recall@10 | ms/query |
 |---|---|---|---|---|---|
-| Vector only | 0.1867 | 0.1949 | 0.1004 | 0.2938 | 31 |
-| + BM25, fused with RRF | 0.2244 | 0.2348 | 0.1313 | 0.3438 | 37 |
-| **+ cross-encoder rerank** *(current default)* | **0.2824** | **0.2771** | **0.2046** | **0.3816** | 1908 |
-| + query processing | 0.2824 | 0.2771 | 0.2046 | 0.3816 | 1904 |
+| Vector only | 0.1867 | 0.1949 | 0.1004 | 0.2938 | 29 |
+| + BM25, fused with RRF | 0.2244 | 0.2348 | 0.1313 | 0.3438 | 32 |
+| **+ cross-encoder rerank** *(current default)* | **0.2824** | **0.2771** | **0.2046** | **0.3816** | 3350 |
+| + query processing | 0.2824 | 0.2771 | 0.2046 | 0.3816 | 3540 |
+
+Accuracy figures are identical on either model runtime, to four decimal places
+and across a full re-ingestion; the milliseconds are the ONNX default, which is
+faster than torch without the cross-encoder and about 1.7× slower with it.
+[Both measured.](docs/BENCHMARKS.md#the-model-runtime-does-not-change-the-numbers)
 
 What holds up under a significance test, and what does not:
 
 - **Hybrid search helps.** +20.2% MRR over vector-only — Δ +0.0377, 95% CI
   [+0.0189, +0.0584], p = 0.0003.
 - **Reranking helps most.** +25.8% MRR over hybrid alone — Δ +0.0581, 95% CI
-  [+0.0194, +0.0962], p = 0.0044. It doubles P@1 and costs ~1.8s per query on CPU.
+  [+0.0194, +0.0962], p = 0.0044. It doubles P@1, and it is what the query
+  time is spent on.
 - **Query processing does nothing at all here.** Not "not significant" — the difference
   is exactly 0.0000 on all 259 queries. All three of its parts are inert in the shipped
   configuration: LLM rewriting is off, academic filters fire on no QASPER question,
@@ -146,7 +152,8 @@ python scripts/benchmark.py --papers 80        # reproduce (~20 min, CPU)
 | **Query rewriting** *(off by default)* | An LLM restates the question before it is searched, through the same seam that generates answers, so it runs wherever generation does. **Measured: it costs 18% MRR** (p = 0.0033) — the rewriter cannot see the corpus, so it invents the context an under-specified question is missing. Kept, off, with [the numbers published](docs/BENCHMARKS.md#what-the-numbers-say) |
 | **Metadata filtering from natural language** | `extract_academic_filters()` parses "recent papers", "2020–2023", "by Yoshua Bengio", "NeurIPS papers" into structured Qdrant filters — ranges included, which is what the benchmark caught: they raised a validation error and returned nothing until `build_filter()` learned to emit `Range` |
 | **Hybrid retrieval** | Vector search for meaning + BM25 for exact terms (`BERT-base` shouldn't match `RoBERTa`), fused with Reciprocal Rank Fusion. **Measured: +20.2% MRR** over vector-only (p = 0.0003) |
-| **Cross-encoder reranking** | Retrieves a wide candidate set, then reranks for precision. **Measured: +25.8% MRR** over hybrid alone (p = 0.0044), for ~1.8s per query |
+| **Cross-encoder reranking** | Retrieves a wide candidate set, then reranks for precision. **Measured: +25.8% MRR** over hybrid alone (p = 0.0044). It is the bulk of query time, and the reason the deployment needs a real vCPU |
+| **Runs on ONNX, not torch** | The embedding model and the cross-encoder are the same weights either way, so the retrieval numbers are unchanged to four decimal places — but 326MB resident instead of 758MB, and a 1.6GB image instead of 3.18GB. That is what makes a genuinely free deployment possible. `MODEL_RUNTIME=torch` for GPU |
 | **Grounded citations** | Every claim is traced to a source chunk; exports APA reference lists and BibTeX |
 | **Fabricated citations removed** | Small models invent citations even when told not to, so every citation is checked against the retrieved sources by author and year, and unsupported ones are deleted rather than trusted |
 | **Streamed answers** | Local generation takes tens of seconds, so answers arrive token by token over SSE, with progress before the first token |
@@ -245,7 +252,7 @@ python scripts/ingest.py --reset data/papers/    # wipe the vector store first
 ### Test
 
 ```bash
-pytest                          # everything (315 tests)
+pytest                          # everything (334 tests)
 pytest -m integration           # real components, no mocks
 pytest -m "not integration"     # unit tests only
 python scripts/doctor.py        # check Qdrant / Ollama / Gemini / embeddings
@@ -283,13 +290,21 @@ is in the repo: the image reads `PORT`, seeds a demo account from `data/demo/` o
 start (free tiers have ephemeral storage), and caps documents and upload size
 because a public URL with open sign-up is otherwise a public disk.
 
-What retrieval still needs is memory: torch, the embedding model and the
-cross-encoder peak at **730 MB** answering one question, and 627 MB with
-reranking switched off — so the 512 MB free tiers cannot run this at all. The
-target is **Modal**, the one host with enough memory that asks for no card;
-Google Cloud Run is documented as the alternative. Hugging Face Spaces was the
-previous plan and is not available on a free account: both the Docker and
-Gradio SDKs answer `402 … requires a PRO subscription`.
+Retrieval used to be the thing that made hosting expensive: torch, the
+embedding model and the cross-encoder peaked at **730 MB** answering one
+question, which put every 512 MB free tier out of reach. Both models now run on
+ONNX Runtime instead — the same weights, and
+[the same numbers to four decimal places](docs/BENCHMARKS.md#the-model-runtime-does-not-change-the-numbers)
+— for **326 MB**. The whole container answers the demo question in **386 MB**
+of a 512 MB cap, and the image went from 3.18 GB to 1.6 GB.
+
+That makes the deployment genuinely free. **Modal** is the target: $30/month of
+compute credits, no credit card, and two vCPUs, which is what keeps reranking
+near a second. **Render's** free tier now fits on memory too and needs no card,
+but its 0.1 vCPU takes a reranked query to **71 seconds** — measured — so it is
+a fallback with a real cost attached. Hugging Face Spaces is not available on a
+free account at all: Docker and Gradio SDKs both answer
+`402 … requires a PRO subscription`.
 
 Step by step, with the measurements behind those numbers:
 **[deploy/DEPLOY.md](deploy/DEPLOY.md)**.
@@ -309,8 +324,9 @@ The ones that matter most:
 | `GEMINI_API_KEY` | — | Optional. Enables query rewriting/expansion; the system degrades gracefully without it |
 | `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | 384-dim. Changing this requires re-ingesting |
 | `TARGET_CHUNK_TOKENS` | `500` | Chunk sizing (range 200–800) |
-| `USE_RERANKING` | `true` | Cross-encoder reranking. Worth +25.8% MRR for ~1.8s per query; set `false` to trade accuracy for latency |
+| `USE_RERANKING` | `true` | Cross-encoder reranking. Worth +25.8% MRR and most of the query time; set `false` to trade the accuracy back — which is what a 0.1-vCPU host forces |
 | `USE_SECTION_ROUTING` | `false` | Restrict a question to the section it seems to be about. Measured to cost accuracy on QASPER — see [BENCHMARKS.md](docs/BENCHMARKS.md) |
+| `MODEL_RUNTIME` | `onnx` | Which runtime executes the embedding and reranking models. `onnx` and `torch` run the same weights and produce the same numbers; ONNX costs 326MB against 758MB, `torch` is what runs on a GPU |
 | `LLM_PROVIDER` | `ollama` | Which backend generates answers. `groq` points at a hosted model for deployments, where a 3B local model does not fit — see [deploy/DEPLOY.md](deploy/DEPLOY.md) |
 | `QUERY_LLM_BACKEND` | `off` | Which model rewrites the query before searching: `gemini`, `provider` (whatever `LLM_PROVIDER` points at), or `off`. Measured on QASPER it costs 18% MRR — [why](docs/BENCHMARKS.md#what-the-numbers-say) |
 | `GROQ_API_KEY` | — | Required only when `LLM_PROVIDER=groq` |
@@ -328,7 +344,7 @@ docusense/
 ├── auth/           Password hashing, JWT, user store
 ├── config/         Centralized pydantic-settings configuration
 ├── ingestion/      Converters, preprocessing, paper metadata, chunking
-├── embeddings/     sentence-transformers wrapper
+├── embeddings/     embedding models, and the runtime seam (ONNX or torch)
 ├── vectorstore/    Qdrant client + academic payload indexes
 ├── retrieval/      Query processing, hybrid search, reranking
 ├── generation/     Answer generation, citations, conversation memory
@@ -357,7 +373,7 @@ docker-compose.yml  API + Qdrant + Ollama
 
 ## Tech stack
 
-Python · FastAPI · Qdrant · sentence-transformers · Ollama · rank-bm25 ·
-Markitdown · SQLite · Gemini API · pytest
+Python · FastAPI · Qdrant · ONNX Runtime (fastembed) · Ollama · Groq ·
+rank-bm25 · Markitdown · SQLite · pytest
 
 Built to run entirely on free/local infrastructure — no per-query API cost.

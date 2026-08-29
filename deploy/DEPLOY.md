@@ -23,39 +23,63 @@ link will wait. So `LLM_PROVIDER=groq` points generation at a hosted model on
 Groq's free tier, which answers in one to two seconds. Nothing else changes:
 retrieval, reranking, citation checking and the UI are identical.
 
-**The host has to give it about 1GB.** Measured, not estimated — the same image
-this document deploys, run under a hard container memory limit:
+**What the host has to provide.** Measured in a container under a hard memory
+limit, running the image this document deploys:
 
-| | RSS |
-|---|---|
-| Python + torch imported | 195 MB |
-| + DocuSense imported, components not yet built | 248 MB |
-| + one answered query, reranking **off** | 627 MB |
-| + one answered query, reranking on *(the default)* | **730 MB peak** |
+| | peak RSS | image |
+|---|---|---|
+| torch runtime | 770 MiB | 3.18 GB |
+| **ONNX runtime** *(default)* | **386 MiB** | **1.6 GB** |
 
-Reranking is the single largest measured accuracy gain in the system (+25.8%
-MRR, p = 0.0044), so turning it off to fit a smaller box trades away the thing
-worth demonstrating — and as the table shows, it does not even work: torch and
-the embedding model alone are already over 512 MB.
+Both run the same two models and produce
+[the same retrieval numbers to four decimal places](../docs/BENCHMARKS.md#the-model-runtime-does-not-change-the-numbers).
+The first row is why this used to need a paid host. The second is why it no
+longer does.
 
-**512MB free tiers do not fail loudly.** Run under `-m 512m`, the container
-does not crash. The seeding process is OOM-killed part-way through, PID 1
-survives, `/api/health` returns `200`, and the demo login works — with half a
-shelf. Asked how the two demo papers disagree, that instance answered:
+**Memory stopped being the constraint. vCPU is.** Reranking is the largest
+measured accuracy gain in the system (+25.8% MRR) and it is where the query
+time goes. Measured in capped containers, on the same question:
+
+| | 512 MiB, 0.1 vCPU | 512 MiB, full CPU |
+|---|---|---|
+| start to healthy (seeds two papers) | 296 s | 29 s |
+| query, reranking on | **71 s** | 2.5 s |
+| query, reranking off | 5 s | ~1 s |
+
+A tenth of a vCPU runs this: it does not run out of memory and it answers
+correctly. But 71 seconds is not a demo, and that one number is what decides
+between the hosts below.
+
+**A host that is too small does not fail loudly.** Before the runtime change,
+under `-m 512m`, the container did not crash. The seeding process was
+OOM-killed part way through, PID 1 survived, `/api/health` returned `200`, and
+the demo login worked — with half a shelf. Asked how the two demo papers
+disagree, that instance answered:
 
 > there are no disagreements between the two sources because they are not two
 > different papers; rather, they are two sections of the same paper
 
 Fluent, cited, and wrong, because the second paper never finished ingesting.
-A host that is too small produces a broken demo that looks healthy, which is
-worse than one that refuses to start.
+It is worth knowing what that failure looks like, because the next host that
+is a little too small will look exactly the same.
 
 ---
 
-## What was ruled out, and how
+## The options, and what each costs
 
-**Hugging Face Spaces — not available on this account.** Probed against the
-account's own token rather than assumed:
+Nothing here needs a credit card except Cloud Run.
+
+| | card | RAM | vCPU | verdict |
+|---|---|---|---|---|
+| **Modal** | no | you choose | 2 | **the target.** $30/month of credits; reranking stays near a second |
+| **Render free** | no | 512 MB | 0.1 | fits, but a reranked query takes 71 s; usable only with `USE_RERANKING=false`, which gives up the +25.8% |
+| Google Cloud Run | **yes** | you choose | you choose | works well; wants a billing account |
+| Hugging Face Spaces | n/a | 16 GB | 2 | **unavailable on a free account** |
+| Koyeb | n/a | — | — | no free compute tier any more |
+| Fly.io, Railway | yes | — | — | no free allowance that fits |
+
+**Hugging Face, in detail**, because it was the original plan. Probed against
+the account's own token rather than assumed:
 
 ```
 POST https://huggingface.co/api/repos/create  {"type":"space","sdk":"docker"}
@@ -66,19 +90,16 @@ POST https://huggingface.co/api/repos/create  {"type":"space","sdk":"docker"}
 `sdk: gradio` returns the identical 402, so the "skip Docker, run uvicorn
 inside a Gradio Space" route is closed too. Only `sdk: static` creates — and a
 static Space serves files, not a Python process. Hugging Face is viable again
-the day the account has PRO ($9/month), and nothing else in this repository
-would need to change: `deploy/huggingface/README.md` is the Space card, and the
-`Dockerfile` is what a Docker Space builds.
+the day the account has PRO ($9/month), and nothing else would need to change:
+`deploy/huggingface/README.md` is the Space card and the `Dockerfile` is what a
+Docker Space builds.
 
-**Render and Koyeb — 512 MB on the free tier**, which the table above rules
-out.
-
-**Fly.io, Railway — no free allowance** that fits a 1GB always-on machine.
-
-**Google Cloud Run — works, but wants a billing account.** It takes the image
-in this repository unchanged and lets memory be a number rather than a tier.
-It is the right answer the moment a card is acceptable; the steps are
-[below](#google-cloud-run).
+**Render, in detail**, because it is genuinely free and the temptation is to
+recommend it on the memory number alone. It fits: 512 MB, no card, 750 instance
+hours a month. Then a reranked query takes 71 seconds, and without reranking
+the demo shows a system 25.8% worse than the one the benchmarks describe. It is
+the right answer only if "free with no account at all" matters more than what
+the page actually demonstrates.
 
 ---
 
@@ -248,7 +269,7 @@ gcloud run deploy docusense \
     --source . \
     --region us-central1 \
     --allow-unauthenticated \
-    --memory 2Gi \
+    --memory 1Gi \
     --cpu 2 \
     --max-instances 1 \
     --timeout 300 \
@@ -260,7 +281,7 @@ Why those numbers:
 
 | Flag | Why |
 |---|---|
-| `--memory 2Gi` | 730 MB is the measured peak for one query, and on Cloud Run the container filesystem is in memory — every uploaded and converted document is charged against this limit as well. 1Gi runs the demo; 2Gi survives visitors uploading their own papers. |
+| `--memory 1Gi` | 386 MiB is the measured peak for one query on the ONNX runtime, and on Cloud Run the container filesystem is in memory, so every uploaded and converted document is charged against this limit too. 512Mi runs the demo; 1Gi leaves room for visitors uploading their own papers. |
 | `--cpu 2` | Reranking is CPU-bound. One vCPU roughly doubles the ~1.8s rerank. |
 | `--max-instances 1` | State is per-instance: SQLite and the on-disk Qdrant live in the container. Two instances means two different shelves, and a visitor's second request landing on the other one. This is a demo, not a cluster. |
 | `--timeout 300` | Retrieval plus generation is a few seconds, but the *first* request also loads both models. |

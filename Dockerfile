@@ -4,6 +4,11 @@
 # The embedding and reranker models are baked in at build time: downloading
 # them on first request would otherwise add a minute to the first query and
 # make the container depend on HuggingFace being reachable at runtime.
+#
+# The models run on ONNX Runtime rather than torch. Same weights, same outputs
+# — measured, cosine 1.000000 on embeddings and byte-identical cross-encoder
+# scores — for 326MB resident instead of 758MB, which is the difference between
+# needing a host that will rent you a gigabyte and fitting in a free tier.
 
 # ==============================================================================
 # Stage 1 — build dependencies
@@ -20,13 +25,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /build
 COPY requirements.txt .
 
-# CPU-only torch. The default wheel pulls ~2GB of CUDA libraries that are dead
-# weight in a container with no GPU.
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --upgrade pip \
-    && /opt/venv/bin/pip install \
-        --extra-index-url https://download.pytorch.org/whl/cpu \
-        -r requirements.txt
+    && /opt/venv/bin/pip install -r requirements.txt
 
 
 # ==============================================================================
@@ -66,11 +67,14 @@ RUN chmod +x ./docker/entrypoint.sh
 RUN mkdir -p /app/data /app/logs && chown -R app:app /app
 USER app
 
-# Pre-download the models so the first query is not also a download.
+# Pre-download the models so the first query is not also a download. Through
+# DocuSense's own loaders rather than fastembed's, because the loader is what
+# sets the tokenizer's truncation and padding to match the torch runtime — a
+# model cached by any other path would be cached with the wrong settings.
 RUN python -c "\
-from sentence_transformers import SentenceTransformer, CrossEncoder; \
-SentenceTransformer('all-MiniLM-L6-v2'); \
-CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
+from docusense.embeddings.backends import load_embedding_backend, load_cross_encoder_backend; \
+load_embedding_backend('all-MiniLM-L6-v2'); \
+load_cross_encoder_backend('cross-encoder/ms-marco-MiniLM-L-6-v2')"
 
 # Hugging Face Spaces and most PaaS hosts inject the port to listen on; 8000
 # is the local default.

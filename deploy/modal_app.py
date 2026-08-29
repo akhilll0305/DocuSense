@@ -3,12 +3,14 @@ DocuSense on Modal.
 
 WHY MODAL
 ---------
-The deployment needs about 1GB of memory — measured, not estimated: torch, the
-embedding model and the cross-encoder peak at 730MB answering one question, and
-627MB with reranking switched off, so the 512MB free tiers cannot run this at
-all. Of the hosts that can, Modal is the one that does not ask for a card:
-$30/month of compute credits on the Starter plan, and memory is a number you
-choose rather than a tier you are stuck with.
+Modal's Starter plan gives $30/month of compute credits and asks for no credit
+card, and memory is a number you choose rather than a tier you are stuck with.
+It is the best free option for this: two vCPUs keep reranking near a second,
+where a 0.1-CPU free tier would not.
+
+Since the models moved to ONNX Runtime the app also fits a 512MB tier, so
+Render is a genuine fallback — see DEPLOY.md for what that costs (0.1 CPU, and
+it sleeps after 15 minutes).
 
 Hugging Face Spaces was the original target and is not available on a free
 account: `sdk: docker` and `sdk: gradio` both answer HTTP 402, "hosting Gradio
@@ -51,22 +53,25 @@ import modal
 REPO = Path(__file__).resolve().parent.parent
 
 # The image is built the same way the Dockerfile builds it, and for the same
-# reasons: CPU-only torch, because the default wheel drags ~2GB of CUDA into a
-# container with no GPU; libmagic for file-type detection and tesseract as the
-# OCR fallback; and both models baked in at build time so the first query is not
-# also a download.
+# reasons: libmagic for file-type detection, tesseract as the OCR fallback, and
+# both models baked in at build time so the first query is not also a download.
+#
+# The models run on ONNX Runtime rather than torch — same weights, same
+# outputs, 326MB resident instead of 758MB. They are pre-downloaded through
+# DocuSense's own loaders because the loader is what sets the tokenizer's
+# truncation and padding to match the torch runtime; a model cached by any
+# other path would be cached with the wrong settings.
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("libmagic1", "tesseract-ocr")
-    .pip_install_from_requirements(
-        str(REPO / "requirements.txt"),
-        extra_index_url="https://download.pytorch.org/whl/cpu",
-    )
+    .pip_install_from_requirements(str(REPO / "requirements.txt"))
+    .add_local_dir(REPO / "docusense", "/root/docusense", copy=True)
     .run_commands(
-        "python -c \""
-        "from sentence_transformers import SentenceTransformer, CrossEncoder; "
-        "SentenceTransformer('all-MiniLM-L6-v2'); "
-        "CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')\""
+        "cd /root && python -c \""
+        "from docusense.embeddings.backends import "
+        "load_embedding_backend, load_cross_encoder_backend; "
+        "load_embedding_backend('all-MiniLM-L6-v2'); "
+        "load_cross_encoder_backend('cross-encoder/ms-marco-MiniLM-L-6-v2')\""
     )
     .env(
         {
@@ -87,7 +92,6 @@ image = (
             "QUERY_LLM_BACKEND": "off",
         }
     )
-    .add_local_dir(REPO / "docusense", "/root/docusense")
     .add_local_dir(REPO / "scripts", "/root/scripts")
     .add_local_dir(REPO / "data" / "demo", "/root/data/demo")
 )
@@ -111,7 +115,10 @@ app = modal.App("docusense", image=image)
         )
     ],
     cpu=2,
-    memory=2048,
+    # 730MB was the torch figure. On ONNX the same work peaks at about half
+    # that, so this is headroom rather than the requirement — Modal bills for
+    # what is used, and the container filesystem counts against it.
+    memory=1024,
     # State is per-container: SQLite and the on-disk Qdrant live inside it, so a
     # second container is a second, different shelf, and a visitor's next
     # request landing there would find their upload missing. This is a demo,

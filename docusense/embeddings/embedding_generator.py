@@ -75,7 +75,7 @@ We normalize embeddings to unit length (L2 norm = 1) for:
 from typing import List, Optional
 from dataclasses import dataclass
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from docusense.embeddings.backends import load_embedding_backend
 from loguru import logger
 
 from docusense.config.settings import settings
@@ -149,12 +149,17 @@ class EmbeddingGenerator:
         logger.info(f"  Batch size: {self.batch_size}")
         logger.info(f"  Normalize: {self.normalize}")
         
-        # Load model
+        # Load model through whichever runtime MODEL_RUNTIME names. Same
+        # weights either way; see embeddings/backends.py for the measurement.
         try:
-            logger.info(f"Loading embedding model: {self.model_name}...")
-            self.model = SentenceTransformer(self.model_name, device=self.device)
-            self.embedding_dim = self.model.get_sentence_embedding_dimension()
-            
+            logger.info(f"Loading embedding model: {self.model_name} ({settings.model_runtime})...")
+            self.model = load_embedding_backend(
+                self.model_name,
+                device=self.device,
+                batch_size=self.batch_size,
+            )
+            self.embedding_dim = self.model.dimension
+
             logger.success(f"✅ Model loaded: {self.embedding_dim} dimensions")
             
         except Exception as e:
@@ -175,14 +180,12 @@ class EmbeddingGenerator:
             logger.warning("Empty text provided for embedding")
             return np.zeros(self.embedding_dim)
         
-        embedding = self.model.encode(
-            text,
-            normalize_embeddings=self.normalize,
-            show_progress_bar=False,
-            convert_to_numpy=True
-        )
-        
-        return embedding
+        return self.model.encode(
+            [text],
+            batch_size=self.batch_size,
+            normalize=self.normalize,
+            show_progress=False,
+        )[0]
     
     def embed_batch(
         self,
@@ -218,9 +221,8 @@ class EmbeddingGenerator:
         embeddings = self.model.encode(
             valid_texts,
             batch_size=self.batch_size,
-            normalize_embeddings=self.normalize,
-            show_progress_bar=show_progress,
-            convert_to_numpy=True
+            normalize=self.normalize,
+            show_progress=show_progress,
         )
         
         logger.success(f"✅ Generated {len(embeddings)} embeddings")
@@ -268,9 +270,11 @@ class EmbeddingGenerator:
             'model_name': self.model_name,
             'embedding_dimension': self.embedding_dim,
             'device': self.device,
-            'max_seq_length': self.model.max_seq_length,
             'normalize': self.normalize,
-            'batch_size': self.batch_size
+            'batch_size': self.batch_size,
+            # Whatever the runtime knows about itself, including the
+            # truncation length the two runtimes have to agree on.
+            **self.model.describe(),
         }
     
     def compute_similarity(

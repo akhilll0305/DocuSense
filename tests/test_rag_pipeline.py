@@ -220,12 +220,19 @@ class TestDocuSenseRAG:
             "conv_abc123", "What is BERT?", mode="answer", top_k=5, filters=None
         )
 
-    @patch("docusense.rag_pipeline.DocuSenseRAG.ingestion_pipeline", new_callable=PropertyMock)
-    def test_list_documents(self, mock_ingest):
-        """Test listing documents."""
+    @patch("docusense.rag_pipeline.DocuSenseRAG.storage", new_callable=PropertyMock)
+    def test_list_documents(self, mock_storage):
+        """
+        Listing documents reads the chunk store directly.
+
+        It used to reach it through `ingestion_pipeline.storage`, which built
+        the document converter — markitdown, magika, pandas, PIL — to run a
+        SELECT. Patching `storage` here rather than `ingestion_pipeline` is
+        what keeps that from silently coming back: with the old patch target
+        this test hit the real database and returned every row in it.
+        """
         from docusense.rag_pipeline import DocuSenseRAG
-        
-        mock_pipeline = MagicMock()
+
         mock_doc = MagicMock()
         mock_doc.document_id = "doc_123"
         mock_doc.filename = "bert.pdf"
@@ -233,8 +240,9 @@ class TestDocuSenseRAG:
         mock_doc.total_chunks = 10
         mock_doc.processing_date = "2026-03-08"
         mock_doc.metadata = {"is_research_paper": True, "paper_metadata": {"title": "BERT"}}
-        mock_pipeline.storage.get_all_documents.return_value = [mock_doc]
-        mock_ingest.return_value = mock_pipeline
+        store = MagicMock()
+        store.get_all_documents.return_value = [mock_doc]
+        mock_storage.return_value = store
 
         rag = DocuSenseRAG()
         docs = rag.list_documents()
@@ -242,6 +250,29 @@ class TestDocuSenseRAG:
         assert len(docs) == 1
         assert docs[0]["filename"] == "bert.pdf"
         assert docs[0]["is_research_paper"] is True
+
+    def test_listing_documents_does_not_load_the_document_converter(self):
+        """
+        The query path must not import the ingestion stack.
+
+        Measured: pulling markitdown, magika, pandas and PIL in through
+        `ingestion_pipeline.storage` cost 145MB on a process that only ever
+        answers questions, and it is an easy dependency to reintroduce by
+        reaching for the convenient attribute.
+        """
+        import sys
+
+        from docusense.rag_pipeline import DocuSenseRAG
+
+        for name in list(sys.modules):
+            if name.split(".")[0] in {"markitdown", "magika"}:
+                del sys.modules[name]
+
+        rag = DocuSenseRAG()
+        rag.list_documents()
+
+        assert "markitdown" not in sys.modules
+        assert "magika" not in sys.modules
 
 
 # ==============================================================================

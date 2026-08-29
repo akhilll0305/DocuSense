@@ -55,14 +55,22 @@ from dataclasses import dataclass, field
 import re
 from loguru import logger
 
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-    logger.warning("google-generativeai not installed. Query rewriting disabled.")
 
 from docusense.config.settings import settings
+
+
+def _import_genai():
+    """
+    Import the Gemini SDK, on the one path that needs it.
+
+    It was imported at module scope, so every process that could ever answer a
+    question paid for it — and it drags PIL in with it. Measured: 60MB, for a
+    backend that defaults to off. It also emits a deprecation warning on
+    import, which is a poor greeting for a run that never intended to use it.
+    """
+    import google.generativeai as genai
+
+    return genai
 
 
 @dataclass
@@ -146,11 +154,17 @@ class QueryProcessor:
         self.stats = {"rewrites_attempted": 0, "rewrites_succeeded": 0}
 
         if self.backend == "gemini":
-            if GEMINI_AVAILABLE and self.api_key:
+            if self.api_key:
                 try:
+                    genai = _import_genai()
                     genai.configure(api_key=self.api_key)
                     self.gemini_model = genai.GenerativeModel(self.model_name)
                     logger.info(f"QueryProcessor initialized with Gemini {self.model_name}")
+                except ImportError:
+                    logger.warning(
+                        "QUERY_LLM_BACKEND=gemini but google-generativeai is not "
+                        "installed. Set QUERY_LLM_BACKEND=provider or off."
+                    )
                 except Exception as e:
                     logger.warning(f"Failed to initialize Gemini: {e}")
                     logger.info("Query processing will use basic expansion only")

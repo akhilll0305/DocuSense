@@ -373,6 +373,75 @@ for a caller who wants the metadata.
 
 ---
 
+## The model runtime does not change the numbers
+
+The embedding model and the cross-encoder run on ONNX Runtime rather than
+torch. That was a deployment decision — 326MB resident against 758MB, which is
+the difference between needing a host that will rent a gigabyte and fitting in
+a free tier — and it is only defensible if the numbers above survive it.
+
+They do, exactly. The whole ablation re-run under `MODEL_RUNTIME=onnx`, after a
+full re-ingestion of the same 80 papers:
+
+| Arm | MRR | NDCG@10 | P@1 | Recall@5 | Recall@10 | MAP |
+|---|---|---|---|---|---|---|
+| Vector only | 0.1867 | 0.1949 | 0.1004 | 0.2268 | 0.2938 | 0.1476 |
+| Hybrid | 0.2244 | 0.2348 | 0.1313 | 0.2662 | 0.3438 | 0.1832 |
+| Hybrid + rerank | 0.2824 | 0.2771 | 0.2046 | 0.3149 | 0.3816 | 0.2223 |
+| + query processing | 0.2824 | 0.2771 | 0.2046 | 0.3149 | 0.3816 | 0.2223 |
+
+Every figure matches the torch run to four decimal places, and the corpus it
+was measured on is identical down to the chunk count (80 papers, 1,048 chunks,
+259 questions). The report is
+[`data/benchmarks/onnx_ablation_report.json`](../data/benchmarks/onnx_ablation_report.json).
+
+This is not a coincidence to be grateful for. They are the *same weights* —
+`sentence-transformers/all-MiniLM-L6-v2` and the ONNX export of
+`cross-encoder/ms-marco-MiniLM-L-6-v2` — so identical output is the correct
+result, and anything else would have meant a bug. `tests/test_model_runtime.py`
+asserts it directly: embeddings agree to a cosine above 0.9999 on short and
+long text, and the cross-encoder agrees to 1e-3 and ranks identically.
+
+**Latency is the one thing that moved**, in both directions:
+
+| | torch | ONNX |
+|---|---|---|
+| Vector only | 31 ms | **29 ms** |
+| Hybrid | 37 ms | **32 ms** |
+| Hybrid + rerank | **1908 ms** | 3350 ms |
+
+Retrieval without the cross-encoder is slightly faster; reranking is about 1.7×
+slower on this corpus. sentence-transformers sorts a batch by length before
+running it, so short candidates are not padded up to the longest one;
+fastembed does not. Sorting the candidates before handing them over recovers
+that where it applies — measured on 40 candidates of mixed length, 3162ms
+became 1787ms, against 2220ms for torch — but QASPER chunks are near-uniform
+in length, so on this corpus there is nothing for the sort to recover. It is
+kept because real uploads are not uniform, and because the reordering provably
+cannot change a score.
+
+### Two ways this nearly went wrong quietly
+
+Both are in the repository as tests now, because both produced no error.
+
+**The tokenizers truncate at different lengths.** fastembed defaults to 128
+tokens; `all-MiniLM-L6-v2` under sentence-transformers uses 256; this project
+chunks to ~500. On the defaults the two runtimes agreed to a cosine of
+1.000000 on a one-sentence test and diverged on every real chunk — 0.976 at
+~180 tokens, **0.921 at ~600**. A 0.92 cosine is a different embedding, and
+nothing anywhere would have said so; the retrieval numbers would simply have
+drifted.
+
+**Fixing that broke ingestion, and the benchmark reported anyway.** fastembed
+pads to a fixed width equal to its truncation length, so raising truncation
+alone made any batch holding both a long chunk and a short one ragged.
+Ingestion failures are logged as warnings by design, so 78 of 80 papers failed
+to ingest and the run went on to print a complete four-arm ablation over the 9
+questions that survived — internally consistent, plausible, and about a
+two-paper corpus. `scripts/benchmark.py` now refuses to report when fewer
+papers ingested than were asked for.
+
+
 ## Answer quality
 
 Generation is scored end to end through `rag.ask()` — the same path the UI uses — on a

@@ -64,14 +64,24 @@ except ImportError:
     TESSERACT_AVAILABLE = False
     logger.warning("Tesseract not available - OCR fallback disabled")
 
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-    logger.warning("Google Generative AI not available - Gemini disabled")
 
 from docusense.config import settings
+
+
+def _import_genai():
+    """Import the Gemini SDK on first use; see query_processor for why."""
+    import google.generativeai as genai
+
+    return genai
+
+
+def _genai_available() -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec("google.generativeai") is not None
+
+
+GEMINI_AVAILABLE = _genai_available()
 
 
 class VisionProvider(Enum):
@@ -200,8 +210,8 @@ class ImageProcessor:
         # Initialize Gemini if API key available
         if GEMINI_AVAILABLE and settings.gemini_api_key:
             try:
-                genai.configure(api_key=settings.gemini_api_key)
-                self.gemini_client = genai.GenerativeModel(settings.gemini_model)
+                _import_genai().configure(api_key=settings.gemini_api_key)
+                self.gemini_client = _import_genai().GenerativeModel(settings.gemini_model)
                 logger.info(f"✅ Gemini vision initialized: {settings.gemini_model}")
             except Exception as e:
                 logger.warning(f"Gemini initialization failed: {e}")

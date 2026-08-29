@@ -195,6 +195,24 @@ def main() -> int:
 
     print(json.dumps(stats.to_dict(), indent=2))
 
+    # A partly-ingested corpus produces a full-looking report of the wrong
+    # thing. It happened: a tokenizer misconfiguration made every batch of
+    # mixed-length chunks raise, 78 of 80 papers failed to ingest, and the run
+    # went on to print a four-arm ablation over the 9 questions that survived
+    # -- numbers that were internally consistent, plausible, and about a
+    # two-paper corpus. Ingestion failures are logged as warnings by design, so
+    # nothing else was going to stop this.
+    if not args.reuse_corpus and stats.papers_ingested < stats.papers_requested:
+        shortfall = stats.papers_requested - stats.papers_ingested
+        print(
+            f"ERROR: only {stats.papers_ingested} of {stats.papers_requested} "
+            f"papers ingested ({shortfall} failed). Any metrics from this "
+            f"corpus would describe a different corpus than the one asked for."
+            f"\n       Re-run with --verbose to see why ingestion failed.",
+            file=sys.stderr,
+        )
+        return 1
+
     if not samples:
         print(
             "ERROR: no measurable questions. The corpus is empty or no evidence "
