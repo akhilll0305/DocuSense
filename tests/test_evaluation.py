@@ -6,7 +6,6 @@ All built-in — no ROUGE or BERTScore libraries required.
 """
 
 import pytest
-import math
 
 
 # ==============================================================================
@@ -338,7 +337,7 @@ class TestRAGEvaluator:
 
     def test_save_report(self, tmp_path):
         """Test saving report to JSON."""
-        from docusense.evaluation.evaluator import RAGEvaluator, EvaluationSample, EvaluationResult
+        from docusense.evaluation.evaluator import RAGEvaluator, EvaluationResult
 
         evaluator = RAGEvaluator()
         result = EvaluationResult(num_samples=1, evaluation_time=0.5)

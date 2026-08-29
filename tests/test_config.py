@@ -3,7 +3,6 @@ DocuSense Test Suite
 
 Run with: pytest tests/
 """
-import pytest
 
 
 def test_import():

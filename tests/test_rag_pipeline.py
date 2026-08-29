@@ -5,8 +5,6 @@ Phase 5: Complete RAG Pipeline tests.
 All components are mocked for CI-safe testing.
 """
 
-import pytest
-from pathlib import Path
 from unittest.mock import MagicMock, patch, PropertyMock
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional

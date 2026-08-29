@@ -75,6 +75,12 @@
             <span class="sidebar__account-email" id="user-email"></span>
           </div>
         </div>
+        <button class="btn btn-icon" id="account-btn" aria-label="Account settings" title="Account settings">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 008 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H2a2 2 0 110-4h.09A1.65 1.65 0 004.6 8a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 3.6 1.65 1.65 0 0010 2.09V2a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9v0a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+          </svg>
+        </button>
         <button class="btn btn-icon" id="logout-btn" aria-label="Sign out" title="Sign out">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>
@@ -163,6 +169,66 @@
       </div>
     </main>
   </div>
+
+  <!-- ══ Account ════════════════════════════════════════════
+       A native <dialog>: it brings its own focus trap, Escape handling and
+       inert backdrop, none of which is worth reimplementing by hand.
+  -->
+  <dialog class="modal" id="account-modal" aria-labelledby="account-modal-title">
+    <div class="modal__head">
+      <h2 class="modal__title" id="account-modal-title">Account</h2>
+      <button class="btn btn-icon" id="account-close" aria-label="Close">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <p class="modal__meta" id="account-modal-email"></p>
+
+    <form id="password-form" novalidate>
+      <h3 class="modal__section">Change password</h3>
+
+      <div class="field">
+        <label for="current-password">Current password</label>
+        <input type="password" id="current-password" required
+               autocomplete="current-password" placeholder="••••••••">
+      </div>
+
+      <div class="field">
+        <label for="new-password">New password</label>
+        <input type="password" id="new-password" required minlength="8"
+               autocomplete="new-password" placeholder="At least 8 characters">
+      </div>
+
+      <div class="field">
+        <label for="confirm-password">Confirm new password</label>
+        <input type="password" id="confirm-password" required minlength="8"
+               autocomplete="new-password" placeholder="Type it again">
+      </div>
+
+      <p class="modal__note">
+        Changing your password signs out every other device. This one stays signed in.
+      </p>
+
+      <p class="modal__status" id="account-status" role="alert" hidden></p>
+
+      <button type="submit" class="btn btn-primary btn-lg modal__submit" id="password-submit">
+        <span class="modal__submit-text">Change password</span>
+      </button>
+    </form>
+
+    <div class="modal__divider" role="presentation"></div>
+
+    <h3 class="modal__section">Sessions</h3>
+    <p class="modal__note">
+      Signs out every device, including this one. Use it if you have signed in
+      somewhere you no longer control.
+    </p>
+    <button type="button" class="btn btn-quiet modal__danger" id="logout-all-btn">
+      Sign out everywhere
+    </button>
+  </dialog>
 
   <script src="/static/js/api.js"></script>
   <script src="/static/js/chat.js"></script>

@@ -6,9 +6,9 @@ Uses mocking for CI-safe testing (no Ollama required).
 """
 
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 from dataclasses import dataclass, field
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 
 # ==============================================================================

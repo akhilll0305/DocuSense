@@ -65,6 +65,102 @@
     if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
   }
 
+  /**
+   * The account dialog: change password, and sign out everywhere.
+   *
+   * Both endpoints have existed since sessions became revocable; neither had
+   * a way in from the interface, which made "sessions can be ended
+   * server-side" a claim only reachable with curl.
+   */
+  function setupAccountDialog() {
+    const modal = $('#account-modal');
+    if (!modal || typeof modal.showModal !== 'function') return;
+
+    const form = $('#password-form');
+    const status = $('#account-status');
+    const submit = $('#password-submit');
+    const current = $('#current-password');
+    const next = $('#new-password');
+    const confirm = $('#confirm-password');
+
+    function setStatus(message, tone) {
+      if (!message) {
+        status.hidden = true;
+        status.textContent = '';
+        return;
+      }
+      status.textContent = message;
+      status.dataset.tone = tone;
+      status.hidden = false;
+    }
+
+    function open() {
+      form.reset();
+      setStatus(null);
+      const user = API.getUser();
+      $('#account-modal-email').textContent = user ? user.email : '';
+      modal.showModal();
+      current.focus();
+    }
+
+    $('#account-btn')?.addEventListener('click', open);
+    $('#account-close')?.addEventListener('click', () => modal.close());
+
+    // A click on the backdrop lands on the dialog element itself, since the
+    // content sits in children. Anything inside stops here.
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.close();
+    });
+
+    // Escape as well. A modal <dialog> is supposed to close on Escape by
+    // itself, but that is the browser's behaviour rather than this page's,
+    // and it could not be confirmed under automation — so the page owns it,
+    // and closing an already-closing dialog is a no-op.
+    modal.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') modal.close();
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setStatus(null);
+
+      // Checked here as well as by the server: the mismatch and the length
+      // are knowable without a round trip, and the server's 422 for a short
+      // password would otherwise be the first sign of a typo.
+      if (next.value !== confirm.value) {
+        setStatus('The two new passwords do not match.', 'error');
+        confirm.focus();
+        return;
+      }
+      if (next.value.length < 8) {
+        setStatus('The new password must be at least 8 characters.', 'error');
+        next.focus();
+        return;
+      }
+
+      submit.disabled = true;
+      try {
+        await API.changePassword(current.value, next.value);
+        form.reset();
+        setStatus(
+          'Password changed. Every other device has been signed out.',
+          'ok'
+        );
+      } catch (err) {
+        setStatus(err.message || 'Could not change the password.', 'error');
+      } finally {
+        submit.disabled = false;
+      }
+    });
+
+    $('#logout-all-btn')?.addEventListener('click', () => {
+      if (!window.confirm(
+        'Sign out on every device, including this one?'
+      )) return;
+      API.logout({ everywhere: true });
+    });
+  }
+
   /** Grow the composer to fit its content, up to a scrollable ceiling. */
   function autosizeInput() {
     queryInput.style.height = 'auto';
@@ -118,6 +214,7 @@
     // New chat
     $('#new-chat-btn').addEventListener('click', startNewChat);
     $('#logout-btn')?.addEventListener('click', () => API.logout());
+    setupAccountDialog();
     initTheme();
 
     // File upload

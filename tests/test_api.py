@@ -5,7 +5,7 @@ Phase 7: API tests using TestClient with mocked RAG backend.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional
 import io

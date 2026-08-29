@@ -5,12 +5,8 @@ Phase 5: Complete RAG Pipeline — conversation memory tests.
 Uses SQLite :memory: for fast, isolated tests.
 """
 
-import pytest
-import sqlite3
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
-from dataclasses import dataclass, field
-from typing import Dict, Any, List
+from unittest.mock import MagicMock
 
 
 # ==============================================================================
@@ -24,7 +20,7 @@ class TestConversationStore:
         """Create a store with an in-memory DB."""
         from docusense.storage.conversation_store import ConversationStore
         # Use a temp file path (ConversationStore will create it)
-        import tempfile, os
+        import tempfile
         tmp = Path(tempfile.mkdtemp()) / "test_conv.db"
         store = ConversationStore(db_path=tmp)
         return store
