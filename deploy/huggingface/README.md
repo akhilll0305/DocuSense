@@ -59,5 +59,7 @@ off — the reasoning is written up rather than the feature quietly removed.
   shelf reseeds itself.
 - Accounts are capped on documents and upload size, because this is a public URL.
 
+Live instance: **https://akhilll0305--docusense-web.modal.run**
+
 Source, benchmarks and architecture notes:
 **https://github.com/akhilll0305/LLM-Course-Project**

@@ -6,9 +6,12 @@ click — a link that can sit on a CV.
 Everything the deployment needs is in the repository. What is left is one
 browser sign-in and two secrets, which only you can create.
 
-The target is **Modal**: it is the only host with enough memory for this that
-does not ask for a credit card. Google Cloud Run is documented
-[below](#google-cloud-run) as the alternative for anyone willing to attach one.
+**It is deployed, at https://akhilll0305--docusense-web.modal.run.** On
+Modal's free tier: no credit card, $30/month of compute credits, and measured
+against the live instance — health in 15s, the demo question answered in 1.7s
+citing both papers, warm follow-ups at 1.9–2.4s. Google Cloud Run is documented
+[below](#google-cloud-run) as the alternative for anyone willing to attach a
+card.
 
 ---
 
@@ -163,6 +166,11 @@ modal deploy deploy/modal_app.py
 ```
 
 It prints the URL, of the form `https://<workspace>--docusense-web.modal.run`.
+This project's is https://akhilll0305--docusense-web.modal.run.
+
+On Windows, prefix the command with `PYTHONIOENCODING=utf-8` — the CLI's
+progress output is not encodable in the console's default codepage and the
+deploy dies on it.
 
 **5. Check it answers, not just that it started.**
 
@@ -177,18 +185,30 @@ answer should cite both, by author and year. If it cites only one, the shelf
 seeded half-way: `modal app logs docusense` will show why, and memory is the
 usual reason.
 
-### What is unverified here
+### What actually happened on the first deploy
 
-`deploy/modal_app.py` has not been deployed. Building the app graph is checked
-— importing the module constructs the `App`, the `Image` and the function
-against modal 1.5.5, which is what catches a renamed parameter, and this API
-has renamed several (`concurrency_limit` → `max_containers`,
-`container_idle_timeout` → `scaledown_window`, Mounts → `add_local_dir`). What
-has *not* been checked is the deploy itself, because that needs an account only
-the owner can create. The image contents are the part with prior evidence: the
-same package list, the same two models and the same seeded shelf were built and
-run under a 1GiB container limit, and answered the demo question citing both
-papers in 1.7s.
+Two things, both worth knowing before the next one.
+
+**The Modal CLI cannot write its output to a Windows console in cp1252.** The
+first attempt died on `'charmap' codec can't encode characters` while printing
+its progress box. `PYTHONIOENCODING=utf-8` before `modal deploy` fixes it.
+
+**The first image build was dropped by the builder**, after pip had installed
+everything: `Image build for im-… terminated due to external shut-down. Please
+try again.` Running the same command again worked, and took 50 seconds because
+the layers were cached. It is worth reading a build failure twice before
+changing anything — that one was not about this repository.
+
+Verified against the live instance: `/api/health` 200, the demo account signed
+in, both papers on the shelf, and *"How do these two papers disagree about
+learned signal control?"* answered in 1.7s citing both by author and year.
+Warm follow-ups: 1.9s, 2.2s, 2.4s.
+
+Redeploying after a change is one command:
+
+```bash
+PYTHONIOENCODING=utf-8 modal deploy deploy/modal_app.py
+```
 
 ---
 

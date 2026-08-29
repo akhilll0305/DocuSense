@@ -2,6 +2,12 @@
 
 **A research-paper RAG system that understands academic structure.**
 
+**[Try it live](https://akhilll0305--docusense-web.modal.run)** — sign in as `demo@docusense.app` / `read-the-papers`
+and ask *"How do these two papers disagree about learned signal control?"*. Two
+papers are already on the shelf and they contradict each other, so the answer
+should cite both. The first click after a quiet spell waits about 45 seconds
+while the container wakes; after that, answers take a couple of seconds.
+
 Most RAG systems treat a PDF as a flat wall of text. DocuSense parses the *structure* of a
 research paper — title, authors, venue, year, sections, citations — and uses it at query time.
 Ask for "papers from 2020–2023 by Bengio" and it filters on metadata before it ever runs a
@@ -306,8 +312,9 @@ a fallback with a real cost attached. Hugging Face Spaces is not available on a
 free account at all: Docker and Gradio SDKs both answer
 `402 … requires a PRO subscription`.
 
-Step by step, with the measurements behind those numbers:
-**[deploy/DEPLOY.md](deploy/DEPLOY.md)**.
+It is deployed: **https://akhilll0305--docusense-web.modal.run**, on Modal's
+free tier, answering in about two seconds once warm. Step by step, with the
+measurements behind the host choice: **[deploy/DEPLOY.md](deploy/DEPLOY.md)**.
 
 ---
 
