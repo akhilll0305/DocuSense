@@ -117,17 +117,26 @@ memory is a parameter rather than a tier — which is what this needs, given the
 Two things to know before starting:
 
 - **It scales to zero, so the first visitor after an idle period waits.**
-  Measured on this image locally: 25s from container start to a healthy
-  `/api/health` — the demo shelf is seeded in that window — then 20s for the
-  first query, which is where the embedding model and the cross-encoder load.
-  Every query after that is about a second. `scaledown_window=900` keeps a
-  container alive for fifteen minutes of idle, so a visitor reading an answer
-  and asking a follow-up does not pay it twice.
-- **Storage is ephemeral.** A restart clears registered accounts and uploads,
-  and the demo shelf reseeds itself. To make it persistent, uncomment the
-  `Volume` in `deploy/modal_app.py` and drop `SEED_DEMO` — but leave
-  `max_containers=1` where it is, because a Volume shared by two containers is
-  a corrupted SQLite file and a corrupted Qdrant store.
+  Measured against the live instance, after killing the container outright:
+  **14 seconds** from cold to a healthy `/api/health`, with the demo shelf
+  seeded inside that window. Every query after that is about two seconds.
+  `scaledown_window=900` keeps a container alive through fifteen minutes of
+  idle, so a visitor reading an answer and asking a follow-up does not pay it
+  twice.
+- **Storage is ephemeral, and this was verified rather than assumed.** An
+  account was registered on the live instance, the container was killed, and
+  the same credentials came back `401 Incorrect email or password`. The demo
+  account survives only because `SEED_DEMO` recreates it on every start.
+
+  That is the right default for a public demo — open sign-up plus durable
+  storage is a public disk — but it can be changed: uncomment the `Volume` in
+  `deploy/modal_app.py` and mount it at `/root/data`. Two things to know first.
+  Modal commits a Volume every few seconds and again on shutdown, so a hard
+  kill can lose the last few seconds of writes; and Modal's own guidance is
+  that Volumes are for write-once/read-many work, not for database files, with
+  no distributed file locking. `max_containers=1` removes the concurrent-writer
+  half of that risk and must stay if the Volume goes on. If the store is ever
+  corrupted, deleting the Volume and letting the shelf reseed is the repair.
 
 ### Deploy
 

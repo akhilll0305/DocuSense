@@ -5,8 +5,13 @@
 **[Try it live](https://akhilll0305--docusense-web.modal.run)** — sign in as `demo@docusense.app` / `read-the-papers`
 and ask *"How do these two papers disagree about learned signal control?"*. Two
 papers are already on the shelf and they contradict each other, so the answer
-should cite both. The first click after a quiet spell waits about 45 seconds
-while the container wakes; after that, answers take a couple of seconds.
+should cite both. The first click after a quiet spell waits about 15 seconds
+while the container wakes; after that, answers take about two seconds.
+
+Storage on the demo is deliberately ephemeral: the two papers reseed
+themselves on every start, and an account you register there does not survive
+a restart. Measured, not assumed — an account created, the container killed,
+and the same credentials refused afterwards.
 
 Most RAG systems treat a PDF as a flat wall of text. DocuSense parses the *structure* of a
 research paper — title, authors, venue, year, sections, citations — and uses it at query time.
