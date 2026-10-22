@@ -24,12 +24,12 @@ class ContainsNLI:
 
     def predict(self, pairs):
         self.calls += 1
-        out = np.zeros((len(pairs), 3))
+        out = np.zeros((len(pairs), 2))  # (entailment, contradiction)
         for i, (premise, hypothesis) in enumerate(pairs):
             if hypothesis.rstrip(".").lower() in premise.lower():
-                out[i] = [0.05, 0.9, 0.05]
+                out[i] = [0.9, 0.05]
             else:
-                out[i] = [0.1, 0.1, 0.8]
+                out[i] = [0.1, 0.1]
         return out
 
 
@@ -114,3 +114,23 @@ def test_one_model_call_per_answer():
         ["Source one text. More text.", "Source two text."],
     )
     assert model.calls == 1
+
+
+def test_prefilter_scores_only_the_best_windows():
+    """Windows sharing no words with the claim never reach the model."""
+    seen = []
+
+    class Recording(ContainsNLI):
+        def predict(self, pairs):
+            seen.extend(pairs)
+            return super().predict(pairs)
+
+    sources = [f"Unrelated sentence about gardening number {i}." for i in range(10)]
+    sources.append("The corpus has 3044 sentences in total.")
+    verifier = ClaimVerifier(model=Recording(), max_windows_per_claim=2)
+
+    result = verifier.verify("The corpus has 3044 sentences in total.", sources)
+
+    assert len(seen) == 2
+    assert result.claims[0].supported
+    assert result.claims[0].source_index == 10

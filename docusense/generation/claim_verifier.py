@@ -140,6 +140,16 @@ def extract_claims(answer: str, min_words: int = 4) -> List[str]:
     return claims
 
 
+_STOPWORDS = frozenset(
+    "a an and are as at be by for from has have in is it its of on or that the "
+    "their they this to was were which with we our not".split()
+)
+
+
+def _content_words(text: str) -> set:
+    return {w for w in re.findall(r"[a-z0-9][a-z0-9.\-]*", text.lower()) if w not in _STOPWORDS}
+
+
 def source_windows(text: str, size: int = 4, stride: int = 2) -> List[str]:
     """Overlapping windows of `size` sentences; a short text is one window."""
     sentences = split_sentences(text)
@@ -241,9 +251,23 @@ class ClaimVerifier:
         result.faithfulness, result.unsupported
     """
 
-    def __init__(self, model: Optional[NLIModel] = None, threshold: Optional[float] = None):
+    # Windows sent to the NLI model per claim, after a lexical prefilter.
+    # Every (claim, window) pair costs a DeBERTa-base forward pass; an answer
+    # of six claims over five 500-token chunks is ~120 of them, several
+    # seconds on two vCPUs. A window that shares no content words with the
+    # claim almost never entails it, so only each claim's best few by overlap
+    # are scored.
+    MAX_WINDOWS_PER_CLAIM = 4
+
+    def __init__(
+        self,
+        model: Optional[NLIModel] = None,
+        threshold: Optional[float] = None,
+        max_windows_per_claim: Optional[int] = None,
+    ):
         self._model = model
         self.threshold = threshold if threshold is not None else settings.claim_support_threshold
+        self.max_windows = max_windows_per_claim or self.MAX_WINDOWS_PER_CLAIM
 
     @property
     def model(self) -> NLIModel:
@@ -269,20 +293,34 @@ class ClaimVerifier:
                 ClaimVerdict(c, False, 0.0, 0.0) for c in claims
             ])
 
-        pairs = [(w, claim) for claim in claims for _, w in windows]
-        probs = self.model.predict(pairs).reshape(len(claims), len(windows), 2)
+        # Each claim's candidate windows, best lexical overlap first.
+        window_tokens = [_content_words(w) for _, w in windows]
+        shortlist: List[List[int]] = []
+        for claim in claims:
+            words = _content_words(claim)
+            ranked = sorted(
+                range(len(windows)),
+                key=lambda i: -len(words & window_tokens[i]),
+            )
+            shortlist.append(ranked[: self.max_windows])
+
+        pairs = [(windows[i][1], claim) for claim, picks in zip(claims, shortlist) for i in picks]
+        probs = self.model.predict(pairs)
 
         verdicts = []
-        for c, claim in enumerate(claims):
-            best = int(probs[c, :, 0].argmax())
-            entailment = float(probs[c, best, 0])
+        offset = 0
+        for claim, picks in zip(claims, shortlist):
+            block = probs[offset: offset + len(picks)]
+            offset += len(picks)
+            best = int(block[:, 0].argmax())
+            entailment = float(block[best, 0])
             verdicts.append(ClaimVerdict(
                 claim=claim,
                 supported=entailment >= self.threshold,
                 entailment=entailment,
-                contradiction=float(probs[c, :, 1].max()),
-                source_index=windows[best][0],
-                evidence=windows[best][1],
+                contradiction=float(block[:, 1].max()),
+                source_index=windows[picks[best]][0],
+                evidence=windows[picks[best]][1],
             ))
         return VerificationResult(verdicts)
 

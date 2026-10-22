@@ -1,6 +1,6 @@
 {
   "base_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
-  "output": "models\\rr-early",
+  "output": "models\reranker-qasper",
   "epochs": 1,
   "batch_size": 32,
   "learning_rate": 2e-05,
