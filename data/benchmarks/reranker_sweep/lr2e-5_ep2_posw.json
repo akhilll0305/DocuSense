@@ -1,0 +1,39 @@
+{
+  "base_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+  "output": "models\\reranker-qasper",
+  "epochs": 2,
+  "batch_size": 32,
+  "learning_rate": 2e-05,
+  "max_length": 512,
+  "train": {
+    "papers": 888,
+    "questions": 2593,
+    "questions_used": 2101,
+    "unanswerable": 271,
+    "ungrounded": 221,
+    "pairs": 2624,
+    "negatives": 6289,
+    "positives": 2624
+  },
+  "dev": {
+    "queries": 892,
+    "first_stage": "BM25 top-20, pooled dev corpus",
+    "base": {
+      "mrr@10": 0.19,
+      "ndcg@10": 0.2264,
+      "map": 0.1847,
+      "base_mrr@10": 0.1634,
+      "base_ndcg@10": 0.1859
+    },
+    "fine_tuned": {
+      "mrr@10": 0.1884,
+      "ndcg@10": 0.217,
+      "map": 0.1814,
+      "base_mrr@10": 0.1634,
+      "base_ndcg@10": 0.1859
+    }
+  },
+  "onnx_max_logit_diff_vs_torch": 2e-06,
+  "device": "cuda",
+  "seconds": 304.1
+}

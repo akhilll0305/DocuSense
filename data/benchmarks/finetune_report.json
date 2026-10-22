@@ -1,0 +1,40 @@
+{
+  "base_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "output": "models\\minilm-qasper",
+  "epochs": 3,
+  "batch_size": 64,
+  "learning_rate": 5e-05,
+  "max_seq_length": 256,
+  "hard_negatives": true,
+  "train": {
+    "papers": 888,
+    "questions": 2593,
+    "questions_used": 2101,
+    "unanswerable": 271,
+    "ungrounded": 221,
+    "pairs": 2624,
+    "negatives": 2101
+  },
+  "dev": {
+    "papers": 281,
+    "queries": 892,
+    "chunks": 3738,
+    "base": {
+      "mrr@10": 0.1282,
+      "ndcg@10": 0.1333,
+      "accuracy@1": 0.0863,
+      "recall@10": 0.1993,
+      "map@10": 0.1037
+    },
+    "fine_tuned": {
+      "mrr@10": 0.1604,
+      "ndcg@10": 0.1727,
+      "accuracy@1": 0.1031,
+      "recall@10": 0.2663,
+      "map@10": 0.133
+    }
+  },
+  "onnx_min_cosine_vs_torch": 1.0,
+  "device": "cuda",
+  "seconds": 68.2
+}
