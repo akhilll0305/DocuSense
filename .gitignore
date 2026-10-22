@@ -63,6 +63,7 @@ data/benchmarks/*.json
 !data/benchmarks/routed_subset_report.json
 !data/benchmarks/query_rewriting_report.json
 !data/benchmarks/onnx_ablation_report.json
+!data/benchmarks/finetune_report.json
 data/benchmarks/qasper/
 
 # Evaluation data (keep test sets but ignore results)
@@ -81,6 +82,8 @@ htmlcov/
 *.ipynb
 
 # Model files
+# Fine-tuned checkpoints are rebuilt by scripts/finetune_embedder.py.
+models/
 *.bin
 *.pkl
 *.pt
