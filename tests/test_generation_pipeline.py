@@ -338,3 +338,67 @@ class TestPipelineResponse:
         assert response.confidence == 0.0
         assert response.has_citations is False
         assert response.total_time == 0.0
+
+
+# ==============================================================================
+# Claim verification
+# ==============================================================================
+
+class TestClaimVerificationInPipeline:
+    """The pipeline attaches a per-claim check, and never fails an answer for it."""
+
+    ANSWER = (
+        "BERT achieved 93.5% F1 score on the SST-2 sentiment classification benchmark "
+        "(Devlin et al., 2018). BERT was trained on 64 TPUs for four days."
+    )
+
+    @staticmethod
+    def _pipeline(mock_client_class, verifier):
+        from docusense.generation.generation_pipeline import GenerationPipeline
+
+        client = MagicMock()
+        client.generate.return_value = TestClaimVerificationInPipeline.ANSWER
+        client.model = "test-model"
+        mock_client_class.return_value = client
+        return GenerationPipeline(claim_verifier=verifier)
+
+    @patch("docusense.generation.generation_pipeline.get_llm_client")
+    def test_verification_is_attached(self, mock_client_class):
+        import numpy as np
+        from docusense.generation.claim_verifier import ClaimVerifier
+
+        class ContainsNLI:
+            def predict(self, pairs):
+                out = np.zeros((len(pairs), 3))
+                for i, (premise, claim) in enumerate(pairs):
+                    hit = claim.rstrip(".").lower()[:40] in premise.lower()
+                    out[i] = [0.05, 0.9, 0.05] if hit else [0.1, 0.1, 0.8]
+                return out
+
+        pipeline = self._pipeline(mock_client_class, ClaimVerifier(model=ContainsNLI()))
+        response = pipeline.generate_from_results("How did BERT do?", make_mock_results())
+
+        v = response.verification
+        assert v is not None
+        assert v["num_claims"] == 2
+        assert v["num_unsupported"] == 1
+        assert v["claims"][1]["claim"].startswith("BERT was trained on 64 TPUs")
+        # The verifier saw full chunk text, not the 200-character preview.
+        assert v["claims"][0]["source_index"] == 0
+
+    @patch("docusense.generation.generation_pipeline.get_llm_client")
+    def test_a_failing_verifier_does_not_withhold_the_answer(self, mock_client_class):
+        broken = MagicMock()
+        broken.verify.side_effect = RuntimeError("model download failed")
+
+        pipeline = self._pipeline(mock_client_class, broken)
+        response = pipeline.generate_from_results("How did BERT do?", make_mock_results())
+
+        assert response.answer.startswith("BERT achieved")
+        assert response.verification is None
+
+    @patch("docusense.generation.generation_pipeline.get_llm_client")
+    def test_off_by_setting(self, mock_client_class):
+        pipeline = self._pipeline(mock_client_class, None)
+        response = pipeline.generate_from_results("How did BERT do?", make_mock_results())
+        assert response.verification is None

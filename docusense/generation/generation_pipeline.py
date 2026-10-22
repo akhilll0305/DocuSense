@@ -59,6 +59,7 @@ import time
 
 from loguru import logger
 
+from docusense.config.settings import settings
 from docusense.llms.base import LLMClient
 from docusense.llms.factory import get_llm_client
 from docusense.generation.answer_generator import AnswerGenerator, GeneratedAnswer
@@ -102,6 +103,12 @@ class PipelineResponse:
     confidence: float = 0.0
     has_citations: bool = False
     is_multi_paper: bool = False
+
+    # Claim-level verification (generation/claim_verifier.py): faithfulness,
+    # and each claim with whether a retrieved source entails it. None when
+    # verification is off or failed -- an answer is never withheld for it.
+    verification: Optional[Dict[str, Any]] = None
+    verification_time: float = 0.0
     
     # Performance
     retrieval_time: float = 0.0
@@ -168,7 +175,8 @@ class GenerationPipeline:
         citation_formatter: Optional[CitationFormatter] = None,
         citation_style: CitationStyle = CitationStyle.INLINE,
         include_references: bool = True,
-        include_bibtex: bool = True
+        include_bibtex: bool = True,
+        claim_verifier: Optional[Any] = None,
     ):
         """
         Initialize GenerationPipeline.
@@ -181,6 +189,8 @@ class GenerationPipeline:
             citation_style: Default citation style
             include_references: Include reference list in response
             include_bibtex: Include BibTeX in response
+            claim_verifier: ClaimVerifier; the shared one when None and
+                ENABLE_CLAIM_VERIFICATION is on
         """
         self.retrieval_pipeline = retrieval_pipeline
         self.citation_style = citation_style
@@ -193,6 +203,7 @@ class GenerationPipeline:
             llm_client=self.client
         )
         self.citation_formatter = citation_formatter or CitationFormatter()
+        self._claim_verifier = claim_verifier
         
         logger.success("🚀 GenerationPipeline initialized")
         logger.info(f"  Retrieval: {'connected' if retrieval_pipeline else 'manual mode'}")
@@ -351,8 +362,12 @@ class GenerationPipeline:
             yield ("error", "Generation produced no result")
             return
 
-        # Step 3: Citations, once the whole answer exists
-        response = self._build_response(generated)
+        # Step 3: Citations and claim checks, once the whole answer exists
+        if self._verification_enabled():
+            yield ("status", "Checking each claim against the sources...")
+        response = self._build_response(
+            generated, source_texts=[r.text for r in results]
+        )
         response.retrieval_time = retrieval_time
         response.total_time = time.time() - start_time
         response.retrieval_mode = ", ".join(getattr(metrics, "stages_used", []))
@@ -396,7 +411,10 @@ class GenerationPipeline:
         
         generation_time = time.time() - gen_start
 
-        response = self._build_response(generated, mode=mode)
+        response = self._build_response(
+            generated, mode=mode,
+            source_texts=[getattr(r, "text", "") for r in retrieval_results],
+        )
         response.generation_time = generation_time
         response.total_time = time.time() - start_time
 
@@ -407,10 +425,35 @@ class GenerationPipeline:
 
         return response
 
+    def _verification_enabled(self) -> bool:
+        return self._claim_verifier is not None or settings.enable_claim_verification
+
+    def _verify(self, answer: str, source_texts: List[str]):
+        """
+        Check each claim of the answer against the retrieved text.
+
+        Failure is logged and reported as None. The check is a second opinion
+        on an answer that already exists; a missing model or a bad input is
+        no reason to withhold it.
+        """
+        if not self._verification_enabled() or not source_texts:
+            return None, 0.0
+        start = time.time()
+        try:
+            if self._claim_verifier is None:
+                from docusense.generation.claim_verifier import get_claim_verifier
+                self._claim_verifier = get_claim_verifier()
+            result = self._claim_verifier.verify(answer, source_texts)
+            return result.to_dict(), time.time() - start
+        except Exception as e:
+            logger.warning(f"Claim verification skipped: {e}")
+            return None, time.time() - start
+
     def _build_response(
         self,
         generated: GeneratedAnswer,
         mode: str = "answer",
+        source_texts: Optional[List[str]] = None,
     ) -> PipelineResponse:
         """
         Format citations and assemble a PipelineResponse from a generated answer.
@@ -438,9 +481,15 @@ class GenerationPipeline:
                     generated.sources
                 )
 
+        verification, verification_time = self._verify(
+            generated.answer, [t for t in (source_texts or []) if t]
+        )
+
         return PipelineResponse(
             query=generated.query,
             answer=generated.answer,
+            verification=verification,
+            verification_time=verification_time,
             citations=citations,
             reference_list=reference_list,
             bibtex=bibtex,

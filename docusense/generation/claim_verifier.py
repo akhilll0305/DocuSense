@@ -264,6 +264,18 @@ class ClaimVerifier:
         return VerificationResult(verdicts)
 
 
+def verification_of(response: Any) -> Optional[Dict[str, Any]]:
+    """
+    A response's claim check, if it carries a real one.
+
+    It is persisted as JSON and validated by pydantic on the way out, so
+    anything that is not a plain dict -- an older response type, a test
+    double -- is reported as no check rather than breaking the answer.
+    """
+    value = getattr(response, "verification", None)
+    return value if isinstance(value, dict) else None
+
+
 _default: Optional[ClaimVerifier] = None
 
 
@@ -284,4 +296,5 @@ __all__ = [
     "get_claim_verifier",
     "source_windows",
     "split_sentences",
+    "verification_of",
 ]
