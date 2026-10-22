@@ -113,6 +113,76 @@ def coverage(evidence_tokens: Sequence[str], chunk_tokens: Sequence[str]) -> Tup
     return match.size / len(evidence_tokens), match.size / len(chunk_tokens)
 
 
+def ground_evidence(
+    chunks: Sequence[Tuple[str, str]],
+    evidence_texts: Sequence[str],
+) -> Tuple[List[str], int, int]:
+    """
+    Map evidence paragraphs onto the chunks that contain them.
+
+    `chunks` is (chunk_id, text) for one paper. Returns (relevant chunk ids,
+    mapped evidence count, unmapped count).
+
+    A module-level function rather than a harness method because the same
+    grounding has to label two things: the benchmark's ground truth, and the
+    training pairs the embedder is fine-tuned on. Labelling them with two
+    different matchers would make the fine-tuned model's gain partly a gain in
+    agreeing with its own labeller.
+    """
+    if not chunks:
+        return [], 0, len(evidence_texts)
+
+    normalized_chunks = [
+        (chunk_id, norm, norm.split())
+        for chunk_id, norm in (
+            (cid, normalize_text(text)) for cid, text in chunks
+        )
+    ]
+
+    relevant: List[str] = []
+    seen = set()
+    mapped = 0
+    unmapped = 0
+
+    for evidence in evidence_texts:
+        evidence_norm = normalize_text(evidence)
+        if not evidence_norm:
+            unmapped += 1
+            continue
+
+        matches = [
+            chunk_id for chunk_id, chunk_norm, _ in normalized_chunks
+            if evidence_norm in chunk_norm
+        ]
+
+        if not matches:
+            # The paragraph straddles a chunk boundary, or ingestion
+            # reflowed it. Fall back to longest-contiguous-run coverage.
+            evidence_tokens = evidence_norm.split()
+            best_id, best_evidence_cov = None, 0.0
+
+            for chunk_id, _, chunk_tokens in normalized_chunks:
+                ev_cov, chunk_cov = coverage(evidence_tokens, chunk_tokens)
+                if ev_cov >= COVERAGE_THRESHOLD or chunk_cov >= COVERAGE_THRESHOLD:
+                    matches.append(chunk_id)
+                if ev_cov > best_evidence_cov:
+                    best_id, best_evidence_cov = chunk_id, ev_cov
+
+            if not matches and best_id and best_evidence_cov >= FALLBACK_COVERAGE:
+                matches = [best_id]
+
+        if matches:
+            mapped += 1
+            for chunk_id in matches:
+                if chunk_id not in seen:
+                    seen.add(chunk_id)
+                    relevant.append(chunk_id)
+        else:
+            unmapped += 1
+
+    return relevant, mapped, unmapped
+
+
 @dataclass
 class ArmConfig:
     """One configuration of the retrieval pipeline to measure."""
@@ -531,59 +601,7 @@ class QASPERHarness:
 
         Returns (relevant chunk ids, mapped evidence count, unmapped count).
         """
-        chunks = self._chunks_for(paper_id)
-        if not chunks:
-            return [], 0, len(evidence_texts)
-
-        normalized_chunks = [
-            (chunk_id, norm, norm.split())
-            for chunk_id, norm in (
-                (cid, normalize_text(text)) for cid, text in chunks
-            )
-        ]
-
-        relevant: List[str] = []
-        seen = set()
-        mapped = 0
-        unmapped = 0
-
-        for evidence in evidence_texts:
-            evidence_norm = normalize_text(evidence)
-            if not evidence_norm:
-                unmapped += 1
-                continue
-
-            matches = [
-                chunk_id for chunk_id, chunk_norm, _ in normalized_chunks
-                if evidence_norm in chunk_norm
-            ]
-
-            if not matches:
-                # The paragraph straddles a chunk boundary, or ingestion
-                # reflowed it. Fall back to longest-contiguous-run coverage.
-                evidence_tokens = evidence_norm.split()
-                best_id, best_evidence_cov = None, 0.0
-
-                for chunk_id, _, chunk_tokens in normalized_chunks:
-                    ev_cov, chunk_cov = coverage(evidence_tokens, chunk_tokens)
-                    if ev_cov >= COVERAGE_THRESHOLD or chunk_cov >= COVERAGE_THRESHOLD:
-                        matches.append(chunk_id)
-                    if ev_cov > best_evidence_cov:
-                        best_id, best_evidence_cov = chunk_id, ev_cov
-
-                if not matches and best_id and best_evidence_cov >= FALLBACK_COVERAGE:
-                    matches = [best_id]
-
-            if matches:
-                mapped += 1
-                for chunk_id in matches:
-                    if chunk_id not in seen:
-                        seen.add(chunk_id)
-                        relevant.append(chunk_id)
-            else:
-                unmapped += 1
-
-        return relevant, mapped, unmapped
+        return ground_evidence(self._chunks_for(paper_id), evidence_texts)
 
     def prepare(
         self,
