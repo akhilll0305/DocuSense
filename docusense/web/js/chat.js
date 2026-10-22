@@ -472,13 +472,13 @@
     const supported = v.num_claims - v.num_unsupported;
     const all = v.num_unsupported === 0;
     const summary = all
-      ? `All ${v.num_claims} claims are supported by the sources`
-      : `${supported} of ${v.num_claims} claims supported by the sources`;
+      ? `All ${v.num_claims} claims verified against the sources`
+      : `${supported} of ${v.num_claims} claims verified against the sources`;
 
     const flagged = (v.claims || []).filter(c => !c.supported);
     const details = flagged.length
       ? `<details class="message__check-details">
-           <summary>Show ${flagged.length === 1 ? 'the claim' : `the ${flagged.length} claims`} no source supports</summary>
+           <summary>Show ${flagged.length === 1 ? 'the claim' : `the ${flagged.length} claims`} the checker could not verify</summary>
            ${flagged.map(c => `
              <div class="message__check-claim">
                <p class="message__check-text">${escHtml(c.claim)}</p>

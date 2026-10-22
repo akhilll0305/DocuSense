@@ -17,11 +17,14 @@ fraction of its claims that are supported.
 
 THE MODEL
 ---------
-`cross-encoder/nli-deberta-v3-xsmall`, run through ONNX Runtime from the
-export its authors publish -- no torch, in keeping with the rest of the
-deployed stack. The int8 build is the default: 87MB against 284MB, and its
-agreement with the fp32 model is measured in BENCHMARKS.md rather than
-assumed.
+DeBERTa-v3-base fine-tuned on MNLI, FEVER and ANLI (MoritzLaurer's, as the
+Xenova ONNX export), int8, run through ONNX Runtime -- no torch, in keeping
+with the rest of the deployed stack. FEVER is fact verification against
+Wikipedia evidence, which is closer to "does this passage support this claim"
+than MNLI alone. How well it separates supported from unsupported claims is
+measured by scripts/validate_claim_verifier.py, and is not perfect: a flag
+means "no passage was found to entail this", not "this is false", and the UI
+says so.
 
 WINDOWS, NOT CHUNKS
 -------------------
@@ -35,6 +38,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -42,8 +46,6 @@ from loguru import logger
 
 from docusense.config.settings import settings
 
-ENTAILMENT = 1  # cross-encoder/nli-deberta-v3-*: contradiction, entailment, neutral
-CONTRADICTION = 0
 
 # Sentence boundary: terminal punctuation, whitespace, then something that can
 # start a sentence. Abbreviations common in papers are protected first.
@@ -169,6 +171,21 @@ class NLIModel:
 
         tokenizer_path = hf_hub_download(self.repo, "tokenizer.json")
         model_path = hf_hub_download(self.repo, self.model_file)
+        config_path = hf_hub_download(self.repo, "config.json")
+
+        # Label order differs between NLI models -- cross-encoder's are
+        # (contradiction, entailment, neutral), MoritzLaurer's (entailment,
+        # neutral, contradiction) -- and reading the wrong column turns the
+        # verifier into its own opposite. So the order is read, not assumed.
+        import json
+        id2label = json.loads(Path(config_path).read_text(encoding="utf-8"))["id2label"]
+        index = {label.lower(): int(i) for i, label in id2label.items()}
+        try:
+            self.entailment = index["entailment"]
+            self.contradiction = index["contradiction"]
+        except KeyError:
+            raise ValueError(f"{self.repo} has no entailment/contradiction labels: {id2label}")
+        self.num_labels = len(index)
 
         self.tokenizer = Tokenizer.from_file(tokenizer_path)
         self.tokenizer.enable_truncation(max_length=max_length, strategy="only_first")
@@ -185,13 +202,18 @@ class NLIModel:
     BATCH_SIZE = 16
 
     def predict(self, pairs: Sequence[Tuple[str, str]]) -> np.ndarray:
-        """Softmax probabilities, shape (len(pairs), 3)."""
+        """
+        (entailment, contradiction) probabilities, shape (len(pairs), 2).
+
+        Returned in that fixed order whatever the model's own label order,
+        so callers never index by a model's column numbers.
+        """
         if not pairs:
-            return np.zeros((0, 3))
+            return np.zeros((0, 2))
         # Shortest premises first, so a batch pads to its own length -- the
         # same trick the reranker uses (see embeddings/backends.py).
         order = sorted(range(len(pairs)), key=lambda i: len(pairs[i][0]))
-        out = np.zeros((len(pairs), 3), dtype=np.float32)
+        out = np.zeros((len(pairs), 2), dtype=np.float32)
         for start in range(0, len(order), self.BATCH_SIZE):
             idx = order[start:start + self.BATCH_SIZE]
             encoded = self.tokenizer.encode_batch([pairs[i] for i in idx])
@@ -204,7 +226,8 @@ class NLIModel:
             logits = self.session.run(None, feed)[0]
             logits = logits - logits.max(axis=1, keepdims=True)
             probs = np.exp(logits)
-            out[idx] = probs / probs.sum(axis=1, keepdims=True)
+            probs = probs / probs.sum(axis=1, keepdims=True)
+            out[idx] = probs[:, [self.entailment, self.contradiction]]
         return out
 
 
@@ -247,17 +270,17 @@ class ClaimVerifier:
             ])
 
         pairs = [(w, claim) for claim in claims for _, w in windows]
-        probs = self.model.predict(pairs).reshape(len(claims), len(windows), 3)
+        probs = self.model.predict(pairs).reshape(len(claims), len(windows), 2)
 
         verdicts = []
         for c, claim in enumerate(claims):
-            best = int(probs[c, :, ENTAILMENT].argmax())
-            entailment = float(probs[c, best, ENTAILMENT])
+            best = int(probs[c, :, 0].argmax())
+            entailment = float(probs[c, best, 0])
             verdicts.append(ClaimVerdict(
                 claim=claim,
                 supported=entailment >= self.threshold,
                 entailment=entailment,
-                contradiction=float(probs[c, :, CONTRADICTION].max()),
+                contradiction=float(probs[c, :, 1].max()),
                 source_index=windows[best][0],
                 evidence=windows[best][1],
             ))

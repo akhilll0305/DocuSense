@@ -235,8 +235,14 @@ class Settings(BaseSettings):
     # flagged. See generation/claim_verifier.py, and BENCHMARKS.md for how the
     # threshold was chosen.
     enable_claim_verification: bool = True
-    claim_verifier_model: str = "cross-encoder/nli-deberta-v3-xsmall"
-    claim_verifier_file: str = "onnx/model_quint8_avx2.onnx"
+    #
+    # The model is DeBERTa-v3-base trained on MNLI, FEVER and ANLI. The xsmall
+    # cross-encoder was tried first and measured on QASPER dev: ROC-AUC 0.705
+    # against 0.767, and at a 0.5 threshold it flagged 74% of claims that
+    # annotators had in fact supported -- a warning on nearly every answer,
+    # which is the same as no warning.
+    claim_verifier_model: str = "Xenova/DeBERTa-v3-base-mnli-fever-anli"
+    claim_verifier_file: str = "onnx/model_quantized.onnx"
     claim_support_threshold: float = 0.5
 
     # ==================== Authentication ====================
