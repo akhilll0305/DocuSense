@@ -79,18 +79,6 @@ class Settings(BaseSettings):
     # between the two remains checkable.
     model_runtime: Literal["onnx", "torch"] = "onnx"
 
-    # Which runtime executes the embedding and reranking models. Same weights
-    # either way — "onnx" runs the ONNX exports through onnxruntime, "torch"
-    # runs them through sentence-transformers. Measured in one process with
-    # both models loaded: 326MB against 758MB, with embeddings agreeing to a
-    # cosine of 1.000000 and byte-identical cross-encoder scores.
-    #
-    # The default is onnx because the difference decides where this can be
-    # hosted: at 730MB the app needs a gigabyte, which on a free tier means a
-    # card or a subscription. torch stays for GPU, and so the agreement
-    # between the two remains checkable.
-    model_runtime: Literal["onnx", "torch"] = "onnx"
-
     embedding_provider: str = "sentence-transformers"  # FREE: Local embeddings
     embedding_model: str = "all-MiniLM-L6-v2"  # FREE: Fast, 384 dim, good quality
     # Alternative models:
