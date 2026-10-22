@@ -339,3 +339,75 @@ class TestInferredFilterFallback:
 
         assert results == []
         assert len(store.calls) == 1, "no retry should have been attempted"
+
+
+# ==============================================================================
+# BM25 honours the same filters as the vector search
+# ==============================================================================
+
+# Chunks without the query terms. BM25Okapi's IDF is non-positive for a term
+# present in most of a tiny corpus, so the fixtures need a background.
+FILLER = [
+    {"chunk_id": f"z{i}", "document_id": "Z", "user_id": "u",
+     "text": f"unrelated background paragraph number {i} about gardening"}
+    for i in range(8)
+]
+
+
+class TestBM25Filters:
+    """
+    A filter used to reach Qdrant only. With hybrid search on, a question
+    scoped to one document got BM25 hits from every other document fused in.
+    """
+
+    @staticmethod
+    def _search():
+        from docusense.retrieval.hybrid_search import HybridSearch
+
+        chunks = [
+            {"chunk_id": "a1", "document_id": "A", "user_id": "u", "year": 2019,
+             "authors": ["Smith"], "text": "transformer attention heads pruning"},
+            {"chunk_id": "b1", "document_id": "B", "user_id": "u", "year": 2022,
+             "authors": ["Jones"], "text": "transformer attention heads distillation"},
+            {"chunk_id": "c1", "document_id": "C", "user_id": "u",
+             "text": "transformer attention heads quantization"},
+        ]
+        return HybridSearch(vector_store=None, chunks=chunks + FILLER)
+
+    def test_document_scope_is_respected(self):
+        hits = self._search()._bm25_search("transformer attention", 10, {"document_id": "B"})
+        assert [c["chunk_id"] for c, _ in hits] == ["b1"]
+
+    def test_unfiltered_search_is_unchanged(self):
+        hits = self._search()._bm25_search("transformer attention", 10)
+        assert {c["chunk_id"] for c, _ in hits} == {"a1", "b1", "c1"}
+
+    def test_year_range(self):
+        hits = self._search()._bm25_search("attention", 10, {"year": {"$gte": 2020}})
+        assert [c["chunk_id"] for c, _ in hits] == ["b1"]
+
+    def test_missing_key_fails_like_qdrant(self):
+        """c1 has no year; Qdrant drops a point without the key, so BM25 does too."""
+        hits = self._search()._bm25_search("attention", 10, {"year": {"$lte": 2030}})
+        assert "c1" not in {c["chunk_id"] for c, _ in hits}
+
+    def test_list_payload_matches_membership(self):
+        hits = self._search()._bm25_search("attention", 10, {"authors": "Smith"})
+        assert [c["chunk_id"] for c, _ in hits] == ["a1"]
+
+    def test_any_of(self):
+        hits = self._search()._bm25_search("attention", 10, {"document_id": ["A", "C"]})
+        assert {c["chunk_id"] for c, _ in hits} == {"a1", "c1"}
+
+    def test_filter_does_not_shrink_below_top_k(self):
+        """Filtering happens before the cut, not after it."""
+        from docusense.retrieval.hybrid_search import HybridSearch
+
+        chunks = [
+            {"chunk_id": f"x{i}", "document_id": "X", "text": "attention " * 5}
+            for i in range(5)
+        ] + [{"chunk_id": "y", "document_id": "Y", "text": "attention"}]
+        hits = HybridSearch(vector_store=None, chunks=chunks + FILLER)._bm25_search(
+            "attention", 2, {"document_id": "Y"}
+        )
+        assert [c["chunk_id"] for c, _ in hits] == ["y"]

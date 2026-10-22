@@ -203,6 +203,10 @@ class DocuSenseRAG:
             corpus.append({
                 "chunk_id": r.chunk_id,
                 "document_id": r.document_id,
+                # The same tenant key the vector payload carries, so a
+                # user_id filter means the same thing to both halves of a
+                # hybrid search.
+                "user_id": user_id or "",
                 "text": r.text,
                 # Nested copy: BM25-sourced hits read chunk['metadata'], and
                 # without it citations lose paper title/authors/year.

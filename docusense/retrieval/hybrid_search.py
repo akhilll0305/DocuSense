@@ -79,6 +79,50 @@ class HybridSearchResult:
         return self.fusion_score
 
 
+_RANGE_CHECKS = {
+    "$gte": lambda v, b: v >= b,
+    "$gt": lambda v, b: v > b,
+    "$lte": lambda v, b: v <= b,
+    "$lt": lambda v, b: v < b,
+}
+
+
+def chunk_matches_filters(chunk: Dict[str, Any], filters: Dict[str, Any]) -> bool:
+    """
+    Whether a BM25 chunk passes a filter dict, with Qdrant's semantics.
+
+    Mirrors `QdrantVectorStore.build_filter` so the two halves of a hybrid
+    search see the same scope: a scalar must match (or be contained in a list
+    field, as Qdrant matches array payloads), a list matches any of its
+    values, and a {"$gte": ..} dict is a range. A chunk missing a filtered key
+    fails, as a point without that payload key fails a Qdrant `must`.
+    """
+    for key, wanted in filters.items():
+        if key not in chunk or chunk[key] is None:
+            return False
+        value = chunk[key]
+
+        if isinstance(wanted, dict):
+            checks = [(op, b) for op, b in wanted.items() if op in _RANGE_CHECKS]
+            if not checks:
+                continue  # build_filter ignores an unsupported comparison too
+            try:
+                if not all(_RANGE_CHECKS[op](value, b) for op, b in checks):
+                    return False
+            except TypeError:
+                return False
+            continue
+
+        options = list(wanted) if isinstance(wanted, (list, tuple, set)) else [wanted]
+        if not options:
+            continue
+        have = value if isinstance(value, (list, tuple, set)) else [value]
+        if not any(v in options for v in have):
+            return False
+
+    return True
+
+
 class HybridSearch:
     """
     Hybrid search combining vector and BM25 keyword search.
@@ -212,7 +256,7 @@ class HybridSearch:
         # 2. BM25 Search
         if use_bm25 and self.bm25_index:
             try:
-                bm25_results = self._bm25_search(query, bm25_top_k)
+                bm25_results = self._bm25_search(query, bm25_top_k, filters)
                 logger.info(f"  BM25 search: {len(bm25_results)} results")
             except Exception as e:
                 logger.warning(f"BM25 search failed: {e}")
@@ -234,14 +278,26 @@ class HybridSearch:
         logger.success(f"✅ Hybrid search complete: {len(merged)} results")
         return merged
     
-    def _bm25_search(self, query: str, top_k: int) -> List[Tuple[Dict[str, Any], float]]:
+    def _bm25_search(
+        self,
+        query: str,
+        top_k: int,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[Tuple[Dict[str, Any], float]]:
         """
         Perform BM25 keyword search.
-        
+
+        Filters are applied here as well as in the vector search. They used
+        to reach Qdrant only, so a question scoped to one document -- or to
+        papers from 2020 -- got a vector half that respected the scope and a
+        BM25 half that ranked the whole corpus, and RRF fused the two. The
+        filter was honoured exactly as far as the vector side went.
+
         Args:
             query: Search query
             top_k: Number of results
-            
+            filters: The same filter dict the vector search receives
+
         Returns:
             List of (chunk, bm25_score) tuples
         """
@@ -255,11 +311,16 @@ class HybridSearch:
         # Get BM25 scores
         scores = self.bm25_index.get_scores(query_tokens)
         
-        # Get top-k results
-        top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
-        
-        results = [(self.chunks[idx], scores[idx]) for idx in top_indices if scores[idx] > 0]
-        
+        ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+
+        results = []
+        for idx in ranked:
+            if scores[idx] <= 0 or len(results) >= top_k:
+                break
+            if filters and not chunk_matches_filters(self.chunks[idx], filters):
+                continue
+            results.append((self.chunks[idx], scores[idx]))
+
         return results
     
     def _reciprocal_rank_fusion(
