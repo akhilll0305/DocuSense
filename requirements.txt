@@ -45,6 +45,10 @@ python-magic-bin>=0.4.14; sys_platform == "win32"   # File type detection (Windo
 #     pip install -r requirements-torch.txt
 fastembed>=0.8.0              # ONNX embeddings + cross-encoder reranker
 qdrant-client>=1.17.0         # Qdrant vector database
+# The claim verifier runs an NLI cross-encoder through these directly (no torch).
+onnxruntime>=1.17.0
+tokenizers>=0.15.0
+huggingface-hub>=0.20.0
 numpy>=1.24.0
 
 # ==================== Hybrid Retrieval ====================

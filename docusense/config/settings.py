@@ -229,7 +229,16 @@ class Settings(BaseSettings):
     answer_max_tokens: int = 500
     temperature: float = 0.0
     include_citations: bool = True
-    
+
+    # Claim-level verification: every sentence of an answer is checked by an
+    # NLI model against the retrieved text, and the ones no source entails are
+    # flagged. See generation/claim_verifier.py, and BENCHMARKS.md for how the
+    # threshold was chosen.
+    enable_claim_verification: bool = True
+    claim_verifier_model: str = "cross-encoder/nli-deberta-v3-xsmall"
+    claim_verifier_file: str = "onnx/model_quint8_avx2.onnx"
+    claim_support_threshold: float = 0.5
+
     # ==================== Authentication ====================
     # Origins allowed to call the API from a browser. The bundled UI is served
     # same-origin, so "*" is only a convenience for external clients in dev.
