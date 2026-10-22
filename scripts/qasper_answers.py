@@ -138,6 +138,19 @@ def main() -> int:
         print(f"Ingesting {len(missing)} paper(s) not yet in the corpus...")
         harness.ingest_papers(missing, skip_existing=True)
 
+    # The corpus is reused as found, so check it is whole: one stored
+    # document per paper and one vector per chunk. Orphaned vectors from an
+    # earlier run would be searched alongside it.
+    storage = harness.rag.ingestion_pipeline.storage
+    chunks = len(storage.get_all_chunks(user_id=harness.user_id))
+    vectors = harness.rag.qdrant_store.count({"user_id": harness.user_id})
+    docs = len(storage.get_all_documents(user_id=harness.user_id))
+    if vectors != chunks or docs != len(papers):
+        print(f"ERROR: corpus is not clean ({docs} documents for {len(papers)} papers, "
+              f"{vectors} vectors for {chunks} chunks). Rebuild it with "
+              f"scripts/benchmark.py first.", file=sys.stderr)
+        return 1
+
     arm = next(a for a in DEFAULT_ARMS if a.name == ("hybrid" if args.no_rerank else "hybrid_rerank"))
     pipeline = harness._build_pipeline(arm)
     cross_encoder = load_cross_encoder_backend(settings.reranker_model)

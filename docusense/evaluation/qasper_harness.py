@@ -522,6 +522,16 @@ class QASPERHarness:
         if removed:
             logger.info(f"Reset benchmark corpus: removed {removed} document(s)")
 
+        # Vectors are purged by tenant as well, not only through the document
+        # rows. A vector whose row is already gone -- left by an interrupted
+        # run, or a delete whose collection write did not persist -- is
+        # invisible to delete_document() and is still returned by search,
+        # under a chunk id the ground truth does not contain. Measured: 1,048
+        # orphans in a 1,048-chunk corpus took vector-only MRR from 0.187 to
+        # 0.113 and erased the reranker's gain, because every text appeared
+        # twice in the top 10.
+        self.rag.qdrant_store.delete_by_filter({"user_id": self.user_id})
+
         # A reset that leaves documents behind does not fail loudly on its
         # own: the stale chunks stay in the BM25 corpus under ids the ground
         # truth has never heard of, and hybrid search gets quietly worse.

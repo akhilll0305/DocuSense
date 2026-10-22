@@ -639,6 +639,34 @@ class QdrantVectorStore:
         logger.success(f"✅ Deleted chunks for document: {document_id}")
         return 1  # Qdrant doesn't return count
     
+    def delete_by_filter(self, filters: Dict[str, Any]) -> None:
+        """
+        Delete every point matching a filter dict (build_filter semantics).
+
+        Unlike delete_by_document this does not go through SQLite, so it also
+        reaches vectors whose document rows are already gone -- the orphans a
+        failed or interrupted delete leaves behind.
+        """
+        qdrant_filter = self.build_filter(filters)
+        if qdrant_filter is None:
+            raise ValueError("Refusing to delete with an empty filter")
+        if not self.client.collection_exists(self.collection_name):
+            return
+        self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=qdrant_filter,
+        )
+
+    def count(self, filters: Optional[Dict[str, Any]] = None) -> int:
+        """Exact number of points matching a filter dict (all points if None)."""
+        if not self.client.collection_exists(self.collection_name):
+            return 0
+        return self.client.count(
+            collection_name=self.collection_name,
+            count_filter=self.build_filter(filters),
+            exact=True,
+        ).count
+
     def delete_collection(self):
         """Delete the entire collection."""
         logger.warning(f"Deleting collection: {self.collection_name}")

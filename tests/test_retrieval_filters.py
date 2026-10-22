@@ -431,3 +431,16 @@ def test_delete_from_missing_collection_is_a_no_op():
 
     assert store.delete_by_document("doc_1") == 0
     store.client.delete.assert_not_called()
+
+
+def test_delete_by_filter_refuses_an_empty_filter():
+    """An empty filter would match every point in the collection."""
+    from unittest.mock import MagicMock
+
+    store = QdrantVectorStore.__new__(QdrantVectorStore)
+    store.collection_name = "c"
+    store.client = MagicMock()
+
+    with pytest.raises(ValueError):
+        store.delete_by_filter({})
+    store.client.delete.assert_not_called()

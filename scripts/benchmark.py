@@ -232,6 +232,18 @@ def main() -> int:
         )
         return 1
 
+    # And exactly one vector per chunk. Orphaned vectors from an earlier run
+    # are invisible to SQLite but not to search.
+    vectors = harness.rag.qdrant_store.count({"user_id": harness.user_id})
+    if vectors != stats.chunks:
+        print(
+            f"ERROR: the collection holds {vectors} vectors for the benchmark "
+            f"tenant's {stats.chunks} chunks. Re-run without --reuse-corpus to "
+            f"purge and rebuild it.",
+            file=sys.stderr,
+        )
+        return 1
+
     if not samples:
         print(
             "ERROR: no measurable questions. The corpus is empty or no evidence "
