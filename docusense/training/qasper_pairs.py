@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import random
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from loguru import logger
@@ -59,6 +59,10 @@ class TrainingPair:
     positive: str
     negative: Optional[str]
     paper_id: str
+    # Every hard-negative candidate, of which `negative` is one. The embedder
+    # takes one per pair (plus in-batch negatives); a cross-encoder is trained
+    # on labelled (query, passage) pairs and uses all of them.
+    negatives: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -142,6 +146,7 @@ def build_pairs(
             stats["questions_used"] += 1
 
             negative = None
+            negatives: List[str] = []
             if bm25 is not None:
                 scores = bm25.get_scores(_tokens(question.question))
                 relevant_set = set(relevant)
@@ -150,6 +155,7 @@ def build_pairs(
                     if ids[i] not in relevant_set
                 ]
                 candidates = [ranked[r] for r in NEGATIVE_RANKS if r < len(ranked)]
+                negatives = [text_by_id[c] for c in candidates]
                 if candidates:
                     negative = text_by_id[rng.choice(candidates)]
                     stats["negatives"] += 1
@@ -160,6 +166,7 @@ def build_pairs(
                     positive=text_by_id[chunk_id],
                     negative=negative,
                     paper_id=paper.paper_id,
+                    negatives=negatives,
                 ))
 
     stats["pairs"] = len(pairs)

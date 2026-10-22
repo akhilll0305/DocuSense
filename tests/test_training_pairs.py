@@ -69,3 +69,12 @@ def test_eval_set_points_at_real_chunks():
     assert len(queries) == 1
     (qid,) = queries
     assert relevant[qid] <= set(corpus)
+
+
+def test_every_candidate_negative_is_kept():
+    pairs, _, _ = build_pairs([_paper()])
+    for pair in pairs:
+        if pair.negative is not None:
+            assert pair.negative in pair.negatives
+        for negative in pair.negatives:
+            assert "penn treebank" not in normalize_text(negative)

@@ -64,6 +64,9 @@ data/benchmarks/*.json
 !data/benchmarks/query_rewriting_report.json
 !data/benchmarks/onnx_ablation_report.json
 !data/benchmarks/finetune_report.json
+!data/benchmarks/reranker_finetune_report.json
+!data/benchmarks/finetuned_ablation_report.json
+!data/benchmarks/bge_small_ablation_report.json
 data/benchmarks/qasper/
 
 # Evaluation data (keep test sets but ignore results)
