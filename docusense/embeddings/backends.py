@@ -289,20 +289,54 @@ class OnnxEmbedding:
         }
 
 
+def _local_onnx_cross_encoder(model_name: str) -> Optional[Tuple[str, str]]:
+    """
+    A fine-tuned reranker on disk, as (registered name, directory).
+
+    `scripts/finetune_reranker.py` writes a CrossEncoder checkpoint with
+    `onnx/model.onnx` (logits out) beside it, which is what fastembed's
+    custom cross-encoder hook loads.
+    """
+    from pathlib import Path
+
+    path = Path(model_name)
+    if not (path / "onnx" / "model.onnx").is_file():
+        return None
+
+    from fastembed.common.model_description import ModelSource
+    from fastembed.rerank.cross_encoder import TextCrossEncoder
+
+    name = f"docusense-local/{path.resolve().name}"
+    registered = {m["model"] for m in TextCrossEncoder.list_supported_models()}
+    if name not in registered:
+        TextCrossEncoder.add_custom_model(
+            model=name,
+            sources=ModelSource(hf=name),
+            model_file="onnx/model.onnx",
+        )
+    return name, str(path.resolve())
+
+
 class OnnxCrossEncoder:
     def __init__(self, model_name: str):
         from fastembed.rerank.cross_encoder import TextCrossEncoder
 
-        repo = ONNX_RERANKER_MODELS.get(model_name)
-        if repo is None:
-            raise UnsupportedModelError(
-                f"No ONNX build is registered for cross-encoder '{model_name}'. "
-                f"Add it to ONNX_RERANKER_MODELS if fastembed supports it, or "
-                f"set MODEL_RUNTIME=torch."
-            )
+        local = _local_onnx_cross_encoder(model_name)
+        if local is not None:
+            repo, model_path = local
+        else:
+            repo = ONNX_RERANKER_MODELS.get(model_name)
+            if repo is None:
+                raise UnsupportedModelError(
+                    f"No ONNX build is registered for cross-encoder '{model_name}'. "
+                    f"Add it to ONNX_RERANKER_MODELS if fastembed supports it, or "
+                    f"set MODEL_RUNTIME=torch."
+                )
+            model_path = None
         self.model_name = model_name
         self.repo = repo
-        self.model = TextCrossEncoder(repo)
+        kwargs = {"specific_model_path": model_path} if model_path else {}
+        self.model = TextCrossEncoder(repo, **kwargs)
         logger.info(f"✅ ONNX cross-encoder loaded: {repo}")
 
     # Small enough that a batch holds documents of similar length once they are
