@@ -63,3 +63,11 @@ def test_minilm_query_is_unchanged(make_generator):
     generator.embed_query("what dataset is used?")
 
     assert backend.seen == ["what dataset is used?"]
+
+
+def test_a_registry_name_is_not_a_local_model(tmp_path):
+    from docusense.embeddings.backends import _local_onnx_model
+
+    assert _local_onnx_model("all-MiniLM-L6-v2") is None
+    # A directory without onnx/model.onnx is a torch checkpoint at most.
+    assert _local_onnx_model(str(tmp_path)) is None

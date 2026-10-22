@@ -78,6 +78,14 @@ def export_onnx(model, out_dir: Path, probe) -> float:
     from tokenizers import Tokenizer
 
     encoder = model[0].auto_model.eval()
+
+    # fastembed reads the special tokens from special_tokens_map.json, which
+    # transformers 5 no longer writes on save. Without it the directory loads
+    # under torch and fails under ONNX, so it is written here.
+    (out_dir / "special_tokens_map.json").write_text(
+        json.dumps(model.tokenizer.special_tokens_map, indent=2), encoding="utf-8"
+    )
+
     onnx_dir = out_dir / "onnx"
     onnx_dir.mkdir(parents=True, exist_ok=True)
     path = onnx_dir / "model.onnx"

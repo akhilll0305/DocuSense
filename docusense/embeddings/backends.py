@@ -134,22 +134,73 @@ class CrossEncoderBackend(Protocol):
 # ONNX Runtime, via fastembed
 # ==============================================================================
 
+def _local_onnx_model(model_name: str) -> Optional[Tuple[str, int, str]]:
+    """
+    A fine-tuned model on disk, as (registered name, max length, directory).
+
+    `scripts/finetune_embedder.py` writes a sentence-transformers checkpoint
+    with `onnx/model.onnx` beside it: the bare encoder, pooled by the caller.
+    That is the shape fastembed's custom-model hook takes, so the model is
+    registered under a name of its own and loaded from the directory -- the
+    same runtime, truncation alignment and padding fix as the stock models.
+
+    Returns None when `model_name` is not such a directory.
+    """
+    import json
+    from pathlib import Path
+
+    path = Path(model_name)
+    if not (path / "onnx" / "model.onnx").is_file():
+        return None
+
+    from fastembed import TextEmbedding
+    from fastembed.common.model_description import ModelSource, PoolingType
+
+    config = json.loads((path / "config.json").read_text(encoding="utf-8"))
+    st_config = path / "sentence_bert_config.json"
+    max_seq_length = 256
+    if st_config.is_file():
+        max_seq_length = json.loads(st_config.read_text(encoding="utf-8")).get(
+            "max_seq_length", max_seq_length
+        )
+
+    name = f"docusense-local/{path.resolve().name}"
+    registered = {m["model"] for m in TextEmbedding.list_supported_models()}
+    if name not in registered:
+        TextEmbedding.add_custom_model(
+            model=name,
+            pooling=PoolingType.MEAN,
+            normalization=True,
+            # fastembed requires a source; the directory is what is loaded.
+            sources=ModelSource(hf=name),
+            dim=int(config["hidden_size"]),
+            model_file="onnx/model.onnx",
+        )
+    return name, int(max_seq_length), str(path.resolve())
+
+
 class OnnxEmbedding:
     def __init__(self, model_name: str, batch_size: int = 32):
         from fastembed import TextEmbedding
 
-        entry = ONNX_EMBEDDING_MODELS.get(model_name)
-        if entry is None:
-            raise UnsupportedModelError(
-                f"No ONNX build is registered for embedding model "
-                f"'{model_name}'. Add it to ONNX_EMBEDDING_MODELS if fastembed "
-                f"supports it, or set MODEL_RUNTIME=torch."
-            )
-        repo, max_seq_length = entry
+        local = _local_onnx_model(model_name)
+        if local is not None:
+            repo, max_seq_length, model_path = local
+        else:
+            entry = ONNX_EMBEDDING_MODELS.get(model_name)
+            if entry is None:
+                raise UnsupportedModelError(
+                    f"No ONNX build is registered for embedding model "
+                    f"'{model_name}'. Add it to ONNX_EMBEDDING_MODELS if fastembed "
+                    f"supports it, or set MODEL_RUNTIME=torch."
+                )
+            repo, max_seq_length = entry
+            model_path = None
         self.model_name = model_name
         self.repo = repo
         self.max_seq_length = max_seq_length
-        self.model = TextEmbedding(repo, batch_size=batch_size)
+        kwargs = {"specific_model_path": model_path} if model_path else {}
+        self.model = TextEmbedding(repo, batch_size=batch_size, **kwargs)
         self._align_truncation()
         self.dimension = len(next(iter(self.model.embed(["dimension probe"]))))
         logger.info(
