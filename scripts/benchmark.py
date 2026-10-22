@@ -150,6 +150,7 @@ def main() -> int:
     args = parse_args()
     configure_logging(args.verbose)
 
+    from docusense.config.settings import settings
     from docusense.evaluation.qasper_harness import (
         ALL_ARMS,
         DEFAULT_ARMS,
@@ -278,8 +279,19 @@ def main() -> int:
             "top_k": args.top_k,
             "question_cap": args.questions,
             "only_routed": routed_only,
+            "embedding_model": settings.embedding_model,
+            "model_runtime": settings.model_runtime,
+            "reranker_model": settings.reranker_model,
+            "chunk_tokens": {
+                "min": settings.min_chunk_tokens,
+                "target": settings.target_chunk_tokens,
+                "max": settings.max_chunk_tokens,
+            },
         },
         "questions_measured": len(samples),
+        # In per_query order. Two reports can be compared question by question
+        # (scripts/compare_reports.py) only if these match.
+        "queries": [s.query for s in samples],
         "corpus": stats.to_dict(),
         "arms": [r.to_dict() for r in arm_results],
         "paired_comparisons": [c.to_dict() for c in comparisons],
