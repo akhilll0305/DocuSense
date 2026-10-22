@@ -18,6 +18,8 @@ from dataclasses import dataclass, field
 
 from loguru import logger
 
+from docusense.generation.claim_verifier import verification_of
+
 from docusense.storage.conversation_store import (
     ConversationStore,
     Conversation,
@@ -40,6 +42,7 @@ class ChatResponse:
     confidence: float = 0.0
     response_time: float = 0.0
     turn_number: int = 0
+    verification: Optional[Dict[str, Any]] = None
 
 
 class ConversationManager:
@@ -175,6 +178,7 @@ class ConversationManager:
                 papers = response.papers_cited
                 ref_list = response.reference_list
                 confidence = response.confidence
+                verification = verification_of(response)
             except Exception as e:
                 logger.error(f"❌ Generation failed: {e}")
                 answer = f"I encountered an error generating a response: {e}"
@@ -182,6 +186,7 @@ class ConversationManager:
                 papers = []
                 ref_list = ""
                 confidence = 0.0
+                verification = None
         else:
             answer = (
                 "Generation pipeline not configured. "
@@ -191,6 +196,7 @@ class ConversationManager:
             papers = []
             ref_list = ""
             confidence = 0.0
+            verification = None
 
         elapsed = time.time() - start_time
 
@@ -198,7 +204,11 @@ class ConversationManager:
         asst_msg_id = self.store.add_message(
             conversation_id, "assistant", answer,
             sources=sources,
-            metadata={"papers_cited": papers, "confidence": confidence}
+            metadata={
+                "papers_cited": papers,
+                "confidence": confidence,
+                "verification": verification,
+            }
         )
 
         # Step 6: Log query
@@ -222,7 +232,8 @@ class ConversationManager:
             reference_list=ref_list,
             confidence=confidence,
             response_time=elapsed,
-            turn_number=turn_number
+            turn_number=turn_number,
+            verification=verification,
         )
 
     def chat_stream(
@@ -278,6 +289,7 @@ class ConversationManager:
             metadata={
                 "papers_cited": response.papers_cited,
                 "confidence": response.confidence,
+                "verification": verification_of(response),
             }
         )
 
@@ -301,7 +313,8 @@ class ConversationManager:
             reference_list=response.reference_list,
             confidence=response.confidence,
             response_time=elapsed,
-            turn_number=turn_number
+            turn_number=turn_number,
+            verification=verification_of(response),
         ))
 
     def get_history(

@@ -57,6 +57,8 @@ class AskResponse(BaseModel):
     has_citations: bool = False
     num_sources: int = 0
     total_time: float = 0.0
+    # Per-claim NLI check: faithfulness, and each claim with its best source.
+    verification: Optional[Dict[str, Any]] = None
 
 
 # ==============================================================================
@@ -92,6 +94,7 @@ class ChatResponse(BaseModel):
     confidence: float = 0.0
     response_time: float = 0.0
     turn_number: int = 0
+    verification: Optional[Dict[str, Any]] = None
 
 
 class ChatHistoryResponse(BaseModel):

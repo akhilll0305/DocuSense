@@ -28,6 +28,7 @@ from loguru import logger
 from docusense.api.deps import get_current_user, get_rag
 from docusense.auth import User
 from docusense.config.settings import settings
+from docusense.generation.claim_verifier import verification_of
 
 from docusense.api.schemas import (
     IngestResponse,
@@ -84,6 +85,7 @@ def _sse_response(make_stream) -> StreamingResponse:
                 "message_id": getattr(payload, "message_id", None),
                 "turn_number": getattr(payload, "turn_number", None),
                 "has_citations": getattr(payload, "has_citations", False),
+                "verification": verification_of(payload),
             }
         elif kind == "token":
             data = {"type": "token", "text": payload}
@@ -228,6 +230,7 @@ async def ask_question(
             has_citations=response.has_citations,
             num_sources=response.num_sources,
             total_time=response.total_time,
+            verification=verification_of(response),
         )
     except Exception as e:
         logger.error(f"❌ Ask failed: {e}")
@@ -308,6 +311,7 @@ async def chat(
             confidence=response.confidence,
             response_time=response.response_time,
             turn_number=response.turn_number,
+            verification=verification_of(response),
         )
     except Exception as e:
         logger.error(f"❌ Chat failed: {e}")
