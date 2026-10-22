@@ -612,7 +612,17 @@ class QdrantVectorStore:
             Number of points deleted (approximate)
         """
         logger.info(f"Deleting chunks for document: {document_id}")
-        
+
+        # A collection that does not exist holds no vectors for this document,
+        # so there is nothing to delete -- which is success, not failure.
+        # Raising here made delete_document() keep the SQLite rows (it deletes
+        # vectors first, deliberately), so pointing QDRANT_COLLECTION_NAME at a
+        # fresh collection left every old document behind, still indexed by
+        # BM25. That is how a benchmark corpus quietly doubled to 2,096 chunks.
+        if not self.client.collection_exists(self.collection_name):
+            logger.info(f"Collection {self.collection_name} does not exist; nothing to delete")
+            return 0
+
         # Delete points matching document_id
         self.client.delete(
             collection_name=self.collection_name,

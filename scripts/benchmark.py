@@ -217,6 +217,21 @@ def main() -> int:
         )
         return 1
 
+    # Every paper's chunks, once. More than that means documents from an
+    # earlier run are still in the corpus; see QASPERHarness.reset_corpus.
+    expected_docs = len(harness.document_ids)
+    stored_docs = len(harness.rag.ingestion_pipeline.storage.get_all_documents(
+        user_id=harness.user_id
+    ))
+    if stored_docs != expected_docs:
+        print(
+            f"ERROR: the benchmark tenant holds {stored_docs} documents for "
+            f"{expected_docs} papers. Stale documents from an earlier run would "
+            f"be searched alongside the real corpus.",
+            file=sys.stderr,
+        )
+        return 1
+
     if not samples:
         print(
             "ERROR: no measurable questions. The corpus is empty or no evidence "

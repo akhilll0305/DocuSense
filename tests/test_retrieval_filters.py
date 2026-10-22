@@ -411,3 +411,23 @@ class TestBM25Filters:
             "attention", 2, {"document_id": "Y"}
         )
         assert [c["chunk_id"] for c, _ in hits] == ["y"]
+
+
+# ==============================================================================
+# Deleting from a collection that does not exist
+# ==============================================================================
+
+def test_delete_from_missing_collection_is_a_no_op():
+    """
+    Raising here made delete_document() keep the document's SQLite rows, so a
+    fresh QDRANT_COLLECTION_NAME left every old document in the BM25 corpus.
+    """
+    from unittest.mock import MagicMock
+
+    store = QdrantVectorStore.__new__(QdrantVectorStore)
+    store.collection_name = "never_created"
+    store.client = MagicMock()
+    store.client.collection_exists.return_value = False
+
+    assert store.delete_by_document("doc_1") == 0
+    store.client.delete.assert_not_called()

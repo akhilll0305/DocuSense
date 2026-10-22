@@ -521,6 +521,16 @@ class QASPERHarness:
 
         if removed:
             logger.info(f"Reset benchmark corpus: removed {removed} document(s)")
+
+        # A reset that leaves documents behind does not fail loudly on its
+        # own: the stale chunks stay in the BM25 corpus under ids the ground
+        # truth has never heard of, and hybrid search gets quietly worse.
+        left = storage.get_all_documents(user_id=self.user_id)
+        if left:
+            raise RuntimeError(
+                f"Benchmark corpus reset left {len(left)} document(s) behind; "
+                f"the run would measure a corpus with stale duplicates in it."
+            )
         return removed
 
     def load_existing_document_ids(self) -> Dict[str, str]:
