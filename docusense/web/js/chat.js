@@ -365,7 +365,11 @@
       if (history.messages && history.messages.length) {
         history.messages.forEach(m => {
           if (m.role === 'user') addUserMessage(m.content);
-          else addBotMessage({ answer: m.content, sources: m.sources || [] });
+          else addBotMessage({
+            answer: m.content,
+            sources: m.sources || [],
+            verification: m.verification,
+          });
         });
       }
       // Try to get title from sidebar
@@ -451,7 +455,43 @@
     bubble.classList.remove('message__bubble--streaming');
     bubble.innerHTML = formatAnswer(data.answer || bubble.textContent || '');
     bubble.insertAdjacentHTML('beforeend', referencesHtml(data));
+    bubble.insertAdjacentHTML('beforeend', verificationHtml(data));
     scrollToBottom();
+  }
+
+  /**
+   * The claim check under an answer: how many of its sentences a retrieved
+   * passage entails, and -- for the ones none does -- the claim and the
+   * closest passage, so the reader can judge it rather than take the flag
+   * on trust. Nothing is shown when the server did not run the check.
+   */
+  function verificationHtml(data) {
+    const v = data && data.verification;
+    if (!v || !v.num_claims) return '';
+
+    const supported = v.num_claims - v.num_unsupported;
+    const all = v.num_unsupported === 0;
+    const summary = all
+      ? `All ${v.num_claims} claims are supported by the sources`
+      : `${supported} of ${v.num_claims} claims supported by the sources`;
+
+    const flagged = (v.claims || []).filter(c => !c.supported);
+    const details = flagged.length
+      ? `<details class="message__check-details">
+           <summary>Show ${flagged.length === 1 ? 'the claim' : `the ${flagged.length} claims`} no source supports</summary>
+           ${flagged.map(c => `
+             <div class="message__check-claim">
+               <p class="message__check-text">${escHtml(c.claim)}</p>
+               ${c.evidence ? `<p class="message__check-evidence"><span>Closest passage</span>${escHtml(c.evidence)}</p>` : ''}
+             </div>`).join('')}
+         </details>`
+      : '';
+
+    return `<div class="message__check ${all ? 'message__check--ok' : 'message__check--warn'}"
+                 title="Each sentence is checked against the retrieved passages by an entailment model">
+              <span class="message__check-mark" aria-hidden="true">${all ? '✓' : '!'}</span>
+              <span>${summary}</span>
+            </div>${details}`;
   }
 
   function referencesHtml(data) {
@@ -513,6 +553,7 @@
       <div class="message__bubble">
         ${answerHtml}
         ${refsHtml}
+        ${verificationHtml(data)}
       </div>
     `;
     messages.appendChild(el);

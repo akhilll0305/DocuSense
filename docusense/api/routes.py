@@ -363,6 +363,7 @@ async def get_chat_history(
                 "content": m.content,
                 "timestamp": m.timestamp,
                 "sources": m.sources,
+                "verification": (m.metadata or {}).get("verification"),
             }
             for m in messages
         ]

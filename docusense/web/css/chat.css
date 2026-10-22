@@ -488,6 +488,62 @@
 
 .message__ref-num { color: var(--gold); font-family: var(--mono); }
 
+/* Claim check -- one quiet line under the answer, expandable when it flags */
+.message__check {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  font-family: var(--sans);
+  font-size: var(--t-xs);
+  color: var(--ink-soft);
+}
+
+.message__check-mark {
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.message__check--ok .message__check-mark { color: var(--ok); }
+.message__check--warn .message__check-mark { color: var(--warn); }
+
+.message__check-details {
+  margin-top: var(--space-2);
+  font-family: var(--sans);
+  font-size: var(--t-xs);
+  color: var(--ink-soft);
+}
+
+.message__check-details summary {
+  cursor: pointer;
+  color: var(--warn);
+}
+
+.message__check-claim {
+  margin-top: var(--space-3);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--warn);
+}
+
+.message__check-text {
+  margin: 0;
+  color: var(--ink);
+}
+
+.message__check-evidence {
+  margin: var(--space-1) 0 0;
+  line-height: var(--lead-normal);
+}
+
+.message__check-evidence span {
+  display: block;
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.65rem;
+  color: var(--ink-faint);
+}
+
 /* File chip */
 .message__file {
   display: inline-grid;
