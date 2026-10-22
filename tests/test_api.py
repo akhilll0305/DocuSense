@@ -1,7 +1,5 @@
 """
 Tests for FastAPI API endpoints.
-
-Phase 7: API tests using TestClient with mocked RAG backend.
 """
 
 import pytest

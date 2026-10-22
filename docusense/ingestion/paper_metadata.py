@@ -31,9 +31,6 @@ DETECTION STRATEGIES:
 5. **References**: Section labeled "References" or "Bibliography" at end
 6. **DOI**: Pattern "10.XXXX/..." usually on first page
 7. **Year**: 4-digit number near title or in footer
-
-Author: DocuSense
-Created: 2026-03-03
 """
 
 import re

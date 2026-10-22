@@ -1,8 +1,6 @@
 """
 Retrieval Pipeline - End-to-end orchestration of query processing and retrieval.
 
-This is Step 4 of Phase 3: Query Processing & Retrieval (FINAL).
-
 PURPOSE:
 --------
 Orchestrate the complete retrieval flow:

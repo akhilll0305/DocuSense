@@ -1,8 +1,8 @@
 """
 Image Processor - Extracts meaning from images using vision models.
 
-This module is a CRITICAL component of Phase 1 that ensures we don't lose
-information stored in images (charts, diagrams, screenshots, tables).
+Keeps the information stored in images (charts, diagrams, screenshots,
+tables) from being lost at ingestion.
 
 PURPOSE:
 --------

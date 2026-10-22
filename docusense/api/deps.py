@@ -3,8 +3,6 @@ Shared FastAPI dependencies.
 
 Holds the process-wide RAG instance and user store, and resolves the bearer
 token on every protected request.
-
-Author: DocuSense
 """
 
 from __future__ import annotations

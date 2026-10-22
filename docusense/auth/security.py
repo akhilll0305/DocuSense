@@ -3,8 +3,6 @@ Password hashing and JWT token handling.
 
 Passwords are hashed with bcrypt (never stored or logged in plaintext).
 Sessions are stateless JWTs signed with the application secret.
-
-Author: DocuSense
 """
 
 from __future__ import annotations

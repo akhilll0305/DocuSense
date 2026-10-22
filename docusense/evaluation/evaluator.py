@@ -1,13 +1,8 @@
 """
 RAG Evaluator - End-to-end evaluation orchestrator.
 
-Phase 6: Evaluation & Metrics (Step 3)
-
 Combines retrieval metrics and answer quality metrics into a unified
 evaluation framework for the RAG pipeline.
-
-Author: DocuSense
-Created: 2026-03-08
 """
 
 from __future__ import annotations

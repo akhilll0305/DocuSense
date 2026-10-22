@@ -1,8 +1,6 @@
 """
 Answer Quality Metrics - ROUGE, citation accuracy, and answer evaluation.
 
-Phase 6: Evaluation & Metrics (Step 2)
-
 PURPOSE:
 --------
 Evaluate generated answer quality:
@@ -13,9 +11,6 @@ Evaluate generated answer quality:
 
 Note: ROUGE and BERTScore use optional heavy libraries.
 Built-in metrics work without any extra installs.
-
-Author: DocuSense
-Created: 2026-03-08
 """
 
 from __future__ import annotations

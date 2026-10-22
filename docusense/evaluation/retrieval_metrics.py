@@ -1,8 +1,6 @@
 """
 Retrieval Metrics - MRR, NDCG, Precision@K, Recall@K.
 
-Phase 6: Evaluation & Metrics (Step 1)
-
 PURPOSE:
 --------
 Quantify retrieval quality with standard IR metrics:
@@ -11,9 +9,6 @@ Quantify retrieval quality with standard IR metrics:
 3. Precision@K: What fraction of top-K results are relevant?
 4. Recall@K: What fraction of all relevant docs are in top-K?
 5. MAP (Mean Average Precision): Average precision across recall levels.
-
-Author: DocuSense
-Created: 2026-03-08
 """
 
 from __future__ import annotations

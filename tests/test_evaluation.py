@@ -1,7 +1,6 @@
 """
 Tests for Evaluation Metrics.
 
-Phase 6: Tests for retrieval metrics, answer metrics, and RAG evaluator.
 All built-in — no ROUGE or BERTScore libraries required.
 """
 

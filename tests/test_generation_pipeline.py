@@ -1,7 +1,7 @@
 """
 Tests for Generation Pipeline.
 
-Tests Phase 4.4: End-to-end query → answer with citations.
+Tests End-to-end query → answer with citations.
 Uses mocking for CI-safe testing (no Ollama or Qdrant required).
 """
 

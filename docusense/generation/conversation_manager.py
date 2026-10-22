@@ -1,8 +1,6 @@
 """
 Conversation Manager - Multi-turn conversation context for RAG.
 
-Phase 5: Complete RAG Pipeline (Step 2)
-
 PURPOSE:
 --------
 Manage multi-turn conversations with context:
@@ -11,9 +9,6 @@ Manage multi-turn conversations with context:
 3. Support follow-up questions ("What about their methodology?")
 4. Log queries for analytics
 5. Persist everything to SQLite
-
-Author: DocuSense
-Created: 2026-03-08
 """
 
 from __future__ import annotations

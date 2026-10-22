@@ -7,8 +7,6 @@ GET  /api/auth/me          - the authenticated user
 POST /api/auth/logout      - revoke the presented token
 POST /api/auth/logout-all  - revoke every token for this account
 POST /api/auth/password    - change the password and re-issue a token
-
-Author: DocuSense
 """
 
 from __future__ import annotations

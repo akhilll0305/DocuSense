@@ -1,12 +1,7 @@
 """
 FastAPI Application - DocuSense API Server.
 
-Phase 7: API & Web UI
-
 Run with: uvicorn docusense.api.app:app --reload
-
-Author: DocuSense
-Created: 2026-03-08
 """
 
 from __future__ import annotations

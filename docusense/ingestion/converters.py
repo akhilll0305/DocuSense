@@ -1,8 +1,6 @@
 """
 Document Converter - Transforms documents into Markdown format.
 
-This module is the FIRST step in Phase 1: Knowledge Ingestion.
-
 PURPOSE:
 --------
 Convert any document (PDF, DOCX, TXT, etc.) into clean Markdown format while:

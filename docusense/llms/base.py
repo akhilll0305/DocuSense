@@ -9,8 +9,6 @@ every free hosting tier.
 
 So generation is a seam rather than a hardcoded client. `AnswerGenerator` and
 `GenerationPipeline` depend on this surface, not on Ollama.
-
-Author: DocuSense
 """
 
 from __future__ import annotations

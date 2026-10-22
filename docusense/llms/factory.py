@@ -2,8 +2,6 @@
 Choosing a generation backend.
 
 One place decides, so the pipeline never names a provider.
-
-Author: DocuSense
 """
 
 from __future__ import annotations

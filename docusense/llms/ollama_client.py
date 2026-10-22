@@ -1,8 +1,6 @@
 """
 Ollama LLM Client - Local LLM inference via Ollama.
 
-This is Step 1 of Phase 4: Answer Generation with Citations.
-
 PURPOSE:
 --------
 Wrapper around the Ollama Python library for local LLM inference:
@@ -25,9 +23,6 @@ MODELS:
 - llama3.1:8b: Better quality, slower
 - mistral:7b: Good alternative
 - phi3:mini: Very fast, 3.8B params
-
-Author: DocuSense
-Created: 2026-03-06
 """
 
 import time

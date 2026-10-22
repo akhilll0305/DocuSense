@@ -3,8 +3,6 @@ User storage — SQLite-backed accounts for DocuSense.
 
 Shares the application database with documents and chunks so that a document's
 owner is enforceable with a foreign key.
-
-Author: DocuSense
 """
 
 from __future__ import annotations

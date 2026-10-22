@@ -1,8 +1,6 @@
 """
 Qdrant Vector Store - Semantic search using Qdrant vector database.
 
-This is Step 2 of Phase 2: Vector Embeddings & Search.
-
 PURPOSE:
 --------
 Store and search document chunk embeddings using Qdrant:

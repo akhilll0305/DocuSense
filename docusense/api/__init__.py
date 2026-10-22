@@ -1,8 +1,6 @@
 """
 DocuSense API Module.
 
-Phase 7: FastAPI backend for the RAG system.
-
 Run: uvicorn docusense.api.app:app --reload
 Docs: http://localhost:8000/docs
 """

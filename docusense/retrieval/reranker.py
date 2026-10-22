@@ -1,8 +1,6 @@
 """
 Reranker - Re-score search results using cross-encoder for better precision.
 
-This is Step 3 of Phase 3: Query Processing & Retrieval.
-
 PURPOSE:
 --------
 Improve search precision by re-scoring initial results with a more accurate model:

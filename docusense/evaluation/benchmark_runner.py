@@ -1,13 +1,8 @@
 """
 Benchmark Runner - Run evaluations and generate reports.
 
-Phase 6: Evaluation & Metrics (Step 5)
-
 Orchestrates running benchmarks on sample or QASPER datasets,
 generating evaluation reports with all retrieval + answer metrics.
-
-Author: DocuSense
-Created: 2026-03-08
 """
 
 from __future__ import annotations

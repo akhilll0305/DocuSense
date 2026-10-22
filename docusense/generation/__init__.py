@@ -1,8 +1,6 @@
 """
 Generation Module - Answer generation with academic citations.
 
-Phase 4: Answer Generation with Citations
-
 Components:
 -----------
 1. AnswerGenerator: Core answer generation with academic prompts

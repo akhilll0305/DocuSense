@@ -1,8 +1,6 @@
 """
 Embedding Generator - Creates vector embeddings from text using sentence-transformers.
 
-This is Step 1 of Phase 2: Vector Embeddings & Search.
-
 PURPOSE:
 --------
 Convert text chunks into dense vector embeddings for semantic search:

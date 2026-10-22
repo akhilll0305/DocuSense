@@ -1,7 +1,7 @@
 """
 Tests for Citation Formatter.
 
-Tests Phase 4.2: Citation formatting in multiple styles.
+Tests Citation formatting in multiple styles.
 """
 
 from docusense.generation.citation_formatter import (

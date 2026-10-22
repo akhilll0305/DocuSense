@@ -47,9 +47,6 @@ nothing usable for the real dataset: `full_text` is a list (it was read as a
 dict, yielding zero sections), and `evidence` sits inside the `answer` object
 (it was read as a sibling, yielding zero evidence). Both shapes are now
 accepted so older hand-written fixtures keep working.
-
-Author: DocuSense
-Created: 2026-03-08
 """
 
 from __future__ import annotations

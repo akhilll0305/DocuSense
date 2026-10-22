@@ -1,8 +1,6 @@
 """
 Text Preprocessor - Cleans and normalizes text for optimal chunking/embedding.
 
-This module is Step 5 of Phase 1: Knowledge Ingestion.
-
 PURPOSE:
 --------
 Prepare Markdown text for chunking and embedding by:

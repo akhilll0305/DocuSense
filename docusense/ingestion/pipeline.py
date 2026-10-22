@@ -1,15 +1,12 @@
 """
 End-to-end document ingestion pipeline.
 
-This module orchestrates all Phase 1 components:
+Orchestrates ingestion end to end:
 1. Document conversion (any format → Markdown)
 2. Image processing (vision models → descriptions)
 3. Text preprocessing (clean while preserving structure)
 4. Semantic chunking (split into meaningful pieces)
 5. Storage (persist to SQLite database)
-
-Author: DocuSense
-Created: 2025
 """
 
 import hashlib

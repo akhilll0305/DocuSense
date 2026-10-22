@@ -1,8 +1,6 @@
 """
 API Routes - FastAPI endpoints for DocuSense.
 
-Phase 7: API & UI (Step 2)
-
 Endpoints:
 ----------
 POST /api/ingest         - Upload and ingest a document
@@ -15,9 +13,6 @@ GET  /api/documents      - List documents
 DELETE /api/documents/{id} - Delete a document
 GET  /api/health         - Health check
 GET  /api/stats          - Query statistics
-
-Author: DocuSense
-Created: 2026-03-08
 """
 
 from __future__ import annotations

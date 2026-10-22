@@ -1,8 +1,6 @@
 """
 Query Processor - Query rewriting, expansion, and enhancement.
 
-This is Step 1 of Phase 3: Query Processing & Retrieval.
-
 PURPOSE:
 --------
 Transform user queries for better retrieval:

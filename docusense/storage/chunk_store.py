@@ -10,9 +10,6 @@ Database Schema:
 - documents: Metadata about ingested files
 - chunks: Semantic chunks with text and metadata
 - images: Images extracted from documents with vision descriptions
-
-Author: DocuSense
-Created: 2025
 """
 
 import sqlite3

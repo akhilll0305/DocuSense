@@ -1,8 +1,6 @@
 """
 Answer Generator - Citation-aware answer generation for research papers.
 
-This is Step 2 of Phase 4: Answer Generation with Citations.
-
 PURPOSE:
 --------
 Generate answers with academic citations from retrieved chunks:
@@ -31,9 +29,6 @@ This module accepts any object with .chunk_id, .document_id, .text,
 .score, and .metadata attributes (e.g., RetrievalResult from the
 retrieval pipeline). This avoids importing the full retrieval stack
 (which requires qdrant_client, sentence-transformers, etc.)
-
-Author: DocuSense
-Created: 2026-03-06
 """
 
 from __future__ import annotations

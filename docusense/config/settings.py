@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     groq_base_url: str = "https://api.groq.com/openai/v1"
     
     
-    # ==================== Embedding Settings (Phase 2) ====================
+    # ==================== Embedding Settings ====================
     # FREE OPTIONS ONLY
     # Which runtime executes the embedding and reranking models. Same weights
     # either way — "onnx" runs the ONNX exports through onnxruntime, "torch"
@@ -102,7 +102,7 @@ class Settings(BaseSettings):
     embedding_device: str = "cpu"  # "cuda" if GPU available
     embedding_normalize: bool = True  # Normalize vectors for cosine similarity
     
-    # ==================== Document Processing (Phase 1) ====================
+    # ==================== Document Processing ====================
     # File handling
     allowed_file_types: list[str] = [".pdf", ".docx", ".txt", ".md", ".pptx", ".xlsx"]
     max_file_size_mb: int = 100  # Maximum file size in MB
@@ -151,7 +151,7 @@ class Settings(BaseSettings):
     preserve_tables: bool = True  # Keep tables together
     overlap_strategy: Literal["token", "sentence"] = "sentence"
     
-    # ==================== Vector Store Settings (Phase 2) ====================
+    # ==================== Vector Store Settings ====================
     
     # Qdrant configuration
     qdrant_mode: Literal["memory", "disk", "server"] = "disk"  # memory=testing, disk=local, server=remote
@@ -268,13 +268,13 @@ class Settings(BaseSettings):
     data_dir: Path = PROJECT_ROOT / "data"
     raw_data_dir: Path = data_dir / "raw"
     processed_data_dir: Path = data_dir / "processed"
-    markdown_data_dir: Path = processed_data_dir / "markdown"  # Phase 1: Converted Markdown
-    images_data_dir: Path = processed_data_dir / "images"  # Phase 1: Extracted images
+    markdown_data_dir: Path = processed_data_dir / "markdown"  # Converted Markdown
+    images_data_dir: Path = processed_data_dir / "images"  # Extracted images
     vector_store_dir: Path = data_dir / "vector_stores"
     logs_dir: Path = PROJECT_ROOT / "logs"
     
     # Database
-    sqlite_db_path: Path = data_dir / "docusense.db"  # Phase 1: Chunks storage
+    sqlite_db_path: Path = data_dir / "docusense.db"  # Chunks storage
     
     # ==================== API Settings (FastAPI) ====================
     api_host: str = "0.0.0.0"

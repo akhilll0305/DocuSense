@@ -1,8 +1,6 @@
 """
 Generation Pipeline - End-to-end query → answer with citations.
 
-This is Step 4 of Phase 4: Answer Generation with Citations (FINAL).
-
 PURPOSE:
 --------
 Orchestrate the complete answer generation flow:
@@ -18,7 +16,7 @@ PIPELINE ARCHITECTURE:
                         ↓
             ┌──────────────────────┐
             │  Retrieval Pipeline  │  Query processing + search
-            │  (Phase 3)           │
+            │  (hybrid + rerank)   │
             └──────────────────────┘
                         ↓
             ┌──────────────────────┐
@@ -51,9 +49,6 @@ print(response.reference_list)
 print(response.bibtex)
 # @inproceedings{devlin2018bert, ...}
 ```
-
-Author: DocuSense
-Created: 2026-03-06
 """
 
 from __future__ import annotations

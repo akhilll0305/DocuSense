@@ -1,8 +1,6 @@
 """
 Evaluation Module - Metrics for RAG system quality.
 
-Phase 6: Evaluation & Metrics
-
 Components:
 -----------
 1. RetrievalMetrics: MRR, NDCG, Precision@K, Recall@K, MAP

@@ -1,8 +1,6 @@
 """
 Retrieval Module - Advanced query processing and hybrid search.
 
-Phase 3: Query Processing & Retrieval
-
 Components:
 -----------
 1. QueryProcessor: Query rewriting and expansion (Gemini-powered)

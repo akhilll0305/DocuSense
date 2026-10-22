@@ -1,7 +1,7 @@
 """
 Tests for Answer Generator and Ollama Client.
 
-Tests Phase 4.1: Ollama integration and answer generation.
+Tests Ollama integration and answer generation.
 Uses mocking for CI-safe testing (no Ollama required).
 """
 

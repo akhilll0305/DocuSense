@@ -1,8 +1,6 @@
 """
 DocuSense RAG Pipeline - End-to-end Research Paper Analysis.
 
-Phase 5: Complete RAG Pipeline (Final Step)
-
 PURPOSE:
 --------
 Single entry point for the entire DocuSense system:
@@ -31,9 +29,6 @@ r2 = rag.chat(conv_id, "What about its accuracy?")  # uses context
 # 4. Compare papers
 response = rag.compare("How do BERT and GPT-2 differ?")
 ```
-
-Author: DocuSense
-Created: 2026-03-08
 """
 
 from __future__ import annotations
@@ -83,12 +78,12 @@ class DocuSenseRAG:
     End-to-end Research Paper Analysis RAG System.
 
     Wires together all DocuSense components:
-    - Ingestion Pipeline (Phase 1): PDF → chunks
-    - Embedding Generator (Phase 2): chunks → vectors
-    - Qdrant Store (Phase 2): vector storage + search
-    - Retrieval Pipeline (Phase 3): query → relevant chunks
-    - Generation Pipeline (Phase 4): chunks → answer with citations
-    - Conversation Manager (Phase 5): multi-turn dialog
+    - Ingestion Pipeline: PDF → chunks
+    - Embedding Generator: chunks → vectors
+    - Qdrant Store: vector storage + search
+    - Retrieval Pipeline: query → relevant chunks
+    - Generation Pipeline: chunks → answer with citations
+    - Conversation Manager: multi-turn dialog
 
     All components are lazily initialized to avoid loading heavy models
     until actually needed.

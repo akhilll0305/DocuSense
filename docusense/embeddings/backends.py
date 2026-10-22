@@ -25,8 +25,6 @@ survive this change.
 torch stays available (`MODEL_RUNTIME=torch`), because it is what runs on a
 GPU, and because a claim that two runtimes agree should be checkable by running
 both.
-
-Author: DocuSense
 """
 
 from __future__ import annotations

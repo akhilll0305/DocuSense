@@ -13,8 +13,6 @@ The API is OpenAI-compatible, so this is a thin HTTP client over `httpx`, which
 is already a dependency. No SDK is added for it.
 
 Local use stays on Ollama. Nothing here is required to run DocuSense.
-
-Author: DocuSense
 """
 
 from __future__ import annotations

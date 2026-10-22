@@ -1,12 +1,7 @@
 """
 API Schemas - Request/Response models for the DocuSense API.
 
-Phase 7: API & UI (Step 1)
-
 Pydantic models for all API endpoints.
-
-Author: DocuSense
-Created: 2026-03-08
 """
 
 from __future__ import annotations

@@ -1,8 +1,6 @@
 """
 Hybrid Search - Combine vector search (semantic) with BM25 (keyword).
 
-This is Step 2 of Phase 3: Query Processing & Retrieval.
-
 PURPOSE:
 --------
 Combine two complementary search methods:

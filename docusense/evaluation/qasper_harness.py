@@ -41,9 +41,6 @@ ISOLATION:
 Everything is ingested under a dedicated `user_id`. Per-user isolation already
 scopes SQLite rows, Qdrant filters, and the BM25 corpus, so a benchmark run
 cannot see, or be seen by, a real user's documents.
-
-Author: DocuSense
-Created: 2026-08-27
 """
 
 from __future__ import annotations

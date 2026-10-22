@@ -1,8 +1,6 @@
 """
 Semantic Chunker - Intelligent Markdown-aware text chunking for RAG.
 
-This is the MOST CRITICAL component of Phase 1!
-
 PURPOSE:
 --------
 Split documents into semantically meaningful chunks that:

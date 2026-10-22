@@ -1,8 +1,6 @@
 """
 Conversation Store - SQLite storage for conversations and query history.
 
-Phase 5: Complete RAG Pipeline (Step 1)
-
 PURPOSE:
 --------
 Persistent storage for multi-turn conversations and query tracking:
@@ -11,9 +9,6 @@ Persistent storage for multi-turn conversations and query tracking:
 3. Query history (performance tracking and analytics)
 
 Extends the existing SQLite storage pattern from chunk_store.py.
-
-Author: DocuSense
-Created: 2026-03-08
 """
 
 import sqlite3

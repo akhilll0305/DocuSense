@@ -1,7 +1,6 @@
 """
 Tests for DocuSenseRAG End-to-End Pipeline.
 
-Phase 5: Complete RAG Pipeline tests.
 All components are mocked for CI-safe testing.
 """
 

@@ -1,8 +1,6 @@
 """
 Citation Formatter - Academic citation formatting for research papers.
 
-This is Step 3 of Phase 4: Answer Generation with Citations.
-
 PURPOSE:
 --------
 Format academic citations in multiple styles:
@@ -35,9 +33,6 @@ CITATION STYLES:
      journal={NAACL}
    }
    - For LaTeX documents and academic papers
-
-Author: DocuSense
-Created: 2026-03-06
 """
 
 import re

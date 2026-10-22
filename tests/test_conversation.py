@@ -1,7 +1,6 @@
 """
 Tests for Conversation Store and Conversation Manager.
 
-Phase 5: Complete RAG Pipeline — conversation memory tests.
 Uses SQLite :memory: for fast, isolated tests.
 """
 
