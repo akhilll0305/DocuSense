@@ -369,10 +369,10 @@ class TestClaimVerificationInPipeline:
 
         class ContainsNLI:
             def predict(self, pairs):
-                out = np.zeros((len(pairs), 3))
+                out = np.zeros((len(pairs), 2))  # (entailment, contradiction)
                 for i, (premise, claim) in enumerate(pairs):
                     hit = claim.rstrip(".").lower()[:40] in premise.lower()
-                    out[i] = [0.05, 0.9, 0.05] if hit else [0.1, 0.1, 0.8]
+                    out[i] = [0.9, 0.05] if hit else [0.1, 0.1]
                 return out
 
         pipeline = self._pipeline(mock_client_class, ClaimVerifier(model=ContainsNLI()))
