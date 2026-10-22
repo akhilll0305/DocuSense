@@ -73,7 +73,7 @@ We normalize embeddings to unit length (L2 norm = 1) for:
 from typing import List, Optional
 from dataclasses import dataclass
 import numpy as np
-from docusense.embeddings.backends import load_embedding_backend
+from docusense.embeddings.backends import embedding_prefixes, load_embedding_backend
 from loguru import logger
 
 from docusense.config.settings import settings
@@ -157,6 +157,7 @@ class EmbeddingGenerator:
                 batch_size=self.batch_size,
             )
             self.embedding_dim = self.model.dimension
+            self.query_prefix, self.passage_prefix = embedding_prefixes(self.model_name)
 
             logger.success(f"✅ Model loaded: {self.embedding_dim} dimensions")
             
@@ -185,6 +186,19 @@ class EmbeddingGenerator:
             show_progress=False,
         )[0]
     
+    def embed_query(self, query: str) -> np.ndarray:
+        """
+        Embed a search query, with the model's query instruction if it has one.
+
+        Kept apart from `embed_text` because the two sides of an asymmetric
+        model are encoded differently: a bge query without its instruction
+        lands in a different part of the space from the passages it should
+        match, and nothing errors -- retrieval just gets worse.
+        """
+        if not query or not query.strip():
+            return self.embed_text(query)
+        return self.embed_text(self.query_prefix + query)
+
     def embed_batch(
         self,
         texts: List[str],
@@ -216,6 +230,9 @@ class EmbeddingGenerator:
         
         logger.info(f"Generating embeddings for {len(valid_texts)} texts...")
         
+        if self.passage_prefix:
+            valid_texts = [self.passage_prefix + t for t in valid_texts]
+
         embeddings = self.model.encode(
             valid_texts,
             batch_size=self.batch_size,

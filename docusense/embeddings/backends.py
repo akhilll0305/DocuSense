@@ -60,6 +60,28 @@ ONNX_EMBEDDING_MODELS: Dict[str, Tuple[str, int]] = {
     "BAAI/bge-base-en-v1.5": ("BAAI/bge-base-en-v1.5", 512),
 }
 
+# Instruction prefixes for asymmetric models. bge and e5 were trained with an
+# instruction on the query side (and e5 on the passage side too), and are
+# measurably worse without it -- so comparing them against MiniLM with the
+# prefix left off would be comparing a misconfigured model. Symmetric models
+# are absent and get no prefix.
+EMBEDDING_PREFIXES: Dict[str, Tuple[str, str]] = {
+    "BAAI/bge-small-en-v1.5": (
+        "Represent this sentence for searching relevant passages: ", ""
+    ),
+    "BAAI/bge-base-en-v1.5": (
+        "Represent this sentence for searching relevant passages: ", ""
+    ),
+    "intfloat/e5-small-v2": ("query: ", "passage: "),
+    "intfloat/e5-base-v2": ("query: ", "passage: "),
+}
+
+
+def embedding_prefixes(model_name: str) -> Tuple[str, str]:
+    """(query prefix, passage prefix) for a model; empty for symmetric ones."""
+    return EMBEDDING_PREFIXES.get(model_name, ("", ""))
+
+
 ONNX_RERANKER_MODELS: Dict[str, str] = {
     "cross-encoder/ms-marco-MiniLM-L-6-v2": "Xenova/ms-marco-MiniLM-L-6-v2",
     "cross-encoder/ms-marco-MiniLM-L-12-v2": "Xenova/ms-marco-MiniLM-L-12-v2",
@@ -386,6 +408,7 @@ def load_cross_encoder_backend(
 
 __all__ = [
     "CrossEncoderBackend",
+    "EMBEDDING_PREFIXES",
     "EmbeddingBackend",
     "ONNX_EMBEDDING_MODELS",
     "ONNX_RERANKER_MODELS",
@@ -394,6 +417,7 @@ __all__ = [
     "TorchCrossEncoder",
     "TorchEmbedding",
     "UnsupportedModelError",
+    "embedding_prefixes",
     "load_cross_encoder_backend",
     "load_embedding_backend",
 ]

@@ -528,7 +528,7 @@ class QdrantVectorStore:
         """
         # Generate query embedding
         logger.info(f"Searching for: '{query}'")
-        query_embedding = self.embedding_generator.embed_text(query)
+        query_embedding = self.embedding_generator.embed_query(query)
         
         # Prepare filter if provided
         qdrant_filter = self.build_filter(filters)
