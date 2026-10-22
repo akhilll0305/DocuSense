@@ -58,6 +58,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max-length", type=int, default=512)
     p.add_argument("--papers", type=int, default=None)
     p.add_argument("--candidates", type=int, default=20, help="First-stage depth on dev")
+    p.add_argument("--eval-steps", type=int, default=None,
+                   help="Evaluate on dev every N steps and keep the best "
+                        "checkpoint (early stopping), instead of once per epoch")
     p.add_argument("--no-pos-weight", action="store_true",
                    help="Unweighted BCE instead of weighting positives by the imbalance")
     p.add_argument("--seed", type=int, default=20260827)
@@ -210,8 +213,10 @@ def main() -> int:
         learning_rate=args.lr,
         warmup_ratio=0.1,
         fp16=device == "cuda",
-        eval_strategy="epoch",
-        save_strategy="epoch",
+        eval_strategy="steps" if args.eval_steps else "epoch",
+        save_strategy="steps" if args.eval_steps else "epoch",
+        eval_steps=args.eval_steps,
+        save_steps=args.eval_steps,
         save_total_limit=1,
         load_best_model_at_end=True,
         metric_for_best_model="eval_qasper-dev_mrr@10",
@@ -251,6 +256,7 @@ def main() -> int:
         "batch_size": args.batch_size,
         "learning_rate": args.lr,
         "max_length": args.max_length,
+        "eval_steps": args.eval_steps,
         "pos_weight": None if pos_weight is None else round(float(pos_weight), 3),
         "train": {**train_stats, "positives": num_pos, "negatives": num_neg},
         "dev": {
@@ -263,8 +269,15 @@ def main() -> int:
         "device": device,
         "seconds": round(time.time() - started, 1),
     }
+    # load_best_model_at_end picks the best *checkpoint*; the untouched base
+    # model is not one of them. Say plainly when training never beat it.
+    report["beats_base_on_dev"] = (
+        report["dev"]["fine_tuned"].get("mrr@10", 0) > report["dev"]["base"].get("mrr@10", 0)
+    )
     Path(args.report).write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report["dev"], indent=2))
+    if not report["beats_base_on_dev"]:
+        print("NOTE: the fine-tuned reranker does not beat the base model on dev.")
     return 0
 
 
