@@ -726,8 +726,16 @@ class QASPERHarness:
         arm: ArmConfig,
         samples: List[EvaluationSample],
         top_k: int = 10,
+        scope_to_paper: bool = False,
     ) -> ArmResult:
-        """Run every query through one arm and score the rankings."""
+        """
+        Run every query through one arm and score the rankings.
+
+        `scope_to_paper` filters each query to its own paper's document --
+        QASPER's task setting, where the reader is handed the paper. The
+        default searches the whole corpus, which is what the product does
+        when a user asks without choosing a document.
+        """
         logger.info(f"=== Arm: {arm.label} ({len(samples)} queries) ===")
 
         pipeline = self._build_pipeline(arm)
@@ -739,11 +747,14 @@ class QASPERHarness:
 
         for i, sample in enumerate(samples, 1):
             start = time.time()
+            query_filters = dict(filters)
+            if scope_to_paper:
+                query_filters["document_id"] = self.document_ids[sample.paper_id]
             try:
                 results, _ = pipeline.retrieve(
                     sample.query,
                     top_k=top_k,
-                    filters=dict(filters),
+                    filters=query_filters,
                 )
             except Exception as exc:  # a failed query is a zero, not a crash
                 logger.warning(f"Query {i} failed on arm {arm.name}: {exc}")

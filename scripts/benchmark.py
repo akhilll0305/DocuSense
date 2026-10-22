@@ -76,6 +76,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--only-routed", action="store_true",
                         help="Keep only questions that section routing fires on, "
                              "to measure routing where it actually applies")
+    parser.add_argument("--scope", choices=["corpus", "paper"], default="corpus",
+                        help="Search the whole shelf (default), or only the "
+                             "question's own paper (QASPER's task setting)")
     parser.add_argument("--out", default=DEFAULT_OUTPUT,
                         help=f"Report path (default: {DEFAULT_OUTPUT})")
     parser.add_argument("--verbose", action="store_true",
@@ -243,7 +246,9 @@ def main() -> int:
     arm_results = []
     for arm in arms:
         print(f"Running arm: {arm.label} ...")
-        arm_result = harness.run_arm(arm, samples, top_k=args.top_k)
+        arm_result = harness.run_arm(
+            arm, samples, top_k=args.top_k, scope_to_paper=args.scope == "paper"
+        )
         arm_results.append(arm_result)
 
     print_table(arm_results)
@@ -279,6 +284,7 @@ def main() -> int:
             "top_k": args.top_k,
             "question_cap": args.questions,
             "only_routed": routed_only,
+            "scope": args.scope,
             "embedding_model": settings.embedding_model,
             "model_runtime": settings.model_runtime,
             "reranker_model": settings.reranker_model,
