@@ -80,6 +80,8 @@ class QASPERQuestion:
     answer_type: str = "free_form"  # free_form, extractive, yes_no, unanswerable
     paper_id: str = ""
     paper_title: str = ""
+    # QASPER's own id, which the official evaluator keys predictions by.
+    question_id: str = ""
 
 
 @dataclass
@@ -254,6 +256,7 @@ class QASPERLoader:
             answer_type=answer_type,
             paper_id=paper_id,
             paper_title=paper_title,
+            question_id=qa.get("question_id", "") or "",
         )
 
     @staticmethod
