@@ -331,6 +331,9 @@ def main() -> int:
                 "accuracy score."
             ),
             "metrics": metrics,
+            # Each answer's claims checked against its own retrieved
+            # passages by the NLI verifier (generation/claim_verifier.py).
+            "faithfulness": harness.faithfulness_summary(),
             "not_applicable": {
                 "reason": (
                     "QASPER has no author/venue metadata, so citation accuracy "

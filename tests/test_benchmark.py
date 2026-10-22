@@ -602,3 +602,26 @@ class TestBenchmarkRunner:
         ]
         report = BenchmarkRunner().run_with_samples(missed)
         assert report.summary["retrieval_grade"] == "Needs Improvement"
+
+
+def test_faithfulness_summary_skips_answers_without_claims(tmp_path):
+    """'Yes.' has nothing to verify; it is not a perfectly faithful answer."""
+    from unittest.mock import MagicMock
+
+    from docusense.evaluation.qasper_harness import QASPERHarness
+
+    harness = QASPERHarness(dataset_path=tmp_path / "x.json", rag=MagicMock(),
+                            work_dir=tmp_path)
+    harness.last_verifications = [
+        {"faithfulness": 1.0, "num_claims": 4, "num_unsupported": 0},
+        {"faithfulness": 0.5, "num_claims": 2, "num_unsupported": 1},
+        {"faithfulness": None, "num_claims": 0, "num_unsupported": 0},
+    ]
+
+    summary = harness.faithfulness_summary()
+
+    assert summary["answers_checked"] == 3
+    assert summary["answers_with_claims"] == 2
+    assert summary["mean_faithfulness"] == 0.75
+    assert summary["claim_level_faithfulness"] == round(5 / 6, 4)
+    assert summary["answers_fully_verified"] == 1

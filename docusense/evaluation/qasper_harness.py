@@ -871,6 +871,8 @@ class QASPERHarness:
             subset = samples
 
         answered: List[EvaluationSample] = []
+        # The claim check each answer came back with, when verification is on.
+        self.last_verifications: List[Dict[str, Any]] = []
 
         for i, sample in enumerate(subset, 1):
             try:
@@ -878,6 +880,9 @@ class QASPERHarness:
                     sample.query, top_k=top_k, user_id=self.user_id
                 )
                 generated = getattr(response, "answer", "") or ""
+                verification = getattr(response, "verification", None)
+                if isinstance(verification, dict):
+                    self.last_verifications.append(verification)
             except Exception as exc:
                 logger.warning(f"Generation failed for query {i}: {exc}")
                 generated = ""
@@ -898,3 +903,29 @@ class QASPERHarness:
             answered, evaluate_retrieval=False, evaluate_answers=True
         )
         return result, answered
+
+    def faithfulness_summary(self) -> Dict[str, Any]:
+        """
+        Aggregate the claim checks from the last `evaluate_answers` run.
+
+        Mean faithfulness is averaged over answers that made at least one
+        checkable claim; an answer of 'Yes.' has nothing to verify and is
+        counted separately rather than as perfectly faithful.
+        """
+        checks = getattr(self, "last_verifications", [])
+        scored = [v for v in checks if v.get("faithfulness") is not None]
+        if not scored:
+            return {"answers_checked": len(checks), "answers_with_claims": 0}
+        claims = sum(v["num_claims"] for v in scored)
+        unsupported = sum(v["num_unsupported"] for v in scored)
+        return {
+            "answers_checked": len(checks),
+            "answers_with_claims": len(scored),
+            "mean_faithfulness": round(
+                sum(v["faithfulness"] for v in scored) / len(scored), 4
+            ),
+            "claims": claims,
+            "claims_verified": claims - unsupported,
+            "claim_level_faithfulness": round((claims - unsupported) / claims, 4),
+            "answers_fully_verified": sum(1 for v in scored if v["num_unsupported"] == 0),
+        }
