@@ -58,6 +58,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max-length", type=int, default=512)
     p.add_argument("--papers", type=int, default=None)
     p.add_argument("--candidates", type=int, default=20, help="First-stage depth on dev")
+    p.add_argument("--no-pos-weight", action="store_true",
+                   help="Unweighted BCE instead of weighting positives by the imbalance")
     p.add_argument("--seed", type=int, default=20260827)
     p.add_argument("--report", default="data/benchmarks/reranker_finetune_report.json")
     return p.parse_args()
@@ -220,7 +222,8 @@ def main() -> int:
     )
     # Positives are outnumbered roughly 3:1, so they are weighted up to keep
     # the loss from being won by predicting 'not relevant' everywhere.
-    loss = BinaryCrossEntropyLoss(model, pos_weight=torch.tensor(num_neg / max(num_pos, 1)))
+    pos_weight = None if args.no_pos_weight else torch.tensor(num_neg / max(num_pos, 1))
+    loss = BinaryCrossEntropyLoss(model, pos_weight=pos_weight)
     trainer = CrossEncoderTrainer(
         model=model, args=training_args, train_dataset=train_dataset,
         loss=loss, evaluator=evaluator,
@@ -248,6 +251,7 @@ def main() -> int:
         "batch_size": args.batch_size,
         "learning_rate": args.lr,
         "max_length": args.max_length,
+        "pos_weight": None if pos_weight is None else round(float(pos_weight), 3),
         "train": {**train_stats, "positives": num_pos, "negatives": num_neg},
         "dev": {
             "queries": len(samples),
