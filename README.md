@@ -183,9 +183,12 @@ documents never leave the laptop. That does not survive a free hosting tier, so
 generation is a seam: `LLM_PROVIDER=groq` points it at a hosted model and everything
 else is unchanged.
 
-It is deployed on **Modal's free tier** with no credit card, and answers in about two
-seconds once warm. What was measured to get there, and why not Hugging Face, Render or
-Cloud Run: **[deploy/DEPLOY.md](deploy/DEPLOY.md)**.
+It is deployed on **Modal's free tier** with no credit card. Measured on the live
+instance once warm: retrieval with reranking takes about 0.4s, the hosted model takes 1–19s
+depending on how much it writes, and the claim check adds roughly 0.5s per claim (1–6s an
+answer). The UI streams the answer first and fills in the check after, so the check does
+not delay the text. What was measured to choose the host, and why not Hugging Face,
+Render or Cloud Run: **[deploy/DEPLOY.md](deploy/DEPLOY.md)**.
 
 ---
 
