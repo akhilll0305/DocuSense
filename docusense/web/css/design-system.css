@@ -539,3 +539,22 @@ p { text-wrap: pretty; }
   .js-reveal [data-reveal] { opacity: 1; transform: none; }
   .mark { background-size: 100% 100%; }
 }
+
+/* ── Theme toggle ─────────────────────────────────────────────────────
+   On every page (js/theme.js). The icon shows the mode you would switch
+   *to*: a moon in light mode, a sun in dark. */
+.theme-toggle .icon-sun { display: none; }
+.theme-toggle .icon-moon { display: block; }
+[data-theme='dark'] .theme-toggle .icon-sun { display: block; }
+[data-theme='dark'] .theme-toggle .icon-moon { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .theme-toggle .icon-sun { display: block; }
+  :root:not([data-theme='light']) .theme-toggle .icon-moon { display: none; }
+}
+
+/* ── Signed-in state ──────────────────────────────────────────────────
+   Pages that can be seen either way mark their alternatives; <html> gets
+   .is-signed-in before paint when a session token is stored. */
+html:not(.is-signed-in) [data-signed-in],
+html.is-signed-in [data-signed-out] { display: none !important; }

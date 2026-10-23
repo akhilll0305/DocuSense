@@ -498,8 +498,10 @@
 }
 
 @media (max-width: 860px) {
-  .masthead__nav, .masthead__actions { display: none; }
-  .masthead__toggle { display: inline-flex; }
+  /* The links move into the menu; the theme toggle stays in the bar. */
+  .masthead__nav, .masthead__actions > a { display: none; }
+  .masthead__actions { margin-left: auto; }
+  .masthead__toggle { display: inline-flex; margin-left: 0; }
   .masthead__mobile:not([hidden]) { display: flex; }
 
   .compare { grid-template-columns: 1fr; }

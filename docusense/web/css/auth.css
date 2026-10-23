@@ -110,9 +110,16 @@
 
 /* ---------- Right panel ---------- */
 .auth__main {
+  position: relative;
   display: grid;
   place-items: center;
   padding: var(--space-8) var(--gutter);
+}
+
+.auth__corner {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
 }
 
 .auth__panel { width: 100%; max-width: 26rem; }
