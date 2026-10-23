@@ -227,6 +227,11 @@ const API = (() => {
       return request('GET', '/chats');
     },
 
+    // Claim-check feedback: was the checker right about this statement?
+    async claimFeedback(payload) {
+      return request('POST', '/feedback/claim', payload);
+    },
+
     // Documents
     async listDocuments() {
       return request('GET', '/documents');

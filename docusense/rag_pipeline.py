@@ -113,6 +113,7 @@ class DocuSenseRAG:
         self._embedding_generator = None
         self._qdrant_store = None
         self._conversation_managers: Dict[str, Any] = {}
+        self._feedback_store = None
 
         # Retrieval and generation are per-user: BM25 holds an in-memory
         # corpus that must not be shared across tenants.
@@ -779,6 +780,26 @@ class DocuSenseRAG:
     # SYSTEM INFO
     # ==================================================================
 
+    # ==================================================================
+    # CLAIM-CHECK FEEDBACK
+    # ==================================================================
+
+    @property
+    def feedback_store(self):
+        if self._feedback_store is None:
+            from docusense.storage.feedback_store import FeedbackStore
+
+            self._feedback_store = FeedbackStore()
+        return self._feedback_store
+
+    def record_claim_feedback(self, user_id: str, **verdict) -> str:
+        """Store a reader's verdict on one claim-check result."""
+        return self.feedback_store.add(user_id=user_id, **verdict)
+
+    def claim_feedback_summary(self) -> Dict[str, Any]:
+        """How often readers agreed with the claim checker."""
+        return self.feedback_store.summary()
+
     def get_status(self) -> Dict[str, Any]:
         """Get system status and statistics."""
         status = {
@@ -810,4 +831,7 @@ class DocuSenseRAG:
             self._storage = None
         for manager in self._conversation_managers.values():
             manager.close()
+        if self._feedback_store is not None:
+            self._feedback_store.close()
+            self._feedback_store = None
         logger.info("📚 DocuSenseRAG closed")

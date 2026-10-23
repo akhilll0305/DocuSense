@@ -611,6 +611,33 @@ details.message__check { display: block; }
   color: var(--ink-soft);
 }
 
+.message__check-vote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+}
+
+.message__check-vote button {
+  font: inherit;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--rule, currentColor);
+  border-radius: 999px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+
+.message__check-vote button:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--ink-soft);
+}
+
+.message__check-vote button:disabled { opacity: 0.5; cursor: default; }
+
 .message__check-evidence span {
   display: block;
   font-family: var(--mono);

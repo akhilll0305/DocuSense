@@ -9,6 +9,8 @@ POST /api/chat/{id}      - Chat in a conversation
 POST /api/chat/start     - Start a new chat
 GET  /api/chat/{id}      - Get chat history
 GET  /api/chats          - List conversations
+POST /api/feedback/claim - A reader's verdict on a claim-check flag
+GET  /api/feedback/claims - How often readers agreed with the checker
 GET  /api/documents      - List documents
 DELETE /api/documents/{id} - Delete a document
 GET  /api/health         - Health check
@@ -39,6 +41,9 @@ from docusense.api.schemas import (
     ChatRequest,
     ChatResponse,
     ChatHistoryResponse,
+    ClaimFeedbackRequest,
+    ClaimFeedbackResponse,
+    ClaimFeedbackSummary,
     ConversationListItem,
     DocumentInfo,
     DocumentListResponse,
@@ -390,6 +395,48 @@ async def list_chats(
         )
         for c in convs
     ]
+
+
+# ==============================================================================
+# CLAIM-CHECK FEEDBACK
+# ==============================================================================
+
+@router.post("/feedback/claim", response_model=ClaimFeedbackResponse)
+async def claim_feedback(
+    request: ClaimFeedbackRequest,
+    rag=Depends(get_rag),
+    user: User = Depends(get_current_user),
+):
+    """
+    Record whether the reader agrees with the claim checker on one statement.
+
+    The checker's offline precision was measured on QASPER; this is how it is
+    measured on real answers, by the person with the paper open.
+    """
+    if request.conversation_id and not rag.owns_conversation(
+        request.conversation_id, user.user_id
+    ):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    feedback_id = rag.record_claim_feedback(
+        user.user_id,
+        claim=request.claim,
+        flagged=request.flagged,
+        verdict=request.verdict,
+        evidence=request.evidence,
+        entailment=request.entailment,
+        conversation_id=request.conversation_id,
+    )
+    return ClaimFeedbackResponse(feedback_id=feedback_id)
+
+
+@router.get("/feedback/claims", response_model=ClaimFeedbackSummary)
+async def claim_feedback_summary(
+    rag=Depends(get_rag),
+    user: User = Depends(get_current_user),
+):
+    """Aggregate agreement with the claim checker, across all readers."""
+    return ClaimFeedbackSummary(**rag.claim_feedback_summary())
 
 
 # ==============================================================================

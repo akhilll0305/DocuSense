@@ -15,6 +15,10 @@
   // ── State ──
   let currentConversationId = null;
   let isProcessing = false;
+  // Flagged statements, by id, for the "was this flag right?" buttons; the
+  // text is kept here rather than round-tripped through HTML attributes.
+  const flaggedClaims = new Map();
+  let flaggedSeq = 0;
 
   // ── DOM refs ──
   const $ = (sel) => document.querySelector(sel);
@@ -464,11 +468,20 @@
                   ${n === 1 ? 'It' : 'They'} may still be right, phrased differently
                   from the paper, so check before relying on ${n === 1 ? 'it' : 'them'}.
                 </p>
-                ${flagged.map(c => `
+                ${flagged.map(c => {
+                  const id = `fc${++flaggedSeq}`;
+                  flaggedClaims.set(id, { claim: c, conversationId: currentConversationId });
+                  return `
                   <div class="message__check-claim">
                     <p class="message__check-text">${escHtml(c.claim)}</p>
                     ${c.evidence ? `<p class="message__check-evidence"><span>Closest passage</span>${escHtml(c.evidence)}</p>` : ''}
-                  </div>`).join('')}
+                    <div class="message__check-vote" data-claim-id="${id}">
+                      <span>Is it in your paper?</span>
+                      <button type="button" data-verdict="agree">No, it isn't</button>
+                      <button type="button" data-verdict="disagree">Yes, it is</button>
+                    </div>
+                  </div>`;
+                }).join('')}
               </div>
             </details>`;
   }
@@ -491,11 +504,64 @@
       const probe = norm(c.claim).slice(0, 48);
       if (probe.length < 12) return;
       const hit = blocks.find(b => norm(b.textContent).includes(probe));
-      if (hit) {
-        hit.classList.add('is-unverified');
-        hit.title = 'Not found in your papers. See the note under this answer.';
-      }
+      if (!hit) return;
+      // The sentence itself when it can be found; the whole paragraph
+      // otherwise. Underlining a paragraph also marks the sentences in it
+      // that the checker did find support for.
+      const target = wrapSentence(hit, c.claim) || hit;
+      target.classList.add('is-unverified');
+      target.title = 'Not found in your papers. See the note under this answer.';
     });
+  }
+
+  /**
+   * Wrap the stretch of `block` that holds `claim` in a span and return it,
+   * or null if it cannot be located. Located by the claim's opening and
+   * closing words rather than its whole text, because the checker reads the
+   * answer with citation markers removed and the page shows them.
+   */
+  function wrapSentence(block, claim) {
+    const clean = (t) => t.replace(/[*_`#]/g, '').replace(/\s+/g, ' ').trim();
+    const words = clean(claim).split(' ');
+    if (words.length < 4) return null;
+    const head = words.slice(0, 3).join(' ').toLowerCase();
+    const tail = words.slice(-2).join(' ').toLowerCase();
+
+    // Text nodes with their offsets in the block's (whitespace-collapsed)
+    // text, so a character position maps back to a node.
+    const nodes = [];
+    let text = '';
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      nodes.push({ node: n, start: text.length });
+      text += n.nodeValue;
+    }
+    const lower = text.toLowerCase();
+    const start = lower.indexOf(head);
+    if (start < 0) return null;
+    const tailAt = lower.indexOf(tail, start + head.length - 1);
+    if (tailAt < 0 || tailAt - start > clean(claim).length * 2) return null;
+    const end = tailAt + tail.length;
+
+    const locate = (pos) => {
+      for (let i = nodes.length - 1; i >= 0; i--) {
+        if (nodes[i].start <= pos) return { node: nodes[i].node, offset: pos - nodes[i].start };
+      }
+      return null;
+    };
+    const a = locate(start), b = locate(end);
+    if (!a || !b) return null;
+    try {
+      const range = document.createRange();
+      range.setStart(a.node, a.offset);
+      range.setEnd(b.node, Math.min(b.offset, b.node.nodeValue.length));
+      const span = document.createElement('span');
+      span.appendChild(range.extractContents());
+      range.insertNode(span);
+      return span;
+    } catch {
+      return null;
+    }
   }
 
   function referencesHtml(data) {
@@ -769,6 +835,38 @@
       });
     });
   }
+
+  // ── Claim-check feedback ──
+  // One listener for every answer, present and future. A reader who has the
+  // paper open is the only judge of whether a flag was right; each vote is
+  // stored with the checker's score so its precision can be measured on real
+  // answers (scripts/export_claim_feedback.py).
+  messages.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.message__check-vote button');
+    if (!btn) return;
+    const row = btn.closest('.message__check-vote');
+    const entry = flaggedClaims.get(row.dataset.claimId);
+    if (!entry || row.classList.contains('is-sent')) return;
+
+    row.querySelectorAll('button').forEach(b => { b.disabled = true; });
+    try {
+      await API.claimFeedback({
+        claim: entry.claim.claim,
+        flagged: true,
+        verdict: btn.dataset.verdict,
+        evidence: entry.claim.evidence || '',
+        entailment: typeof entry.claim.entailment === 'number' ? entry.claim.entailment : null,
+        conversation_id: entry.conversationId || null,
+      });
+      row.classList.add('is-sent');
+      row.innerHTML = btn.dataset.verdict === 'agree'
+        ? '<span>Thanks. Noted that it is not in your paper.</span>'
+        : '<span>Thanks. Noted that the paper does say this; that helps tune the checker.</span>';
+    } catch (err) {
+      row.querySelectorAll('button').forEach(b => { b.disabled = false; });
+      row.querySelector('span').textContent = 'Could not save that: ' + friendlyError(err);
+    }
+  });
 
   // ── Helpers ──
   function scrollToBottom() {

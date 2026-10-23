@@ -6,7 +6,7 @@ Pydantic models for all API endpoints.
 
 from __future__ import annotations
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -99,6 +99,32 @@ class ChatResponse(BaseModel):
     response_time: float = 0.0
     turn_number: int = 0
     verification: Optional[Dict[str, Any]] = None
+
+
+class ClaimFeedbackRequest(BaseModel):
+    """A reader's verdict on one statement the claim checker judged."""
+    claim: str = Field(..., min_length=1, max_length=2000)
+    # What the checker said: True when it found no supporting passage.
+    flagged: bool = True
+    # Whether the reader agrees with the checker.
+    verdict: Literal["agree", "disagree"]
+    evidence: str = Field("", max_length=4000)
+    entailment: Optional[float] = Field(None, ge=0.0, le=1.0)
+    conversation_id: Optional[str] = None
+
+
+class ClaimFeedbackResponse(BaseModel):
+    feedback_id: str
+
+
+class ClaimFeedbackSummary(BaseModel):
+    """Counts only; no statement or reader is identifiable from it."""
+    flags_reviewed: int
+    flags_confirmed: int
+    flags_disputed: int
+    flag_precision: Optional[float] = None
+    passes_reviewed: int = 0
+    passes_disputed: int = 0
 
 
 class ChatHistoryResponse(BaseModel):
