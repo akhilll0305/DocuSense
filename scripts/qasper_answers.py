@@ -81,7 +81,31 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--limit", type=int, default=None, help="Cap on questions (random, seeded)")
     p.add_argument("--no-rerank", action="store_true")
     p.add_argument("--out", default=None)
+    p.add_argument("--fresh", action="store_true",
+                   help="Ignore a checkpoint from an interrupted run")
     return p.parse_args()
+
+
+def generate_patiently(client, prompt: str, attempts: int = 8, wait: float = 60.0) -> str:
+    """
+    Generate, outlasting rate limits rather than scoring them.
+
+    The client's own retries cover a blip. A free tier metered in tokens per
+    minute can refuse for longer than that, and a question whose generation
+    failed used to be recorded as an empty answer -- scored 0, so the reported
+    Answer-F1 measured the rate limit as much as the system. A failure that
+    outlasts this is raised, so the run stops with a checkpoint instead of
+    finishing with a wrong number.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            return client.generate(prompt, system_prompt=SYSTEM_PROMPT)
+        except Exception as exc:
+            if "429" not in str(exc) or attempt == attempts:
+                raise
+            logger.warning(f"rate limited; waiting {wait:.0f}s ({attempt}/{attempts})")
+            time.sleep(wait)
+    raise AssertionError("unreachable")
 
 
 def clean_answer(text: str) -> str:
@@ -167,11 +191,34 @@ def main() -> int:
     print(f"{len(questions)} questions over {len(papers)} papers, scope={args.scope}, "
           f"model={client.model}")
 
+    out = Path(args.out or f"data/benchmarks/qasper_answers_{args.scope}.json")
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    # A run takes hours on a rate-limited API, so every answer is checkpointed
+    # and an interrupted run resumes. The checkpoint records what produced it;
+    # one from a different configuration is not mixed in.
+    run_key = {
+        "papers": len(papers), "seed": args.seed, "scope": args.scope,
+        "top_k": args.top_k, "evidence_k": args.evidence_k, "limit": args.limit,
+        "no_rerank": args.no_rerank, "model": client.model,
+        "embedding_model": settings.embedding_model,
+    }
+    checkpoint = out.with_suffix(".partial.json")
     predictions = {}
     latencies = []
+    if checkpoint.exists() and not args.fresh:
+        saved = json.loads(checkpoint.read_text(encoding="utf-8"))
+        if saved.get("run") == run_key:
+            predictions = saved["predictions"]
+            latencies = saved["latencies"]
+            print(f"Resuming: {len(predictions)} answers from {checkpoint}")
+        else:
+            print(f"Ignoring {checkpoint}: it is from a different configuration")
     started = time.time()
 
     for i, (paper, question) in enumerate(questions, 1):
+        if question.question_id in predictions:
+            continue
         t0 = time.time()
         filters = {"user_id": harness.user_id}
         if args.scope == "paper":
@@ -188,10 +235,12 @@ def main() -> int:
         )
         prompt = f"Excerpts:\n\n{context}\n\nQuestion: {question.question}\nAnswer:"
         try:
-            answer = clean_answer(client.generate(prompt, system_prompt=SYSTEM_PROMPT))
+            answer = clean_answer(generate_patiently(client, prompt))
         except Exception as exc:
-            logger.warning(f"generation failed: {exc}")
-            answer = ""
+            print(f"ERROR: generation failed on question {i}: {exc}\n"
+                  f"{len(predictions)} answers are saved in {checkpoint}; rerun "
+                  f"the same command to resume.", file=sys.stderr)
+            return 1
 
         evidence = []
         if answer and answer != "Unanswerable":
@@ -210,6 +259,10 @@ def main() -> int:
 
         predictions[question.question_id] = {"answer": answer, "evidence": evidence}
         latencies.append(time.time() - t0)
+        checkpoint.write_text(
+            json.dumps({"run": run_key, "predictions": predictions, "latencies": latencies}),
+            encoding="utf-8",
+        )
 
         if i % 20 == 0 or i == len(questions):
             print(f"  {i}/{len(questions)}  ({time.time() - started:.0f}s)")
@@ -239,20 +292,20 @@ def main() -> int:
                             "predicted_evidence": p["evidence"]})
                 for qid, p in predictions.items()
             ), encoding="utf-8")
-            out = subprocess.run(
+            proc = subprocess.run(
                 [sys.executable, OFFICIAL_SCRIPT, "--predictions", str(pred_path),
                  "--gold", str(gold_path), "--text_evidence_only"],
                 capture_output=True, text=True,
             )
-            if out.returncode == 0:
-                official = json.loads(out.stdout)
+            if proc.returncode == 0:
+                official = json.loads(proc.stdout)
                 for key in ("Answer F1", "Evidence F1"):
                     if abs(official[key] - result[key]) > 1e-9:
                         print(f"ERROR: {key} disagrees with the official script: "
                               f"{result[key]} vs {official[key]}", file=sys.stderr)
                         return 1
             else:
-                print(f"official script failed: {out.stderr[-500:]}", file=sys.stderr)
+                print(f"official script failed: {proc.stderr[-500:]}", file=sys.stderr)
 
     per_question = result.pop("per_question")
     report = {
@@ -274,9 +327,8 @@ def main() -> int:
         "predictions": predictions,
     }
 
-    out = Path(args.out or f"data/benchmarks/qasper_answers_{args.scope}.json")
-    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    checkpoint.unlink(missing_ok=True)
 
     m = report["metrics"]
     print()

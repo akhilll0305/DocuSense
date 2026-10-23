@@ -70,6 +70,8 @@ data/benchmarks/*.json
 !data/benchmarks/reranker_finetuned_ablation_report.json
 !data/benchmarks/claim_verifier_validation.json
 !data/benchmarks/qasper_answers_*.json
+# Checkpoints of an interrupted run, not results.
+data/benchmarks/*.partial.json
 data/benchmarks/qasper/
 
 # Evaluation data (keep test sets but ignore results)
