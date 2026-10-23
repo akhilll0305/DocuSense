@@ -59,6 +59,7 @@ A clean re-run reproduces every figure to four decimal places.
 | ONNX instead of torch | identical metrics to four decimals, 326MB resident instead of 758MB |
 | Claim verification | NLI judge validated on QASPER dev before use: ROC-AUC 0.750 |
 | End-to-end answers, QASPER's official metric | **Answer-F1 31.9, Evidence-F1 31.9** on 284 test questions with a local 3B model: level with the QASPER paper's fine-tuned LED-base (32.8–33.6 / 29.85). Searching the whole shelf instead of the question's paper halves Answer-F1 |
+| Faithfulness of the product's own answers | 40 answers through the full product path: **84% of 260 statements** entailed by a retrieved passage, judged by the validated NLI checker (whose error rates are reported beside it) |
 | Embedder fine-tuned on QASPER train | on test, **+32% MRR** for vector search and **+26%** for hybrid, both p = 0.0002. Fine-tuned hybrid alone matches stock hybrid + rerank (0.283 vs 0.282 MRR) at 26 ms a query instead of 2.2 s. Deployed |
 
 ### Measured and switched off

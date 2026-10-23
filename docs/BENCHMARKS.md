@@ -713,9 +713,26 @@ maximises balanced accuracy (0.697), because 0.8 flags 47% of supported claims. 
 precision is about 0.64, so a flag says "no retrieved passage was found to entail
 this", not "this is false", and the UI is worded that way.
 
-What this does not measure: how faithful the product's own prose answers are.
-`benchmark.py --answers N` now records the verifier's faithfulness per answer through
-`rag.ask()`; that run has not been done for this report.
+**The product's own answers.** 40 test questions through `rag.ask()` -- the full
+product path: fine-tuned embedder, hybrid search, cross-encoder, `llama3.2:3b`, and the
+claim checker on every answer:
+
+| 40 answers, 260 checkable statements | |
+|---|---|
+| Statements a retrieved passage entails | **219 of 260 (84.2%)** |
+| Mean per answer | 83.4% |
+| Answers with every statement supported | 18 of 40 |
+
+Read it through the judge's error rates measured above. The checker flags about 31%
+of supported claims and catches about 64% of unsupported ones on QASPER's labels, so
+84% is not the true faithfulness: both errors are large enough to move it. What it does
+say is that a reader sees a flag on about one statement in six, and that most answers
+(22 of 40) carry at least one. The reader feedback on each flag now measures how many
+of those are right on real use, which no offline label set can.
+
+```bash
+QDRANT_COLLECTION_NAME=qasper_ft EMBEDDING_MODEL=models/minilm-qasper LLM_PROVIDER=ollama     python scripts/benchmark.py --papers 80 --reuse-corpus --arms hybrid_rerank --answers 40     --out data/benchmarks/faithfulness_report.json
+```
 
 ---
 
