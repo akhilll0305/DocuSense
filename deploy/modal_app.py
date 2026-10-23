@@ -103,7 +103,12 @@ image = (
         "from docusense.generation.claim_verifier import NLIModel; "
         f"load_embedding_backend('{EMBEDDER}'); "
         "load_cross_encoder_backend('cross-encoder/ms-marco-MiniLM-L-6-v2'); "
-        "NLIModel()\""
+        "NLIModel()\"",
+        # Importing settings creates the data directories, and Modal refuses
+        # to mount a Volume over a path that is not empty: the container
+        # failed to start at all until this was here. Nothing in them is
+        # needed; the models cache elsewhere.
+        "rm -rf /root/data",
     )
     .env(
         {
