@@ -59,6 +59,10 @@ class AskResponse(BaseModel):
     total_time: float = 0.0
     # Per-claim NLI check: faithfulness, and each claim with its best source.
     verification: Optional[Dict[str, Any]] = None
+    # Where the time went, in seconds. total_time includes all three.
+    retrieval_time: float = 0.0
+    generation_time: float = 0.0
+    verification_time: float = 0.0
 
 
 # ==============================================================================

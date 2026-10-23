@@ -86,6 +86,7 @@ def _sse_response(make_stream) -> StreamingResponse:
                 "turn_number": getattr(payload, "turn_number", None),
                 "has_citations": getattr(payload, "has_citations", False),
                 "verification": verification_of(payload),
+                "verification_time": getattr(payload, "verification_time", None),
             }
         elif kind == "token":
             data = {"type": "token", "text": payload}
@@ -231,6 +232,9 @@ async def ask_question(
             num_sources=response.num_sources,
             total_time=response.total_time,
             verification=verification_of(response),
+            retrieval_time=getattr(response, "retrieval_time", 0.0),
+            generation_time=getattr(response, "generation_time", 0.0),
+            verification_time=getattr(response, "verification_time", 0.0),
         )
     except Exception as e:
         logger.error(f"❌ Ask failed: {e}")
