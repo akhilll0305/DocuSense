@@ -67,6 +67,7 @@ data/benchmarks/*.json
 !data/benchmarks/reranker_finetune_report.json
 !data/benchmarks/finetuned_ablation_report.json
 !data/benchmarks/bge_small_ablation_report.json
+!data/benchmarks/reranker_finetuned_ablation_report.json
 !data/benchmarks/claim_verifier_validation.json
 !data/benchmarks/qasper_answers_*.json
 data/benchmarks/qasper/
