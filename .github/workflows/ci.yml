@@ -70,6 +70,53 @@ jobs:
           name: coverage
           path: coverage.xml
 
+  quality:
+    # The unit tests prove the code runs; this proves the models still work.
+    # It measures retrieval and the claim checker on a fixed slice of QASPER
+    # and fails if either is worse than tests/quality/baseline.json. A change
+    # that moves a number on purpose updates the baseline in the same commit.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      ENVIRONMENT: test
+      JWT_SECRET_KEY: ci-only-key-not-used-outside-github-actions
+      # fastembed caches under /tmp by default, which no cache step can keep.
+      FASTEMBED_CACHE_PATH: /home/runner/.cache/fastembed
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libmagic1 tesseract-ocr
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Cache models
+        # The embedder, the cross-encoder and the NLI model: ~600MB that
+        # would otherwise be downloaded on every run.
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/fastembed
+          key: models-${{ runner.os }}-${{ hashFiles('docusense/config/settings.py') }}
+          restore-keys: models-${{ runner.os }}-
+
+      - name: Quality gate
+        run: python scripts/quality_gate.py
+
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -92,6 +92,7 @@ python scripts/qasper_answers.py --papers 80   # Answer-F1 / Evidence-F1
 | **Paper metadata extraction** | Title, authors, year, venue, DOI/arXiv ID, abstract, 20+ section types, and both `[1]` and `(Smith, 2020)` citation styles |
 | **Per-user isolation** | Documents, vectors, BM25 corpora and conversations are scoped to their owner; cross-tenant reads return 404 |
 | **Benchmarks that refuse to lie** | The harness refuses to report on a partly ingested corpus, on stale duplicate vectors, or on two runs that asked different questions |
+| **A model regression fails the build** | Every push re-measures retrieval and the claim checker on a fixed QASPER slice (`scripts/quality_gate.py`, ~2 min) and fails CI if either falls below the committed baseline. The unit tests cannot see a retriever returning the wrong paragraphs; this can |
 
 ---
 
@@ -129,7 +130,8 @@ python scripts/ingest.py path/to/paper.pdf     # or a whole directory
 python scripts/doctor.py                       # check Qdrant / models / provider
 python scripts/reset_password.py --list        # operator account recovery
 
-pip install -r requirements-dev.txt && pytest  # 390 tests
+pip install -r requirements-dev.txt && pytest  # 400 tests
+python scripts/quality_gate.py                 # are the models still as good? (~2 min)
 python scripts/benchmark.py --papers 80        # QASPER retrieval ablation
 python scripts/qasper_answers.py --papers 80   # QASPER Answer-F1 / Evidence-F1
 python scripts/validate_claim_verifier.py      # how good the claim checker is

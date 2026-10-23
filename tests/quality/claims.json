@@ -1,0 +1,1074 @@
+[
+ {
+  "claim": "OurNepali contains 3 different types of entities, ILPRL contains 4 different types of entities",
+  "sources": [
+   "Table TABREF24 presents the total entities (PER, LOC, ORG and MISC) from both of the dataset used in our experiments. The dataset is divided into three parts with 64%, 16% and 20% of the total dataset into training set, development set and test set respectively."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "From all reported results proposed method (NB+Lex) shows best accuracy on all 3 datasets - some models are not evaluated and not available in literature.",
+  "sources": [
+   "The average classification accuracy results are summarised in Table TABREF9. The accuracies reported are for classifying a piece of text by its specific language label. Classifying text only by language group or family is a much easier task as reported in BIBREF8."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "The Conversations Gone Awry dataset is labelled as either containing a personal attack from withint (i.e. hostile behavior by one user in the conversation directed towards another) or remaining civil throughout. The Reddit Change My View dataset is labelled with whether or not a coversation eventually had a comment removed by a moderator for violation of Rule 2: \"Don't be rude or hostile to others users.\"",
+  "sources": [
+   "We consider two datasets, representing related but slightly different forecasting tasks. The first dataset is an expanded version of the annotated Wikipedia conversations dataset from BIBREF9. This dataset uses carefully-controlled crowdsourced labels, strictly filtered to ensure the conversations are civil up to the moment of a personal attack. This is a useful property for the purposes of model analysis, and hence we focus on this as our primary dataset. However, we are conscious of the possibility that these strict labels may not fully capture the kind of behavior that moderators care about in practice. We therefore introduce a secondary dataset, constructed from the subreddit ChangeMyView (CMV) that does not use post-hoc annotations. Instead, the prediction task is to forecast whether the conversation will be subject to moderator action in the future.",
+   "Wikipedia data. BIBREF9's `Conversations Gone Awry' dataset consists of 1,270 conversations that took place between Wikipedia editors on publicly accessible talk pages. The conversations are sourced from the WikiConv dataset BIBREF59 and labeled by crowdworkers as either containing a personal attack from within (i.e., hostile behavior by one user in the conversation directed towards another) or remaining civil throughout.",
+   "Reddit CMV data. The CMV dataset is constructed from conversations collected via the Reddit API. In contrast to the Wikipedia-based dataset, we explicitly avoid the use of post-hoc annotation. Instead, we use as our label whether a conversation eventually had a comment removed by a moderator for violation of Rule 2: \u201cDon't be rude or hostile to other users\u201d."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "De-En, En-Fr, Fr-En, En-Es, Ro-En, En-De, Ar-En, En-Ru",
+  "sources": [
+   "For MultiUN corpus, we use four languages: English (En) is set as the pivot language, which has parallel data with other three languages which do not have parallel data between each other. The three languages are Arabic (Ar), Spanish (Es), and Russian (Ru), and mutual translation between themselves constitutes six zero-shot translation direction for evaluation. We use 80K BPE splits as the vocabulary. Note that all sentences are tokenized by the tokenize.perl script, and we lowercase all data to avoid a large vocabulary for the MultiUN corpus.",
+   "The statistics of Europarl and MultiUN corpora are summarized in Table TABREF18. For Europarl corpus, we evaluate on French-English-Spanish (Fr-En-Es), German-English-French (De-En-Fr) and Romanian-English-German (Ro-En-De), where English acts as the pivot language, its left side is the source language, and its right side is the target language. We remove the multi-parallel sentences between different training corpora to ensure zero-shot settings. We use the devtest2006 as the validation set and the test2006 as the test set for Fr$\\rightarrow $Es and De$\\rightarrow $Fr. For distant language pair Ro$\\rightarrow $De, we extract 1,000 overlapping sentences from newstest2016 as the test set and the 2,000 overlapping sentences split from the training set as the validation set since there is no official validation and test sets. For vocabulary, we use 60K sub-word tokens based on Byte Pair Encoding (BPE) BIBREF33."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "A new tagging scheme that tags the words before and after the pun as well as the pun words.",
+  "sources": [
+   "The contexts have the characteristic that each context contains a maximum of one pun BIBREF9 . In other words, there exists only one pun if the given sentence is detected as the one containing a pun. Otherwise, there is no pun residing in the text. To capture this interesting property, we propose a new tagging scheme consisting of three tags, namely { INLINEFORM0 }.",
+   "INLINEFORM0 tag indicates that the current word appears before the pun in the given context.",
+   "INLINEFORM0 tag highlights the current word is a pun.",
+   "INLINEFORM0 tag indicates that the current word appears after the pun."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "four machine translation tasks: German -> English, Japanese -> English, Romanian -> English, English -> German",
+  "sources": [
+   "We apply our adaptively sparse Transformers on four machine translation tasks. For comparison, a natural baseline is the standard Transformer architecture using the softmax transform in its multi-head attention mechanisms. We consider two other model variants in our experiments that make use of different normalizing transformations:",
+   "IWSLT 2017 German $\\rightarrow $ English BIBREF27: 200K sentence pairs.",
+   "KFTT Japanese $\\rightarrow $ English BIBREF28: 300K sentence pairs.",
+   "WMT 2016 Romanian $\\rightarrow $ English BIBREF29: 600K sentence pairs.",
+   "WMT 2014 English $\\rightarrow $ German BIBREF30: 4.5M sentence pairs."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Experienced medical doctors used a linguistic annotation tool to annotate entities.",
+  "sources": [
+   "We asked medical doctors experienced in extracting knowledge related to medical entities from texts to annotate the entities described above. Initially, we asked four annotators to test our guidelines on two texts. Subsequently, identified issues were discussed and resolved. Following this pilot annotation phase, we asked two different annotators to annotate two case reports according to our guidelines. The same annotators annotated an overall collection of 53 case reports.",
+   "The annotation was performed using WebAnno BIBREF7, a web-based tool for linguistic annotation. The annotators could choose between a pre-annotated version or a blank version of each text. The pre-annotated versions contained suggested entity spans based on string matches from lists of conditions and findings synonym lists. Their quality varied widely throughout the corpus. The blank version was preferred by the annotators. We distribute the corpus in BioC JSON format. BioC was chosen as it allows us to capture the complexities of the annotations in the biomedical domain. It represented each documents properties ranging from full text, individual passages/sentences along with captured annotations and relationships in an organized manner. BioC is based on character offsets of annotations and allows the stacking of different layers."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "It defined a sequence labeling task to extract custom entities from user input and label the next action (out of 13  custom actions defined).",
+  "sources": [
+   "Named Entity Recognition: We defined a sequence labeling task to extract custom entities from user input. We assumed seven (7) possible entities (see Table TABREF43) to be recognized by the model: topic, subtopic, examination mode and level, question number, intent, as well as the entity other for remaining words in the utterance. Since the data obtained from the rule-based system already contains information on the entities extracted from each user query (i.e., by means of Elasticsearch), we could use it to train a domain-specific NER unit. However, since the user-input was informal, the same information could be provided in different writing styles. That means that a single entity could have different surface forms (e.g., synonyms, writing styles) (although entities that we extracted from the rule-based system were all converted to a universal standard, e.g., official chapter names). To consider all of the variable entity forms while post-labeling the original dataset, we defined generic entity names (e.g., chapter, question nr.) and mapped variations of entities from the user input (e.g., Chapter = [Elementary Calculus, Chapter $I$, ...]) to them.",
+   "Next Action Prediction: We defined a classification problem to predict the system's next action according to the given user input. We assumed 13 custom actions (see Table TABREF42) that we considered being our labels. In the conversational dataset, each input was automatically labeled by the rule-based system with the corresponding next action and the dialogue-id. Thus, no additional post-labeling was required. We investigated two settings:"
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Dataset contains total of 14100 annotations.",
+  "sources": [
+   "The data included in OLID has been collected from Twitter. We retrieved the data using the Twitter API by searching for keywords and constructions that are often included in offensive messages, such as `she is' or `to:BreitBartNews'. We carried out a first round of trial annotation of 300 instances with six experts. The goal of the trial annotation was to 1) evaluate the proposed tagset; 2) evaluate the data retrieval method; and 3) create a gold standard with instances that could be used as test questions in the training and test setting annotation which was carried out using crowdsourcing. The breakdown of keywords and their offensive content in the trial data of 300 tweets is shown in Table TABREF14 . We included a left (@NewYorker) and far-right (@BreitBartNews) news accounts because there tends to be political offense in the comments. One of the best offensive keywords was tweets that were flagged as not being safe by the Twitter `safe' filter (the `-' indicates `not safe'). The vast majority of content on Twitter is not offensive so we tried different strategies to keep a reasonable number of tweets in the offensive class amounting to around 30% of the dataset including excluding some keywords that were not high in offensive content such as `they are` and `to:NewYorker`. Although `he is' is lower in offensive content we kept it as a keyword to avoid gender bias. In addition to the keywords in the trial set, we searched for more political keywords which tend to be higher in offensive content, and sampled our dataset such that 50% of the the tweets come from political keywords and 50% come from non-political keywords. In addition to the keywords `gun control', and `to:BreitbartNews', political keywords used to collect these tweets are `MAGA', `antifa', `conservative' and `liberal'. We computed Fliess' INLINEFORM0 on the trial set for the five annotators on 21 of the tweets. INLINEFORM1 is .83 for Layer A (OFF vs NOT) indicating high agreement. As to normalization and anonymization, no user metadata or Twitter IDs have been stored, and URLs and Twitter mentions have been substituted to placeholders. We follow prior work in related areas (burnap2015cyber,davidson2017automated) and annotate our data using crowdsourcing using the platform Figure Eight. We ensure data quality by: 1) we only received annotations from individuals who were experienced in the platform; and 2) we used test questions to discard annotations of individuals who did not reach a certain threshold. Each instance in the dataset was annotated by multiple annotators and inter-annotator agreement has been calculated. We first acquired two annotations for each instance. In case of 100% agreement, we considered these as acceptable annotations, and in case of disagreement, we requested more annotations until the agreement was above 66%. After the crowdsourcing annotation, we used expert adjudication to guarantee the quality of the annotation. The breakdown of the data into training and testing for the labels from each level is shown in Table TABREF15 ."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "A dataset provided by BioASQ consisting of questions, gold standard documents, snippets, concepts  and ideal and ideal answers.",
+  "sources": [
+   "BioASQ organizers provide the training and testing data. The training data consists of questions, gold standard documents, snippets, concepts, and ideal answers (which we did not use in this paper, but we used last year BIBREF2). The test data is split between phases A and B. The Phase A dataset consists of the questions, unique ids, question types. The Phase B dataset consists of the questions, golden standard documents, snippets, unique ids and question types. Exact answers for factoid type questions are evaluated using strict accuracy (the top answer), lenient accuracy (the top 5 answers), and MRR (Mean Reciprocal Rank) which takes into account the ranks of returned answers. Answers for the list type question are evaluated using precision, recall, and F-measure."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Adversarial misspellings are a real-world problem",
+  "sources": [
+   "For all the interest in adversarial computer vision, these attacks are rarely encountered outside of academic research. However, adversarial misspellings constitute a longstanding real-world problem. Spammers continually bombard email servers, subtly misspelling words in efforts to evade spam detection while preserving the emails' intended meaning BIBREF1 , BIBREF2 . As another example, programmatic censorship on the Internet has spurred communities to adopt similar methods to communicate surreptitiously BIBREF3 ."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Collected tweets and opening and closing stock prices of Microsoft.",
+  "sources": [
+   "A total of 2,50,000 tweets over a period of August 31st, 2015 to August 25th,2016 on Microsoft are extracted from twitter API BIBREF15 . Twitter4J is a java application which helps us to extract tweets from twitter. The tweets were collected using Twitter API and filtered using keywords like $ MSFT, # Microsoft, #Windows etc. Not only the opinion of public about the company's stock but also the opinions about products and services offered by the company would have a significant impact and are worth studying. Based on this principle, the keywords used for filtering are devised with extensive care and tweets are extracted in such a way that they represent the exact emotions of public about Microsoft over a period of time. The news on twitter about Microsoft and tweets regarding the product releases were also included. Stock opening and closing prices of Microsoft from August 31st, 2015 to August 25th, 2016 are obtained from Yahoo! Finance BIBREF16 ."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "For speech synthesis, they build a speech clustergen statistical speech synthesizer BIBREF9. For speech recognition, they use Kaldi BIBREF11. For Machine Translation, they use a Transformer architecture from BIBREF15.",
+  "sources": [
+   "We phonetically aligned this data and built a speech clustergen statistical speech synthesizer BIBREF9 from all of this data. We resynthesized all of the data and measured the difference between the synthesized data and the original data using Mel Cepstral Distortion, a standard method for automatically measuring quality of speech generation BIBREF10. We then ordered the segments by their generation score and took the top 2000 turns to build a new synthesizer, assuming the better scores corresponded to better alignments, following the techniques of BIBREF7.",
+   "For speech recognition (ASR) we used Kaldi BIBREF11. As we do not have access to pronunciation lexica for Mapudungun, we had to approximate them with two settings. In the first setting, we make the simple assumption that each character corresponds to a pronunced phoneme. In the second setting, we instead used the generated phonetic lexicon also used in the above-mentioned speech synthesis techniques. The train/dev/test splits are across conversations, as described above.",
+   "We built neural end-to-end machine translation systems between Mapudungun and Spanish in both directions, using state-of-the-art Transformer architecture BIBREF14 with the toolkit of BIBREF15. We train our systems at the subword level using Byte-Pair Encoding BIBREF16 with a vocabulary of 5000 subwords, shared between the source and target languages. We use five layers for each of the encoder and the decoder, an embedding size of 512, feed forward transformation size of 2048, and eight attention heads. We use dropout BIBREF17 with $0.4$ probability as well as label smoothing set to $0.1$. We train with the Adam optimizer BIBREF18 for up to 200 epochs using learning decay with a patience of six epochs."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "reduced the dataset by eliminating features, apply feature selection to select highest ranked features to train and test the model and rank the performance of incrementally adding features.",
+  "sources": [
+   "Feature elimination strategies are often taken 1) to remove irrelevant or noisy features, 2) to improve classifier performance, and 3) to reduce training and run times. We conducted an experiment to determine whether we could maintain or improve classifier performances by applying the following three-tiered feature elimination approach:",
+   "Reduction We reduced the dataset encoded for each class by eliminating features that occur less than twice in the full dataset.",
+   "Selection We iteratively applied Chi-Square feature selection on the reduced dataset, selecting the top percentile of highest ranked features in increments of 5 percent to train and test the support vector model using a linear kernel and 5-fold, stratified cross-validation.",
+   "Rank We cumulatively plotted the average F1-score performances of each incrementally added percentile of top ranked features. We report the percentile and count of features resulting in the first occurrence of the highest average F1-score for each class."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "They compare to Akbik et al. (2018) and Link et al. (2012).",
+  "sources": [
+   "In this paper, we present a deep neural network model for the task of fine-grained named entity classification using ELMo embeddings and Wikidata. The proposed model learns representations for entity mentions based on its context and incorporates the rich structure of Wikidata to augment these labels into finer-grained subtypes. We can see comparisons of our model made on Wiki(gold) in Table TABREF20 . We note that the model performs similarly to existing systems without being trained or tuned on that particular dataset. Future work may include refining the clustering method described in Section 2.2 to extend to types other than person, location, organization, and also to include disambiguation of entity types."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "The crowdsourcing platform CrowdFlower was used to obtain natural dialog data that prompted the user to paraphrase, explain, and/or answer a question from a Simple questions BIBREF7 dataset. The CrowdFlower users were restricted to English-speaking countries to avoid dialogs  with poor English.",
+  "sources": [
+   "However, getting access to systems with real users is usually hard. Therefore, we used the crowdsourcing platform CrowdFlower (CF) for our data collection.",
+   "A CF worker gets a task instructing them to use our chat-like interface to help the system with a question which is randomly selected from training examples of Simple questions BIBREF7 dataset. To complete the task user has to communicate with the system through the three phase dialog discussing question paraphrase (see Section \"Interactive Learning Evaluation\" ), explanation (see Section \"Future Work\" ) and answer of the question (see Section \"Conclusion\" ). To avoid poor English level of dialogs we involved CF workers from English speaking countries only. The collected dialogs has been annotated (see Section \"Acknowledgments\" ) by expert annotators afterwards."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Adv. Heart Disease, Adv. Lung Disease, Alcohol Abuse, Chronic Neurologic Dystrophies, Dementia, Depression, Developmental Delay, Obesity, Psychiatric disorders and Substance Abuse",
+  "sources": [
+   "Table defines each of the considered clinical patient phenotypes. Table counts the occurrences of these phenotypes across patient notes and Figure contains the corresponding correlation matrix. Lastly, Table presents an overview of some descriptive statistics on the patient notes' lengths."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Logistic Regression, Multinomial Naive Bayes, Random Forest, AdaBoost, Linear SVM, SVM with ADWSK and Pattern-based",
+  "sources": [
+   "We randomly selected 2000 sentences from the supervisor assessment corpus and manually tagged them (dataset D1). This labelled dataset contained 705, 103, 822 and 370 sentences having the class labels STRENGTH, WEAKNESS, SUGGESTION or OTHER respectively. We trained several multi-class classifiers on this dataset. Table TABREF10 shows the results of 5-fold cross-validation experiments on dataset D1. For the first 5 classifiers, we used their implementation from the SciKit Learn library in Python (scikit-learn.org). The features used for these classifiers were simply the sentence words along with their frequencies. For the last 2 classifiers (in Table TABREF10 ), we used our own implementation. The overall accuracy for a classifier is defined as INLINEFORM0 , where the denominator is 2000 for dataset D1. Note that the pattern-based approach is unsupervised i.e., it did not use any training data. Hence, the results shown for it are for the entire dataset and not based on cross-validation."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "The neural projector must be invertible.",
+  "sources": [
+   "In this section, we introduce an invertibility condition for our neural projector to tackle the optimization challenge. Specifically, we constrain our neural projector with two requirements: (1) INLINEFORM0 and (2) INLINEFORM1 exists. Invertible transformations have been explored before in independent components analysis BIBREF14 , gaussianization BIBREF15 , and deep density models BIBREF16 , BIBREF17 , BIBREF18 , for unstructured data. Here, we generalize this style of approach to structured learning, and augment it with discrete latent variables ( INLINEFORM2 ). Under the invertibility condition, we derive a learning algorithm and give another view of our approach revealed by the objective function. Then, we present the architecture of a neural projector we use in experiments: a volume-preserving invertible neural network proposed by BIBREF16 for independent components estimation."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Data annotation biases where tweet containing disrespectful words are annotated as hate or offensive without any presumption about the social context of tweeters",
+  "sources": [
+   "By examining more samples and with respect to recently studies BIBREF2, BIBREF24, BIBREF19, it is clear that many errors are due to biases from data collection BIBREF19 and rules of annotation BIBREF24 and not the classifier itself. Since Waseem et al.BIBREF5 created a small ad-hoc set of keywords and Davidson et al.BIBREF9 used a large crowdsourced dictionary of keywords (Hatebase lexicon) to sample tweets for training, they included some biases in the collected data. Especially for Davidson-dataset, some tweets with specific language (written within the African American Vernacular English) and geographic restriction (United States of America) are oversampled such as tweets containing disparage words \u201cnigga\", \u201cfaggot\", \u201ccoon\", or \u201cqueer\", result in high rates of misclassification. However, these misclassifications do not confirm the low performance of our classifier because annotators tended to annotate many samples containing disrespectful words as hate or offensive without any presumption about the social context of tweeters such as the speaker\u2019s identity or dialect, whereas they were just offensive or even neither tweets. Tweets IDs 6, 8, and 10 are some samples containing offensive words and slurs which arenot hate or offensive in all cases and writers of them used this type of language in their daily communications. Given these pieces of evidence, by considering the content of tweets, we can see in tweets IDs 3, 4, and 9 that our BERT-based classifier can discriminate tweets in which neither and implicit hatred content exist. One explanation of this observation may be the pre-trained general knowledge that exists in our model. Since the pre-trained BERT model is trained on general corpora, it has learned general knowledge from normal textual data without any purposely hateful or offensive language. Therefore, despite the bias in the data, our model can differentiate hate and offensive samples accurately by leveraging knowledge-aware language understanding that it has and it can be the main reason for high misclassifications of hate samples as offensive (in reality they are more similar to offensive rather than hate by considering social context, geolocation, and dialect of tweeters)."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Through the All India Radio new channel where actors read news.",
+  "sources": [
+   "In this paper, we explore multiple pooling strategies for language identification task. Mainly we propose Ghost-VLAD based pooling method for language identification. Inspired by the recent work by W. Xie et al. [9] and Y. Zhong et al. [10], we use Ghost-VLAD to improve the accuracy of language identification task for Indian languages. We explore multiple pooling strategies including NetVLAD pooling [11], Average pooling and Statistics pooling( as proposed in X-vectors [7]) and show that Ghost-VLAD pooling is the best pooling strategy for language identification. Our model obtains the best accuracy of 98.24%, and it outperforms all the other previously proposed pooling methods. We conduct all our experiments on 635hrs of audio data for 7 Indian languages collected from $\\textbf {All India Radio}$ news channel. The paper is organized as follows. In section 2, we explain the proposed pooling method for language identification. In section 3, we explain our dataset. In section 4, we describe the experiments, and in section 5, we describe the results.",
+   "In this section, we describe our dataset collection process. We collected and curated around 635Hrs of audio data for 7 Indian languages, namely Kannada, Hindi, Telugu, Malayalam, Bengali, and English. We collected the data from the All India Radio news channel where an actor will be reading news for about 5-10 mins. To cover many speakers for the dataset, we crawled data from 2010 to 2019. Since the audio is very long to train any deep neural network directly, we segment the audio clips into smaller chunks using Voice activity detector. Since the audio clips will have music embedded during the news, we use Inhouse music detection model to remove the music segments from the dataset to make the dataset clean and our dataset contains 635Hrs of clean audio which is divided into 520Hrs of training data containing 165K utterances and 115Hrs of testing data containing 35K utterances. The amount of audio data for training and testing for each of the language is shown in the table bellow."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "tweets are annotated with only Favor or Against for two targets - Galatasaray and Fenerbah\u00e7e",
+  "sources": [
+   "We have decided to consider tweets about popular sports clubs as our domain for stance detection. Considerable amounts of tweets are being published for sports-related events at every instant. Hence we have determined our targets as Galatasaray (namely Target-1) and Fenerbah\u00e7e (namely, Target-2) which are two of the most popular football clubs in Turkey. As is the case for the sentiment analysis tools, the outputs of the stance detection systems on a stream of tweets about these clubs can facilitate the use of the opinions of the football followers by these clubs.",
+   "In a previous study on the identification of public health-related tweets, two tweet data sets in Turkish (each set containing 1 million random tweets) have been compiled where these sets belong to two different periods of 20 consecutive days BIBREF11 . We have decided to use one of these sets (corresponding to the period between August 18 and September 6, 2015) and firstly filtered the tweets using the possible names used to refer to the target clubs. Then, we have annotated the stance information in the tweets for these targets as Favor or Against. Within the course of this study, we have not considered those tweets in which the target is not explicitly mentioned, as our initial filtering process reveals.",
+   "For the purposes of the current study, we have not annotated any tweets with the Neither class. This stance class and even finer-grained classes can be considered in further annotation studies. We should also note that in a few tweets, the target of the stance was the management of the club while in some others a particular footballer of the club is praised or criticised. Still, we have considered the club as the target of the stance in all of the cases and carried out our annotations accordingly."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Answer with content missing: (formulas in selection): Pseudo-perplexity is perplexity where conditional joint probability is approximated.",
+  "sources": [
+   "The goal of an language model is to assign meaningful probabilities to a sequence of words. Given a set of tokens $\\mathbf {X}=(x_1,....,x_T)$, where $T$ is the length of a sequence, our task is to estimate the joint conditional probability $P(\\mathbf {X})$ which is",
+   "were $(x_{1}, \\ldots , x_{i-1})$ is the context. An Intrinsic evaluation of the performance of Language Models is perplexity (PPL) which is defined as the inverse probability of the set of the tokens and taking the $T^{th}$ root were $T$ is the number of tokens",
+   "BERT's bi-directional context poses a problem for us to calculate an auto-regressive joint probability. A simple fix could be that we mask all the tokens $\\mathbf {x}_{>i}$ and we calculate the conditional factors as we do for an unidirectional model. By doing so though, we loose upon the advantage of bi-directional context the BERT model enables. We propose an approximation of the joint probability as,",
+   "This type of approximations has been previously explored with Bi-directional RNN LM's BIBREF9 but not for deep transformer models. We therefore, define a pseudo-perplexity score from the above approximated joint probability."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Original transcription was labeled with additional labels in [] brackets with nonstandard pronunciation.",
+  "sources": [
+   "In addition, the transcription includes annotations for noises and disfluencies including aborted words, mispronunciations, poor intelligibility, repeated and corrected words, false starts, hesitations, undefined sound or pronunciations, non-verbal articulations, and pauses. Foreign words, in this case Spanish words, are also labelled as such."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Pretrained word embeddings  were not used",
+  "sources": [
+   "Word Vectors: We focus primarily on the word vector representations (word embeddings) created specifically using the twitter dataset. GloVe BIBREF13 is an unsupervised learning algorithm for obtaining vector representations for words. 200-dimensional GloVe embeddings trained on 2 Billion tweets are integrated. Edinburgh embeddings BIBREF14 are obtained by training skip-gram model on Edinburgh corpus BIBREF15 . Since tweets are abundant with emojis, Emoji embeddings BIBREF16 which are learned from the emoji descriptions have been used. Embeddings for each tweet are obtained by summing up individual word vectors and then dividing by the number of tokens in the tweet."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Answer with content missing: (Experimental Setup missing subsections)\nTo be selected: We compared REFRESH against a baseline which simply selects the first m leading sentences from each document (LEAD) and two neural models similar to ours (see left block in Figure 1), both trained with cross-entropy loss.\nAnswer: LEAD",
+  "sources": [
+   "Experimental Setup",
+   "In this section we present our experimental setup for assessing the performance of our model which we call Refresh as a shorthand for REinFoRcement Learning-based Extractive Summarization. We describe our datasets, discuss implementation details, our evaluation protocol, and the systems used for comparison."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "A unordered text document is one where sentences in the document are disordered or jumbled. It doesn't appear that unordered text documents appear in corpora, but rather are introduced as part of processing pipeline.",
+  "sources": [
+   "To structure an unordered document is an essential task in many applications. It is a post-requisite for applications like multiple document extractive text summarization where we have to present a summary of multiple documents. It is a prerequisite for applications like question answering from multiple documents where we have to present an answer by processing multiple documents. In this paper, we address the task of segmenting an unordered text document into different sections. The input document/summary that may have unordered sentences is processed so that it will have sentences clustered together. Clustering is based on the similarity with the respective keyword as well as with the sentences belonging to the same cluster. Keywords are identified and clusters are formed for each keyword.",
+   "To test our approach, we jumble the ordering of sentences in a document, process the unordered document and compare the similarity of the output document with the original document."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Detection of an aspect in a review, Prediction of the customer general satisfaction, Prediction of the global trend of an aspect in a given review, Prediction of whether the rating of a given aspect is above or under a given value, Prediction of the exact rating of an aspect in a review, Prediction of the list of all the positive/negative aspects mentioned in the review, Comparison between aspects, Prediction of the strengths and weaknesses in a review",
+  "sources": [
+   "We introduce a list of 8 different competencies that a reading system should master in order to process reviews and text documents in general. These 8 tasks require different competencies and a different level of understanding of the document to be well answered. For instance, detecting if an aspect is mentioned in a review will require less understanding of the review than predicting explicitly the rating of this aspect. Table TABREF10 presents the 8 tasks we have introduced in this dataset with an example of a question that corresponds to each task. We also provide the expected type of the answer (Yes/No question, rating question...). It can be an additional tool to analyze the errors of the readers."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "it has 0.024 improvement in accuracy comparing to ELMO Only and  0.006 improvement in F1 score  comparing to ELMO Only too",
+  "sources": [
+   "The last group contains the results of our proposed model with different settings. We used Topic Only setting on top of the base model, where we only added the topic-attention layer, and all the word embeddings were from our pre-trained Doc2vec model and were fine-tuned during back propagation. We could observe that compared with the base model, we have an improvement of 7.36% on accuracy and 9.69% on F1 score. Another model (ELMo Only) is to initialize the word embeddings of the base model using the pre-trained ELMo model, and here no topic information was added. Here we have higher scores than Topic Only, and the accuracy and F1 score increased by 9.87% and 12.26% respectively compared with the base model. We then conducted a combination of both(ELMo+Topic), where the word embeddings from the sentences were computed from the pre-trained ELMo model, and the topic representations were from the pre-trained Doc2vec model. We have a remarkable increase of 12.27% on the accuracy and 14.86% on F1 score."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "By evaluating their model on adversarial sets containing misleading sentences",
+  "sources": [
+   "MRC Dataset. The MRC dataset used in this paper is SQuAD 1.1, which contains over INLINEFORM0 passage-question pairs and has been randomly partitioned into three parts: a training set ( INLINEFORM1 ), a development set ( INLINEFORM2 ), and a test set ( INLINEFORM3 ). Besides, we also use two of its adversarial sets, namely AddSent and AddOneSent BIBREF6 , to evaluate the robustness to noise of MRC models. The passages in the adversarial sets contain misleading sentences, which are aimed at distracting MRC models. Specifically, each passage in AddSent contains several sentences that are similar to the question but not contradictory to the answer, while each passage in AddOneSent contains a human-approved random sentence that may be unrelated to the passage.",
+   "We compare KAR with other MRC models in both performance and the robustness to noise. Specifically, we not only evaluate the performance of KAR on the development set and the test set, but also do this on the adversarial sets. As for the comparative objects, we only consider the single MRC models that rank in the top 20 on the SQuAD 1.1 leader board and have reported their performance on the adversarial sets. There are totally five such comparative objects, which can be considered as representatives of the state-of-the-art MRC models. As shown in Table TABREF12 , on the development set and the test set, the performance of KAR is on par with that of the state-of-the-art MRC models; on the adversarial sets, KAR outperforms the state-of-the-art MRC models by a large margin. That is to say, KAR is comparable in performance with the state-of-the-art MRC models, and significantly more robust to noise than them."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Answer with content missing: (Table 2) Accuracy of best AS reader results including ensembles are 78.4 and 83.7 when trained on BookTest compared to 71.0 and 68.9 when trained on CBT for Named endity and Common noun respectively.",
+  "sources": [
+   "Table TABREF25 shows the accuracy of the psr and other architectures on the CBT validation and test data. The last two rows show the performance of the psr trained on the BookTest dataset; all the other models have been trained on the original CBT training data."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Classification system use n-grams, bag-of-words, common words and hashtags as features and SVM, random forest, extra tree and NB classifiers.",
+  "sources": [
+   "We experimented with four different classifiers, namely, support vector machine BIBREF18 , random forest, extra tree and naive bayes classifier BIBREF19 . Chi square feature selection algorithm is applied to reduces the size of our feature vector. For training our system classifier, we used Scikit-learn BIBREF19 .",
+   "In this paper, we describe a freely available corpus of 3453 English-Hindi code-mixed tweets. The tweets are annotated with humorous(H) and non-humorous(N) tags along with the language tags at the word level. The task of humor identification in social media texts is analyzed as a classification problem and several machine learning classification models are used. The features used in our classification system are n-grams, bag-of-words, common words and hashtags. N-grams when trained with support vector machines with radial basis function kernel performed better than other features and yielded an accuracy of 68.5%. The best accuracy (69.3%) was given by support vector machines with radial basis function kernel."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "they obtained computer science related topics by looking at titles and user-assigned tags",
+  "sources": [
+   "Inspired by the StackLite tag recommendation task on Kaggle, we build a new benchmark based on the public StackExchange data. We use questions with titles as source, and user-assigned tags as target keyphrases.",
+   "Since oftentimes the questions on StackExchange contain less information than in scientific publications, there are fewer keyphrases per data point in StackEx. Furthermore, StackExchange uses a tag recommendation system that suggests topic-relevant tags to users while submitting questions; therefore, we are more likely to see general terminology such as Linux and Java. This characteristic challenges models with respect to their ability to distill major topics of a question rather than selecting specific snippets from the text."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Using Pearson corelation measure,  for example, ROUGE-1-P is 0.257 and ROUGE-3-F 0.878.",
+  "sources": [
+   "We provided an analysis of existing evaluation metrics for scientific summarization with evaluation of all variants of Rouge. We showed that Rouge may not be the best metric for summarization evaluation; especially in summaries with high terminology variations and paraphrasing (e.g. scientific summaries). Furthermore, we showed that different variants of Rouge result in different correlation values with human judgments, indicating that not all Rouge scores are equally effective. Among all variants of Rouge, Rouge-2 and Rouge-3 are better correlated with manual judgments in the context of scientific summarization. We furthermore proposed an alternative and more effective approach for scientific summarization evaluation (Summarization Evaluation by Relevance Analysis - Sera). Results revealed that in general, the proposed evaluation metric achieves higher correlations with semi-manual pyramid evaluation scores in comparison with Rouge."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Accounts that spread fake news are mostly unverified, recently created and have on average high friends/followers ratio",
+  "sources": [
+   "We found that 82 users within our sample were spreading fake news (i.e. they produced at least one tweet which was labelled as fake news). Out of those, 34 had verified accounts, and the rest were unverified. From the 48 unverified accounts, 6 have been suspended by Twitter at the date of writing, 3 tried to imitate legitimate accounts of others, and 4 accounts have been already deleted. Figure FIGREF28 shows the proportion of verified accounts to unverified accounts for viral tweets (containing fake news vs. not containing fake news). From the chart, it is clear that there is a higher chance of fake news coming from unverified accounts.",
+   "A useful representation for friends and followers is the ratio between friends/followers. Figures FIGREF31 and FIGREF32 show this representation. Notice that accounts spreading viral tweets with fake news have, on average, a larger ratio of friends/followers. The distribution of those accounts not generating fake news is more evenly distributed.",
+   "Figure FIGREF24 shows that, in contrast to other kinds of viral tweets, those containing fake news were created more recently. As such, Twitter users were exposed to fake news related to the election for a shorter period of time."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Modeling considerations:  the variables (both predictors and outcomes)  are rarely simply binary or categorical;  using a particular classification scheme means deciding which variations are visible,; Supervised and unsupervised learning are the most common approaches to learning from data;  the unit of text that we are labeling (or annotating, or coding), either automatic or manual, can sometimes be different than one's final unit of analysis.",
+  "sources": [
+   "In this phase we develop measures (or, \u201coperationalizations\u201d, or \u201cindicators\u201d) for the concepts of interest, a process called \u201coperationalization\u201d. Regardless of whether we are working with computers, the output produced coincides with Adcock and Collier's \u201cscores\u201d\u2014the concrete translation and output of the systematized concept into numbers or labels BIBREF13 . Choices made during this phase are always tied to the question \u201cAre we measuring what we intend to measure?\u201d Does our operationalization match our conceptual definition? To ensure validity we must recognize gaps between what is important and what is easy to measure. We first discuss modeling considerations. Next, we describe several frequently used computational approaches and their limitations and strengths.",
+   "Modeling considerations",
+   "The variables (both predictors and outcomes) are rarely simply binary or categorical. For example, a study on language use and age could focus on chronological age (instead of, e.g., social age BIBREF19 ). However, even then, age can be modeled in different ways. Discretization can make the modeling easier and various NLP studies have modeled age as a categorical variable BIBREF20 . But any discretization raises questions: How many categories? Where to place the boundaries? Fine distinctions might not always be meaningful for the analysis we are interested in, but categories that are too broad can threaten validity. Other interesting variables include time, space, and even the social network position of the author. It is often preferable to keep the variable in its most precise form. For example, BIBREF21 perform exploration in the context of hypothesis testing by using latitude and longitude coordinates \u2014 the original metadata attached to geotagged social media such as tweets \u2014 rather than aggregating into administrative units such as counties or cities. This is necessary when such administrative units are unlikely to be related to the target concept, as is the case in their analysis of dialect differences. Focusing on precise geographical coordinates also makes it possible to recognize fine-grained effects, such as language variation across the geography of a city.",
+   "Using a particular classification scheme means deciding which variations are visible, and which ones are hidden BIBREF22 . We are looking for a categorization scheme for which it is feasible to collect a large enough labeled document collection (e.g., to train supervised models), but which is also fine-grained enough for our purposes. Classification schemes rarely exhibit the ideal properties, i.e., that they are consistent, their categories are mutually exclusive, and that the system is complete BIBREF22 . Borderline cases are challenging, especially with social and cultural concepts, where the boundaries are often not clear-cut. The choice of scheme can also have ethical implications BIBREF22 . For example, gender is usually represented as a binary variable in NLP and computational models tend to learn gender-stereotypical patterns. The operationalization of gender in NLP has been challenged only recently BIBREF23 , BIBREF24 , BIBREF25 .",
+   "Supervised and unsupervised learning are the most common approaches to learning from data. With supervised learning, a model learns from labeled data (e.g., social media messages labeled by sentiment) to infer (or predict) these labels from unlabeled texts. In contrast, unsupervised learning uses unlabeled data. Supervised approaches are especially suitable when we have a clear definition of the concept of interest and when labels are available (either annotated or native to the data). Unsupervised approaches, such as topic models, are especially useful for exploration. In this setting, conceptualization and operationalization may occur simultaneously, with theory emerging from the data BIBREF26 . Unsupervised approaches are also used when there is a clear way of measuring a concept, often based on strong assumptions. For example, BIBREF3 measure \u201csurprise\u201d in an analysis of Darwin's reading decisions based on the divergence between two probability distributions.",
+   "From an analysis perspective, the unit of text that we are labeling (or annotating, or coding), either automatic or manual, can sometimes be different than one's final unit of analysis. For example, if in a study on media frames in news stories, the theoretical framework and research question point toward frames at the story level (e.g., what is the overall causal analysis of the news article?), the story must be the unit of analysis. Yet it is often difficult to validly and reliably code a single frame at the story level. Multiple perspectives are likely to sit side-by-side in a story. Thus, an article on income inequality might point to multiple causes, such as globalization, education, and tax policies. Coding at the sentence level would detect each of these causal explanations individually, but this information would need to be somehow aggregated to determine the overall story-level frame. Sometimes scholars solve this problem by only examining headlines and lead paragraphs, arguing that based on journalistic convention, the most important information can be found at the beginning of a story. However, this leads to a return to a shorter, less nuanced analysis.",
+   "From a computational perspective, the unit of text can also make a huge difference, especially when we are using bag-of-words models, where word order within a unit does not matter. Small segments, like tweets, sometimes do not have enough information to make their semantic context clear. In contrast, larger segments, like novels, have too much variation, making it difficult to train focused models. Finding a good segmentation sometimes means combining short documents and subdividing long documents. The word \u201cdocument\" can therefore be misleading. But it is so ingrained in the common NLP lexicon that we use it anyway in this article.",
+   "For insight-driven text analysis, it is often critical that high-level patterns can be communicated. Furthermore, interpretable models make it easier to find spurious features, to do error analysis, and to support interpretation of results. Some approaches are effective for prediction, but harder to interpret. The value we place on interpretability can therefore influence the approach we choose. There is an increasing interest in developing interpretable or transparent models in the NLP and machine learning communities."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "In pass-through, the recognizer passes on the possibly misspelled word, backoff to neutral word backs off to a word with similar distribution across classes and backoff to background model backs off to a more generic word recognition model trained with larger and less specialized corpus.",
+  "sources": [
+   "While BIBREF7 demonstrate strong word recognition performance, a drawback of their evaluation setup is that they only attack and evaluate on the subset of words that are a part of their training vocabulary. In such a setting, the word recognition performance is unreasonably dependent on the chosen vocabulary size. In principle, one can design models to predict (correctly) only a few chosen words, and ignore the remaining majority and still reach 100% accuracy. For the adversarial setting, rare and unseen words in the wild are particularly critical, as they provide opportunities for the attackers. A reliable word-recognizer should handle these cases gracefully. Below, we explore different ways to back off when the ScRNN predicts UNK (a frequent outcome for rare and unseen words):",
+   "Pass-through: word-recognizer passes on the (possibly misspelled) word as is.",
+   "Backoff to neutral word: Alternatively, noting that passing $\\colorbox {gray!20}{\\texttt {UNK}}$ -predicted words through unchanged exposes the downstream model to potentially corrupted text, we consider backing off to a neutral word like `a', which has a similar distribution across classes.",
+   "Backoff to background model: We also consider falling back upon a more generic word recognition model trained upon a larger, less-specialized corpus whenever the foreground word recognition model predicts UNK. Figure 1 depicts this scenario pictorially."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "It depends on the dataset. Experimental results over two datasets reveal that textual and visual features are complementary.",
+  "sources": [
+   "We proposed to use visual renderings of documents to capture implicit document quality indicators, such as font choices, images, and visual layout, which are not captured in textual content. We applied neural network models to capture visual features given visual renderings of documents. Experimental results show that we achieve a 2.9% higher accuracy than state-of-the-art approaches based on textual features over Wikipedia, and performance competitive with or surpassing state-of-the-art approaches over arXiv. We further proposed a joint model, combining textual and visual representations, to predict the quality of a document. Experimental results show that our joint model outperforms the visual-only model in all cases, and the text-only model on Wikipedia and two subsets of arXiv. These results underline the feasibility of assessing document quality via visual features, and the complementarity of visual and textual document representations for quality assessment."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "WikiSmall  89 142 sentence pair and  WikiLarge 298 761 sentence pairs.",
+  "sources": [
+   "Dataset. We use two simplification datasets (WikiSmall and WikiLarge). WikiSmall consists of ordinary and simplified sentences from the ordinary and simple English Wikipedias, which has been used as benchmark for evaluating text simplification BIBREF17 , BIBREF18 , BIBREF8 . The training set has 89,042 sentence pairs, and the test set has 100 pairs. WikiLarge is also from Wikipedia corpus whose training set contains 296,402 sentence pairs BIBREF19 , BIBREF20 . WikiLarge includes 8 (reference) simplifications for 2,359 sentences split into 2,000 for development and 359 for testing."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "F1 score increased from 0.89 to 0.92",
+  "sources": [
+   "For incorporating speech embeddings experiments, performance results of NLU models on in-cabin data with various feature concatenations can be found in Table TABREF3, using our previous hierarchical joint model (H-Joint-2). When used in isolation, Word2Vec and Speech2Vec achieves comparable performances, which cannot reach GloVe performance. This was expected as the pre-trained Speech2Vec vectors have lower vocabulary coverage than GloVe. Yet, we observed that concatenating GloVe + Speech2Vec, and further GloVe + Word2Vec + Speech2Vec yields better NLU results: F1-score increased from 0.89 to 0.91 for intent recognition, from 0.96 to 0.97 for slot filling.",
+   "For multimodal (audio & video) features exploration, performance results of the compared models with varying modality/feature concatenations can be found in Table TABREF4. Since these audio/video features are extracted per utterance (on segmented audio & video clips), we experimented with the utterance-level intent recognition task only, using hierarchical joint learning (H-Joint-2). We investigated the audio-visual feature additions on top of text-only and text+speech embedding models. Adding openSMILE/IS10 features from audio, as well as incorporating intermediate CNN/Inception-ResNet-v2 features from video brought slight improvements to our intent models, reaching 0.92 F1-score. These initial results using feature concatenations may need further explorations, especially for certain intent-types such as stop (audio intensity) or relevant slots such as passenger gestures/gaze (from cabin video) and outside objects (from road video)."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Word-level Memory Neural Networks (MemNNs) proposed in Bordes et al. (2015)",
+  "sources": [
+   "In our experiments, the Memory Neural Networks (MemNNs) proposed in babidataset serve as the baselines. For training, in addition to the 76K questions in the training set, the MemNNs use 3K training questions from WebQuestions BIBREF27 , 15M paraphrases from WikiAnswers BIBREF2 , and 11M and 12M automatically generated questions from the KB for the FB2M and FB5M settings, respectively. In contrast, our models are trained only on the 76K questions in the training set.",
+   "We evaluate the proposed model on the SimpleQuestions dataset BIBREF0 . The dataset consists of 108,442 single-relation questions and their corresponding (topic entity, predicate, answer entity) triples from Freebase. It is split into 75,910 train, 10,845 validation, and 21,687 test questions. Only 10,843 of the 45,335 unique words in entity aliases and 886 out of 1,034 unique predicates in the test set were present in the train set. For the proposed dataset, there are two evaluation settings, called FB2M and FB5M, respectively. The former uses a KB for candidate generation which is a subset of Freebase and contains 2M entities, while the latter uses subset of Freebase with 5M entities."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "They did not use any platform, instead they hired undergraduate students to do the annotation.",
+  "sources": [
+   "With the purpose of obtaining evaluation datasets from crowd annotators, we collect the sentences from two domains: Dialog and E-commerce domain. We hire undergraduate students to annotate the sentences. They are required to identify the predefined types of entities in the sentences. Together with the guideline document, the annotators are educated some tips in fifteen minutes and also provided with 20 exemplifying sentences."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Semantic Textual Similarity, sentiment prediction, subjectivity prediction, phrase level opinion polarity classification, Stanford Sentiment Treebank, fine grained question-type classification.",
+  "sources": [
+   "We fine-tune SBERT on NLI data, which creates sentence embeddings that significantly outperform other state-of-the-art sentence embedding methods like InferSent BIBREF4 and Universal Sentence Encoder BIBREF5. On seven Semantic Textual Similarity (STS) tasks, SBERT achieves an improvement of 11.7 points compared to InferSent and 5.5 points compared to Universal Sentence Encoder. On SentEval BIBREF6, an evaluation toolkit for sentence embeddings, we achieve an improvement of 2.1 and 2.6 points, respectively.",
+   "We compare the SBERT sentence embeddings to other sentence embeddings methods on the following seven SentEval transfer tasks:",
+   "MR: Sentiment prediction for movie reviews snippets on a five start scale BIBREF25.",
+   "CR: Sentiment prediction of customer product reviews BIBREF26.",
+   "SUBJ: Subjectivity prediction of sentences from movie reviews and plot summaries BIBREF27.",
+   "MPQA: Phrase level opinion polarity classification from newswire BIBREF28.",
+   "SST: Stanford Sentiment Treebank with binary labels BIBREF29.",
+   "TREC: Fine grained question-type classification from TREC BIBREF30.",
+   "MRPC: Microsoft Research Paraphrase Corpus from parallel news sources BIBREF31."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Entities from a deep learning model are linked to the related entities from a knowledge base by a lookup.",
+  "sources": [
+   "While these knowledge bases provide semantically rich and fine-granular classes and relationship types, the task of entity classification often requires associating coarse-grained classes with discovered surface forms of entities. Most existing studies consider NER and entity linking as two separate tasks, whereas we try to combine the two. It has been shown that one can significantly increase the semantic information carried by a NER system when we successfully linking entities from a deep learning method to the related entities from a knowledge base BIBREF26 , BIBREF27 .",
+   "Redirection: For the Wikidata linking element, we recognize that the lookup will be constrained by the most common lookup name for each entity. Consider the utterance (referring to the NBA basketball player) from Figure FIGREF12 \u201cMichael Jeffrey Jordan in San Jose\u201d as an example. The lookup for this entity in Wikidata is \u201cMichael Jordan\u201d and consequently will not be picked up if we were to use an exact string match. A simple method to circumvent such a problem is the usage of a redirection list. Such a list is provided on an entity by entity basis in the \u201cAlso known as\u201d section in Wikidata. Using this redirection list, when we do not find an exact string match improves the recall of our model by 5-10%. Moreover, with the example of Michael Jordan (person), using our current framework, we will always refer to the retired basketball player (Q41421). We will never, for instance, pick up Michael Jordan (Q27069141) the American football cornerback. Or in fact any other Michael Jordan, famous or otherwise. One possible method to overcome this is to add a disambiguation layer, which seeks to use context from earlier parts of the text. This is, however, work for future improvement and we only consider the most common version of that entity."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Answer with content missing: (Baseline Method section) We implemented a simple approach inspired by previous work on concept map generation and keyphrase extraction.",
+  "sources": [
+   "Baseline Experiments",
+   "In this section, we briefly describe a baseline and evaluation scripts that we release, with a detailed documentation, along with the corpus."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "The data was collected using 3 components: describe a series of pilot studies that were conducted to collect commonsense inference questions, then discuss the resulting data collection of questions, texts and answers via crowdsourcing on Amazon Mechanical Turk and gives information about some necessary postprocessing steps and the dataset validation.",
+  "sources": [
+   "Machine comprehension datasets consist of three main components: texts, questions and answers. In this section, we describe our data collection for these 3 components. We first describe a series of pilot studies that we conducted in order to collect commonsense inference questions (Section SECREF4 ). In Section SECREF5 , we discuss the resulting data collection of questions, texts and answers via crowdsourcing on Amazon Mechanical Turk (henceforth MTurk). Section SECREF17 gives information about some necessary postprocessing steps and the dataset validation. Lastly, Section SECREF19 gives statistics about the final dataset."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "They group the existing works in terms of the objective function they optimize - within-tweet relationships, inter-tweet relationships, autoencoder, and weak supervision.",
+  "sources": [
+   "Despite this, there is a lack of prior work which surveys the tweet-specific unsupervised representation learning models. In this work, we attempt to fill this gap by investigating the models in an organized fashion. Specifically, we group the models based on the objective function it optimizes. We believe this work can aid the understanding of the existing literature. We conclude the paper by presenting interesting future research directions, which we believe are fruitful in advancing this field by building high-quality tweet representation learning models.",
+   "There are various models spanning across different model architectures and objective functions in the literature to compute tweet representation in an unsupervised fashion. These models work in a semi-supervised way - the representations generated by the model is fed to an off-the-shelf predictor like Support Vector Machines (SVM) to solve a particular downstream task. These models span across a wide variety of neural network based architectures including average of word vectors, convolutional-based, recurrent-based and so on. We believe that the performance of these models is highly dependent on the objective function it optimizes \u2013 predicting adjacent word (within-tweet relationships), adjacent tweet (inter-tweet relationships), the tweet itself (autoencoder), modeling from structured resources like paraphrase databases and weak supervision. In this section, we provide the first of its kind survey of the recent tweet-specific unsupervised models in an organized fashion to understand the literature. Specifically, we categorize each model based on the optimized objective function as shown in Figure FIGREF1 . Next, we study each category one by one."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Human evaluation for interpretability using the word intrusion test and automated evaluation for interpretability using a semantic category-based approach based on the method and category dataset (SEMCAT).",
+  "sources": [
+   "One of the main goals of this study is to improve the interpretability of dense word embeddings by aligning the dimensions with predefined concepts from a suitable lexicon. A quantitative measure is required to reliably evaluate the achieved improvement. One of the methods proposed to measure the interpretability is the word intrusion test BIBREF41 . But, this method is expensive to apply since it requires evaluations from multiple human evaluators for each embedding dimension. In this study, we use a semantic category-based approach based on the method and category dataset (SEMCAT) introduced in BIBREF27 to quantify interpretability. Specifically, we apply a modified version of the approach presented in BIBREF40 in order to consider possible sub-groupings within the categories in SEMCAT. Interpretability scores are calculated using Interpretability Score (IS) as given below:"
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "They use two independent convolutional and max-pooling layers on (1) a combination of the left context, the left entity and the middle context; and (2) a combination of the middle context, the right entity and the right context. They concatenated the two results after pooling to get the new context representation.",
+  "sources": [
+   "(1) We propose extended middle context, a new context representation for CNNs for relation classification. The extended middle context uses all parts of the sentence (the relation arguments, left of the relation arguments, between the arguments, right of the arguments) and pays special attention to the middle part.",
+   "One of our contributions is a new input representation especially designed for relation classification. The contexts are split into three disjoint regions based on the two relation arguments: the left context, the middle context and the right context. Since in most cases the middle context contains the most relevant information for the relation, we want to focus on it but not ignore the other regions completely. Hence, we propose to use two contexts: (1) a combination of the left context, the left entity and the middle context; and (2) a combination of the middle context, the right entity and the right context. Due to the repetition of the middle context, we force the network to pay special attention to it. The two contexts are processed by two independent convolutional and max-pooling layers. After pooling, the results are concatenated to form the sentence representation. Figure FIGREF3 depicts this procedure. It shows an examplary sentence: \u201cHe had chest pain and <e1>headaches</e1> from <e2>mold</e2> in the bedroom.\u201d If we only considered the middle context \u201cfrom\u201d, the network might be tempted to predict a relation like Entity-Origin(e1,e2). However, by also taking the left and right context into account, the model can detect the relation Cause-Effect(e2,e1). While this could also be achieved by integrating the whole context into the model, using the whole context can have disadvantages for longer sentences: The max pooling step can easily choose a value from a part of the sentence which is far away from the mention of the relation. With splitting the context into two parts, we reduce this danger. Repeating the middle context increases the chance for the max pooling step to pick a value from the middle context."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "0.8% F1 better than the best state-of-the-art",
+  "sources": [
+   "Table TABREF16 shows the results of our models ER-CNN (extended ranking CNN) and R-RNN (ranking RNN) in the context of other state-of-the-art models. Our proposed models obtain state-of-the-art results on the SemEval 2010 task 8 data set without making use of any linguistic features."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "intents are annotated manually with guidance from queries collected using a scoping crowdsourcing task",
+  "sources": [
+   "We defined the intents with guidance from queries collected using a scoping crowdsourcing task, which prompted crowd workers to provide questions and commands related to topic domains in the manner they would interact with an artificially intelligent assistant. We manually grouped data generated by scoping tasks into intents. To collect additional data for each intent, we used the rephrase and scenario crowdsourcing tasks proposed by BIBREF2. For each intent, there are 100 training queries, which is representative of what a team with a limited budget could gather while developing a task-driven dialog system. Along with the 100 training queries, there are 20 validation and 30 testing queries per intent."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Increasing number of message passing iterations showed consistent improvement in performance - around 1 point improvement compared between 1 and 4 iterations",
+  "sources": [
+   "Results and ablations ::: Ablation studies",
+   "To understand the impact of some hyperparameters on performance, we conducted additional experiments on the Reuters, Polarity, and IMDB datasets, with the non-hierarchical version of MPAD. Results are shown in Table TABREF29.",
+   "Number of MP iterations. First, we varied the number of message passing iterations from 1 to 4. We can clearly see in Table TABREF29 that having more iterations improves performance. We attribute this to the fact that we are reading out at each iteration from 1 to $T$ (see Eq. DISPLAY_FORM18), which enables the final graph representation to encode a mixture of low-level and high-level features. Indeed, in initial experiments involving readout at $t$=$T$ only, setting $T\\ge 2$ was always decreasing performance, despite the GRU-based updates (Eq. DISPLAY_FORM14). These results were consistent with that of BIBREF53 and BIBREF9, who both are reading out only at $t$=$T$ too. We hypothesize that node features at $T\\ge 2$ are too diffuse to be entirely relied upon during readout. More precisely, initially at $t$=0, node representations capture information about words, at $t$=1, about their 1-hop neighborhood (bigrams), at $t$=2, about compositions of bigrams, etc. Thus, pretty quickly, node features become general and diffuse. In such cases, considering also the lower-level, more precise features of the earlier iterations when reading out may be necessary."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "They use four-layered 2D CNN and two fully connected hidden layers on the channel covariance matrix to compute the spatial aspect.",
+  "sources": [
+   "In order to decode spatial connections between the electrodes from the channel covariance matrix, we use a CNN BIBREF19 , in particular a four-layered 2D CNN stacking two convolutional and two fully connected hidden layers. The INLINEFORM0 feature map at a given CNN layer with input INLINEFORM1 , weight matrix INLINEFORM2 and bias INLINEFORM3 is obtained as: INLINEFORM4 . At this first level of hierarchy, the network is trained with the corresponding labels as target outputs, optimizing a cross-entropy cost function. In parallel, we apply a four-layered recurrent neural network on the channel covariance matrices to explore the hidden temporal features of the electrodes. Namely, we exploit an LSTM BIBREF20 consisting of two fully connected hidden layers, stacked with two LSTM layers and trained in a similar manner as CNN."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Answer with content missing: (Data section) Penn Treebank (PTB)",
+  "sources": [
+   "Experimental Setup"
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "By using topic modeling and unsupervised emotion detection on ISIS materials and articles from Catholic women forum",
+  "sources": [
+   "What similarities and/or differences do these topics have with non-violent, non-Islamic religious material addressed specifically to women?",
+   "As these questions suggest, to understand what, if anything, makes extremist appeals distinctive, we need a point of comparison in terms of the outreach efforts to women from a mainstream, non-violent religious group. For this purpose, we rely on an online Catholic women's forum. Comparison between Catholic material and the content of ISIS' online magazines allows for novel insight into the distinctiveness of extremist rhetoric when targeted towards the female population. To accomplish this task, we employ topic modeling and an unsupervised emotion detection method."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "1 IMDB dataset and 2 Yelp datasets",
+  "sources": [
+   "We construct three datasets based on IMDB reviews and Yelp reviews. The IMDB dataset is binarised and split into a training and test set, each with 25K reviews (2K reviews from the training set are reserved for development). We filter out any review that has more than 400 tokens, producing the final dataset (imdb400). For Yelp, we binarise the ratings, and create 2 datasets, where we keep only reviews with $\\le $ 50 tokens (yelp50) and $\\le $200 tokens (yelp200). We randomly partition both datasets into train/dev/test sets (90/5/5 for yelp50; 99/0.5/0.5 for yelp200). For all datasets, we use spaCy for tokenisation. We train and tune target classifiers (see Section SECREF8) using the training and development sets; and evaluate their performance on the original examples in the test sets as well as the adversarial examples generated by attacking methods for the test sets. Note that AutoEncoder also involves a training process, for which we train and tune AutoEncoder using the training and development sets in yelp50, yelp200 and imdb400. Statistics of the three datasets are presented in Table TABREF22. These datasets present a variation in the text lengths (e.g. the average number of words for yelp50, yelp200 and imdb400 is 34, 82 and 195 words respectively), training data size (e.g. the number of training examples for target classifiers for imdb400, yelp50 and yelp200 are 18K, 407K and 2M, respectively) and input domain (e.g. restaurant vs. movie reviews)."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "By assigning a political bias label to each news article and training only on left-biased or right-biased outlets of both disinformation and mainstream domains",
+  "sources": [
+   "As it is reported that conservatives and liberals exhibit different behaviors on online social platforms BIBREF19BIBREF20BIBREF21, we further assigned a political bias label to different US outlets (and therefore news articles) following the procedure described in BIBREF2. In order to assess the robustness of our method, we performed classification experiments by training only on left-biased (or right-biased) outlets of both disinformation and mainstream domains and testing on the entire set of sources, as well as excluding particular sources that outweigh the others in terms of samples to avoid over-fitting."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "English, German, Spanish, Mandarin, Polish, Russian, Korean and Serbian",
+  "sources": [
+   "The PolyResponse restaurant search is currently available in 8 languages and for 8 cities around the world: English (Edinburgh), German (Berlin), Spanish (Madrid), Mandarin (Taipei), Polish (Warsaw), Russian (Moscow), Korean (Seoul), and Serbian (Belgrade). Selected snapshots are shown in Figure FIGREF16, while we also provide videos demonstrating the use and behaviour of the systems at: https://tinyurl.com/y3evkcfz. A simple MT-based translate-to-source approach at inference time is currently used to enable the deployment of the system in other languages: 1) the pool of responses in each language is translated to English by Google Translate beforehand, and pre-computed encodings of their English translations are used as representations of each foreign language response; 2) a provided user utterance (i.e., context) is translated to English on-the-fly and its encoding $h_c$ is then learned. We plan to experiment with more sophisticated multilingual models in future work."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Viral tweets are the ones that are retweeted more than 1000 times",
+  "sources": [
+   "One straightforward way of sharing information on Twitter is by using the retweet functionality, which enables a user to share a exact copy of a tweet with his followers. Among the reasons for retweeting, Body et al. BIBREF15 reported the will to: 1) spread tweets to a new audience, 2) to show one\u2019s role as a listener, and 3) to agree with someone or validate the thoughts of others. As indicated, our initial interest is to characterize tweets containing fake news that went viral (as they are the most harmful ones, as they reach a wider audience), and understand how it differs from other viral tweets (that do not contain fake news). For our study, we consider that a tweet went viral if it was retweeted more than 1000 times."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Activation function is hyperparameter. Possible values: relu, selu, tanh.",
+  "sources": [
+   "Experimental Setup. We apply a 5 cross-validation on the account's level. For the FacTweet model, we experiment with 25% of the accounts for validation and parameters selection. We use hyperopt library to select the hyper-parameters on the following values: LSTM layer size (16, 32, 64), dropout ($0.0-0.9$), activation function ($relu$, $selu$, $tanh$), optimizer ($sgd$, $adam$, $rmsprop$) with varying the value of the learning rate (1e-1,..,-5), and batch size (4, 8, 16). The validation split is extracted on the class level using stratified sampling: we took a random 25% of the accounts from each class since the dataset is unbalanced. Discarding the classes' size in the splitting process may affect the minority classes (e.g. hoax). For the baselines' classifier, we tested many classifiers and the LR showed the best overall performance."
+  ],
+  "supported": true,
+  "kind": "supported"
+ },
+ {
+  "claim": "Dataset contains 3606 total sentences and 79087 total entities.",
+  "sources": [
+   "Table TABREF24 presents the total entities (PER, LOC, ORG and MISC) from both of the dataset used in our experiments. The dataset is divided into three parts with 64%, 16% and 20% of the total dataset into training set, development set and test set respectively."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "The Conversations Gone Awry dataset is labelled as either containing a personal attack from withint (i.e. hostile behavior by one user in the conversation directed towards another) or remaining civil throughout. The Reddit Change My View dataset is labelled with whether or not a coversation eventually had a comment removed by a moderator for violation of Rule 1: \"Don't be rude or hostile to others users.\"",
+  "sources": [
+   "We consider two datasets, representing related but slightly different forecasting tasks. The first dataset is an expanded version of the annotated Wikipedia conversations dataset from BIBREF9. This dataset uses carefully-controlled crowdsourced labels, strictly filtered to ensure the conversations are civil up to the moment of a personal attack. This is a useful property for the purposes of model analysis, and hence we focus on this as our primary dataset. However, we are conscious of the possibility that these strict labels may not fully capture the kind of behavior that moderators care about in practice. We therefore introduce a secondary dataset, constructed from the subreddit ChangeMyView (CMV) that does not use post-hoc annotations. Instead, the prediction task is to forecast whether the conversation will be subject to moderator action in the future.",
+   "Wikipedia data. BIBREF9's `Conversations Gone Awry' dataset consists of 1,270 conversations that took place between Wikipedia editors on publicly accessible talk pages. The conversations are sourced from the WikiConv dataset BIBREF59 and labeled by crowdworkers as either containing a personal attack from within (i.e., hostile behavior by one user in the conversation directed towards another) or remaining civil throughout.",
+   "Reddit CMV data. The CMV dataset is constructed from conversations collected via the Reddit API. In contrast to the Wikipedia-based dataset, we explicitly avoid the use of post-hoc annotation. Instead, we use as our label whether a conversation eventually had a comment removed by a moderator for violation of Rule 2: \u201cDon't be rude or hostile to other users\u201d."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "a sample of  29,794 wikipedia articles and 2,794 arXiv papers",
+  "sources": [
+   "We proposed to use visual renderings of documents to capture implicit document quality indicators, such as font choices, images, and visual layout, which are not captured in textual content. We applied neural network models to capture visual features given visual renderings of documents. Experimental results show that we achieve a 2.9% higher accuracy than state-of-the-art approaches based on textual features over Wikipedia, and performance competitive with or surpassing state-of-the-art approaches over arXiv. We further proposed a joint model, combining textual and visual representations, to predict the quality of a document. Experimental results show that our joint model outperforms the visual-only model in all cases, and the text-only model on Wikipedia and two subsets of arXiv. These results underline the feasibility of assessing document quality via visual features, and the complementarity of visual and textual document representations for quality assessment."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "More than 2,100 texts were paired with 15 questions each, resulting in a total number of approx. 32,000 annotated questions. 13% of the questions are not answerable.  Out of the answerable questions, 10,160 could be answered from the text directly (text-based) and 3,914 questions required the use of commonsense knowledge (script-based).  The final dataset comprises 13,712 questions, 3,827 of which require commonsense knowledge (i.e. 27.4%).",
+  "sources": [
+   "More than 2,100 texts were paired with 15 questions each, resulting in a total number of approx. 32,000 annotated questions. For 13% of the questions, the workers did not agree on one of the 4 categories with a 3 out of 5 majority, so we did not include these questions in our dataset.",
+   "The distribution of category labels on the remaining 87% is shown in Table TABREF10 . 14,074 (52%) questions could be answered. Out of the answerable questions, 10,160 could be answered from the text directly (text-based) and 3,914 questions required the use of commonsense knowledge (script-based). After removing 135 questions during the validation, the final dataset comprises 13,939 questions, 3,827 of which require commonsense knowledge (i.e. 27.4%). This ratio was manually verified based on a random sample of questions."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "Based on table results provided changing directed to undirected edges had least impact - max abs difference of 0.33 points on all three datasets.",
+  "sources": [
+   "The MP framework is based on the core idea of recursive neighborhood aggregation. That is, at every iteration, the representation of each vertex is updated based on messages received from its neighbors. All spectral GNNs can be described in terms of the MP framework.",
+   "GNNs have been applied with great success to bioinformatics and social network data, for node classification, link prediction, and graph classification. However, a few studies only have focused on the application of the MP framework to representation learning on text. This paper proposes one such application. More precisely, we represent documents as word co-occurrence networks, and develop an expressive MP GNN tailored to document understanding, the Message Passing Attention network for Document understanding (MPAD). We also propose several hierarchical variants of MPAD. Evaluation on 10 document classification datasets show that our architectures learn representations that are competitive with the state-of-the-art. Furthermore, ablation experiments shed light on the impact of various architectural choices.",
+   "The concept of message passing over graphs has been around for many years BIBREF0, BIBREF1, as well as that of graph neural networks (GNNs) BIBREF2, BIBREF3. However, GNNs have only recently started to be closely investigated, following the advent of deep learning. Some notable examples include BIBREF4, BIBREF5, BIBREF6, BIBREF7, BIBREF8, BIBREF9, BIBREF10, BIBREF11, BIBREF12. These approaches are known as spectral. Their similarity with message passing (MP) was observed by BIBREF9 and formalized by BIBREF13 and BIBREF14."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Human evaluation for interpretability using the word intrusion test and automated evaluation for interpretability using a semantic category-based approach based on the method and category dataset (SEMCAT).",
+  "sources": [
+   "Especially after the introduction of the word2vec algorithm by Mikolov BIBREF0 , BIBREF1 , there has been a growing interest in algorithms that generate improved word representations under some performance metric. Significant effort is spent on appropriately modifying the objective functions of the algorithms in order to incorporate knowledge from external resources, with the purpose of increasing the performance of the resulting word representations BIBREF28 , BIBREF29 , BIBREF30 , BIBREF31 , BIBREF32 , BIBREF33 , BIBREF34 , BIBREF35 , BIBREF36 , BIBREF37 . Inspired by the line of work reported in these studies, we propose to use modified objective functions for a different purpose: learning more interpretable dense word embeddings. By doing this, we aim to incorporate semantic information from an external lexical resource into the word embedding so that the embedding dimensions are aligned along predefined concepts. This alignment is achieved by introducing a modification to the embedding learning process. In our proposed method, which is built on top of the GloVe algorithm BIBREF2 , the cost function for any one of the words of concept word-groups is modified by the introduction of an additive term to the cost function. Each embedding vector dimension is first associated with a concept. For a word belonging to any one of the word-groups representing these concepts, the modified cost term favors an increase for the value of this word's embedding vector dimension corresponding to the concept that the particular word belongs to. For words that do not belong to any one of the word-groups, the cost term is left untouched. Specifically, Roget's Thesaurus BIBREF38 , BIBREF39 is used to derive the concepts and concept word-groups to be used as the external lexical resource for our proposed method. We quantitatively demonstrate the increase in interpretability by using the measure given in BIBREF27 , BIBREF40 as well as demonstrating qualitative results. We also show that the semantic structure of the original embedding has not been harmed in the process since there is no performance loss with standard word-similarity or word-analogy tests."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Book, Electronics, Beauty and Music each have 6000, IMDB 84919, Yelp 231163, Cell Phone 246641 and Baby 160792 labeled data.",
+  "sources": [
+   "Large-scale datasets: We further conduct experiments on four much larger datasets: IMDB (I), Yelp2014 (Y), Cell Phone (C), and Baby (B). IMDB and Yelp2014 were previously used in BIBREF25 , BIBREF26 . Cell phone and Baby are from the large-scale Amazon dataset BIBREF24 , BIBREF27 . Detailed statistics are summarized in Table TABREF9 . We keep all reviews in the original datasets and consider a transductive setting where all target examples are used for both training (without label information) and evaluation. We perform sampling to balance the classes of labeled source data in each minibatch INLINEFORM3 during training.",
+   "Small-scale datasets: Our new dataset was derived from the large-scale Amazon datasets released by McAuley et al. ( BIBREF24 ). It contains four domains: Book (BK), Electronics (E), Beauty (BT), and Music (M). Each domain contains two datasets. Set 1 contains 6000 instances with exactly balanced class labels, and set 2 contains 6000 instances that are randomly sampled from the large dataset, preserving the original label distribution, which we believe better reflects the label distribution in real life. The examples in these two sets do not overlap. Detailed statistics of the generated datasets are given in Table TABREF9 ."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "MSR: 97.7 compared to 97.5 of baseline\nAS: 92.2 compared to 95.6 of baseline",
+  "sources": [
+   "With unsupervised segmentation features introduced by BIBREF20, our model gets a higher result. Specially, the results in MSR and AS achieve new state-of-the-art and approaching previous state-of-the-art in CITYU and PKU. The unsupervised segmentation features are derived from the given training dataset, thus using them does not violate the rule of closed test of SIGHAN Bakeoff."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "labelled features, which are words whose presence strongly indicates a specific class or topic",
+  "sources": [
+   "GE-FL reduces the heavy load of instance annotation and performs well when we provide prior knowledge with no bias. In our experiments, we observe that comparable numbers of labeled features for each class have to be supplied. But as mentioned before, it is often the case that we are not able to provide enough knowledge for some of the classes. For the baseball-hockey classification task, as shown before, GE-FL will predict most of the instances as baseball. In this section, we will show three terms to make the model more robust.",
+   "(a) We randomly select $t \\in [1, 20]$ features from the feature pool for one class, and only one feature for the other. The original balanced movie dataset is used (positive:negative=1:1).",
+   "Our methods are also evaluated on datasets with different unbalanced class distributions. We manually construct several movie datasets with class distributions of 1:2, 1:3, 1:4 by randomly removing 50%, 67%, 75% positive documents. The original balanced movie dataset is used as a control group. We test with both balanced and unbalanced labeled features. For the balanced case, we randomly select 10 features from the feature pool for each class, and for the unbalanced case, we select 10 features for one class, and 1 feature for the other. Results are shown in Figure 3 .",
+   "Figure 3 (b) shows that when the labeled features are unbalanced, our methods significantly outperforms GE-FL. Incorporating KL divergence is robust enough to control unbalance both in the dataset and in labeled features while the other three methods are not so competitive."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Best results authors obtain is EM 57.64 and F1 63.11",
+  "sources": [
+   "To better demonstrate the effectiveness of the proposed model, we compare with baselines and show the results in Table TABREF12 . The baselines are: (a) trained on S-SQuAD, (b) trained on T-SQuAD and then fine-tuned on S-SQuAD, and (c) previous best model trained on S-SQuAD BIBREF5 by using Dr.QA BIBREF20 . We also compare to the approach proposed by Lan et al. BIBREF16 in the row (d). This approach is originally proposed for spoken language understanding, and we adopt the same approach on the setting here. The approach models domain-specific features from the source and target domains separately by two different embedding encoders with a shared embedding encoder for modeling domain-general features. The domain-general parameters are adversarially trained by domain discriminator."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "Word vectors, usually in the context of others within the same class",
+  "sources": [
+   "In this section we describe the experiments performed to demonstrate the validity of our proposed method and its extension. We used the Reuters-8 dataset without stop words from BIBREF27 aiming at single-label classification, which is a preprocessed format of the Reuters-21578. Words in the texts were considered as they appeared, without performing stemming or typo correction. This database has eight different classes with the number of samples varying from 51 to over 3000 documents, as can be seen in Table 1 ."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "MSR: 97.7 compared to 97.5 of baseline\nAS: 95.7 compared to 95.6 of baseline",
+  "sources": [
+   "Tables TABREF25 and TABREF26 reports the performance of recent models and ours in terms of closed test setting. Without the assistance of unsupervised segmentation features userd in BIBREF20, our model outperforms all the other models in MSR and AS except BIBREF18 and get comparable performance in PKU and CITYU. Note that all the other models for this comparison adopt various $n$-gram features while only our model takes unigram ones."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "One experienced annotator tagged all tweets",
+  "sources": [
+   "Next, we analyzed all tweets labeled as offensive to better understand how Arabic speakers use offensive language. Here is a breakdown of usage:",
+   "Direct name calling: The most frequent attack is to call a person an animal name, and the most used animals were \u0643\u0644\u0628> (\u201cklb\u201d \u2013 \u201cdog\u201d), \u062d\u0645\u0627\u0631> (\u201cHmAr\u201d \u2013 \u201cdonkey\u201d), and \u0628\u0647\u064a\u0645> (\u201cbhym\u201d \u2013 \u201cbeast\u201d). The second most common was insulting mental abilities using words such as \u063a\u0628\u064a> (\u201cgby\u201d \u2013 \u201cstupid\u201d) and \u0639\u0628\u064a\u0637> (\u201cEbyT\u201d \u2013\u201cidiot\u201d). Some culture-specific differences should be considered. Not all animal names are used as insults. For example, animals such as \u0623\u0633\u062f> (\u201cAsd\u201d \u2013 \u201clion\u201d), \u0635\u0642\u0631> (\u201cSqr\u201d \u2013 \u201cfalcon\u201d), and \u063a\u0632\u0627\u0644> (\u201cgzAl\u201d \u2013 \u201cgazelle\u201d) are typically used for praise. For other insults, people use: some bird names such as \u062f\u062c\u0627\u062c\u0629> (\u201cdjAjp\u201d \u2013 \u201cchicken\u201d), \u0628\u0648\u0645\u0629> (\u201cbwmp\u201d \u2013 \u201cowl\u201d), and \u063a\u0631\u0627\u0628> (\u201cgrAb\u201d \u2013 \u201ccrow\u201d); insects such as \u0630\u0628\u0627\u0628\u0629> (\u201c*bAbp\u201d \u2013 \u201cfly\u201d), \u0635\u0631\u0635\u0648\u0631> (\u201cSrSwr\u201d \u2013 \u201ccockroach\u201d), and \u062d\u0634\u0631\u0629> (\u201cH$rp\u201d \u2013 \u201cinsect\u201d); microorganisms such as \u062c\u0631\u062b\u0648\u0645\u0629> (\u201cjrvwmp\u201d \u2013 \u201cmicrobe\u201d) and \u0637\u062d\u0627\u0644\u0628> (\u201cTHAlb\u201d \u2013 \u201calgae\u201d); inanimate objects such as \u062c\u0632\u0645\u0629> (\u201cjzmp\u201d \u2013 \u201cshoes\u201d) and \u0633\u0637\u0644> (\u201csTl\u201d \u2013 \u201cbucket\u201d) among other usages.",
+   "Simile and metaphor: Users use simile and metaphor were they would compare a person to: an animal as in \u0632\u064a \u0627\u0644\u062b\u0648\u0631> (\u201czy Alvwr\u201d \u2013 \u201clike a bull\u201d), \u0633\u0645\u0639\u0646\u064a \u0646\u0647\u064a\u0642\u0643> (\u201csmEny nhyqk\u201d \u2013 \u201clet me hear your braying\u201d), and \u0647\u0632 \u062f\u064a\u0644\u0643> (\u201chz dylk\u201d \u2013 \u201cwag your tail\u201d); a person with mental or physical disability such as \u0645\u0646\u063a\u0648\u0644\u064a> (\u201cmngwly\u201d \u2013 \u201cMongolian (down-syndrome)\u201d), \u0645\u0639\u0648\u0642> (\u201cmEwq\u201d \u2013 \u201cdisabled\u201d), and \u0642\u0632\u0645> (\u201cqzm\u201d \u2013 \u201cdwarf\u201d); and to the opposite gender such as \u062c\u064a\u0634 \u0646\u0648\u0627\u0644> (\u201cjy$ nwAl\u201d \u2013 \u201cNawal's army (Nawal is female name)\u201d) and \u0646\u0627\u062f\u064a \u0632\u064a\u0632\u064a> (\u201cnAdy zyzy\u201d \u2013 \u201cZizi's club (Zizi is a female pet name)\u201d).",
+   "Indirect speech: This type of offensive language includes: sarcasm such as \u0623\u0630\u0643\u0649 \u0625\u062e\u0648\u0627\u062a\u0643> (\u201cA*kY AxwAtk\u201d \u2013 \u201csmartest one of your siblings\u201d) and \u0641\u064a\u0644\u0633\u0648\u0641 \u0627\u0644\u062d\u0645\u064a\u0631> (\u201cfylswf AlHmyr\u201d \u2013 \u201cthe donkeys' philosopher\u201d); questions such as \u0627\u064a\u0647 \u0643\u0644 \u0627\u0644\u063a\u0628\u0627\u0621 \u062f\u0647> (\u201cAyh kl AlgbA dh\u201d \u2013 \u201cwhat is all this stupidity\u201d); and indirect speech such as \u0627\u0644\u0646\u0642\u0627\u0634 \u0645\u0639 \u0627\u0644\u0628\u0647\u0627\u064a\u0645 \u063a\u064a\u0631 \u0645\u062b\u0645\u0631> (\u201cAlnqA$ mE AlbhAym gyr mvmr\u201d \u2013 \u201cno use talking to cattle\u201d).",
+   "Wishing Evil: This entails wishing death or major harm to befall someone such as \u0631\u0628\u0646\u0627 \u064a\u0627\u062e\u062f\u0643> (\u201crbnA yAxdk\u201d \u2013 \u201cMay God take (kill) you\u201d), \u0627\u0644\u0644\u0647 \u064a\u0644\u0639\u0646\u0643> (\u201cAllh ylEnk\u201d \u2013 \u201cmay Allah/God curse you\u201d), and \u0631\u0648\u062d \u0641\u064a \u062f\u0627\u0647\u064a\u0629> (\u201crwH fy dAhyp\u201d \u2013 equivalent to \u201cgo to hell\u201d).",
+   "Name alteration: One common way to insult others is to change a letter or two in their names to produce new offensive words that rhyme with the original names. Some examples of such include changing \u0627\u0644\u062c\u0632\u064a\u0631\u0629> (\u201cAljzyrp\u201d \u2013 \u201cAljazeera (channel)\u201d) to \u0627\u0644\u062e\u0646\u0632\u064a\u0631\u0629> (\u201cAlxnzyrp\u201d \u2013 \u201cthe pig\u201d) and \u062e\u0644\u0641\u0627\u0646> (\u201cxlfAn\u201d \u2013 \u201cKhalfan (person name)\u201d) to \u062e\u0631\u0641\u0627\u0646> (\u201cxrfAn\u201d \u2013 \u201ccrazed\u201d).",
+   "Societal stratification: Some insults are associated with: certain jobs such as \u0628\u0648\u0627\u0628> (\u201cbwAb\u201d \u2013 \u201cdoorman\u201d) or \u062e\u0627\u062f\u0645> (\u201cxAdm\u201d \u2013 \u201cservant\u201d); and specific societal components such \u0628\u062f\u0648\u064a> (\u201cbdwy\u201d \u2013 \u201cbedouin\u201d) and \u0641\u0644\u0627\u062d> (\u201cflAH\u201d \u2013 \u201cfarmer\u201d).",
+   "Immoral behavior: These insults are associated with negative moral traits or behaviors such as \u062d\u0642\u064a\u0631> (\u201cHqyr\u201d \u2013 \u201cvile\u201d), \u062e\u0627\u064a\u0646> (\u201cxAyn\u201d \u2013 \u201ctraitor\u201d), and \u0645\u0646\u0627\u0641\u0642> (\u201cmnAfq\u201d \u2013 \u201chypocrite\u201d).",
+   "Sexually related: They include expressions such as \u062e\u0648\u0644> (\u201cxwl\u201d \u2013 \u201cgay\u201d), \u0648\u0633\u062e\u0629> (\u201cwsxp\u201d \u2013 \u201cprostitute\u201d), and \u0639\u0631\u0635> (\u201cErS\u201d \u2013 \u201cpimp\u201d)."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Using the OpenIE toolbox and applying heuristic rules to select the most relevant relation.",
+  "sources": [
+   "Table TABREF30 shows automatic evaluation results for our model and baselines (copied from their papers). Our proposed model which combines structured answer-relevant relations and unstructured sentences achieves significant improvements over proximity-based answer-aware models BIBREF9, BIBREF15 on both dataset splits. Presumably, our structured answer-relevant relation is a generalization of the context explored by the proximity-based methods because they can only capture short dependencies around answer fragments while our extractions can capture both short and long dependencies given the answer fragments. Moreover, our proposed framework is a general one to jointly leverage structured relations and unstructured sentences. All compared baseline models which only consider unstructured sentences can be further enhanced under our framework."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "hashtag features contain whether there is any hashtag in the tweet",
+  "sources": [
+   "We have decided to consider tweets about popular sports clubs as our domain for stance detection. Considerable amounts of tweets are being published for sports-related events at every instant. Hence we have determined our targets as Galatasaray (namely Target-1) and Fenerbah\u00e7e (namely, Target-2) which are two of the most popular football clubs in Turkey. As is the case for the sentiment analysis tools, the outputs of the stance detection systems on a stream of tweets about these clubs can facilitate the use of the opinions of the football followers by these clubs.",
+   "In a previous study on the identification of public health-related tweets, two tweet data sets in Turkish (each set containing 1 million random tweets) have been compiled where these sets belong to two different periods of 20 consecutive days BIBREF11 . We have decided to use one of these sets (corresponding to the period between August 18 and September 6, 2015) and firstly filtered the tweets using the possible names used to refer to the target clubs. Then, we have annotated the stance information in the tweets for these targets as Favor or Against. Within the course of this study, we have not considered those tweets in which the target is not explicitly mentioned, as our initial filtering process reveals.",
+   "For the purposes of the current study, we have not annotated any tweets with the Neither class. This stance class and even finer-grained classes can be considered in further annotation studies. We should also note that in a few tweets, the target of the stance was the management of the club while in some others a particular footballer of the club is praised or criticised. Still, we have considered the club as the target of the stance in all of the cases and carried out our annotations accordingly."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "They compare to Akbik et al. (1065) and Link et al. (2012).",
+  "sources": [
+   "In this paper, we present a deep neural network model for the task of fine-grained named entity classification using ELMo embeddings and Wikidata. The proposed model learns representations for entity mentions based on its context and incorporates the rich structure of Wikidata to augment these labels into finer-grained subtypes. We can see comparisons of our model made on Wiki(gold) in Table TABREF20 . We note that the model performs similarly to existing systems without being trained or tuned on that particular dataset. Future work may include refining the clustering method described in Section 2.2 to extend to types other than person, location, organization, and also to include disambiguation of entity types."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "An output layer for each task",
+  "sources": [
+   "Table TABREF10 shows the scores on dev (internal and external) for SLC task. Observe that the pre-trained embeddings (FastText or BERT) outperform TF-IDF vector representation. In row r2, we apply logistic regression classifier with BERTSentEmb that leads to improved scores over FastTextSentEmb. Subsequently, we augment the sentence vector with additional features that improves F1 on dev (external), however not dev (internal). Next, we initialize CNN by FastTextWordEmb or BERTWordEmb and augment the last hidden layer (before classification) with BERTSentEmb and feature vectors, leading to gains in F1 for both the dev sets. Further, we fine-tune BERT and apply different thresholds in relaxing the decision boundary, where $\\tau \\ge 0.35$ is found optimal.",
+   "We choose the three different models in the ensemble: Logistic Regression, CNN and BERT on fold1 and subsequently an ensemble+ of r3, r6 and r12 from each fold1-5 (i.e., 15 models) to obtain predictions for dev (external). We investigate different ensemble schemes (r17-r19), where we observe that the relax-voting improves recall and therefore, the higher F1 (i.e., 0.673). In postprocess step, we check for repetition propaganda technique by computing cosine similarity between the current sentence and its preceding $w=10$ sentence vectors (i.e., BERTSentEmb) in the document. If the cosine-similarity is greater than $\\lambda \\in \\lbrace .99, .95\\rbrace $, then the current sentence is labeled as propaganda due to repetition. Comparing r19 and r21, we observe a gain in recall, however an overall decrease in F1 applying postprocess.",
+   "Finally, we use the configuration of r19 on the test set. The ensemble+ of (r4, r7 r12) was analyzed after test submission. Table TABREF9 (SLC) shows that our submission is ranked at 4th position.",
+   "Table TABREF11 shows the scores on dev (internal and external) for FLC task. Observe that the features (i.e., polarity, POS and NER in row II) when introduced in LSTM-CRF improves F1. We run multi-grained LSTM-CRF without BERTSentEmb (i.e., row III) and with it (i.e., row IV), where the latter improves scores on dev (internal), however not on dev (external). Finally, we perform multi-tasking with another auxiliary task of PFD. Given the scores on dev (internal and external) using different configurations (rows I-V), it is difficult to infer the optimal configuration. Thus, we choose the two best configurations (II and IV) on dev (internal) set and build an ensemble+ of predictions (discussed in section SECREF6), leading to a boost in recall and thus an improved F1 on dev (external).",
+   "Finally, we use the ensemble+ of (II and IV) from each of the folds 1-3, i.e., $|{\\mathcal {M}}|=6$ models to obtain predictions on test. Table TABREF9 (FLC) shows that our submission is ranked at 3rd position."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Dataset contains 3606 total sentences and 53455 total entities.",
+  "sources": [
+   "After much time, we received the dataset from Bal Krishna Bal, ILPRL, KU. This dataset follows standard CoNLL-2003 IOB formatBIBREF25 with POS tags. This dataset is prepared by ILPRL Lab, KU and KEIV Technologies. Few corrections like correcting the NER tags had to be made on the dataset. The statistics of both the dataset is presented in table TABREF23."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "F1 scores are:\nHUBES-PHI: Detection(0.965), Classification relaxed (0.95), Classification strict (0.937)\nMedoccan: Detection(0.972), Classification (7.967)",
+  "sources": [
+   "To finish with this experiment set, Table also shows the strict classification precision, recall and F1-score for the compared systems. Despite the fact that, in general, the systems obtain high values, BERT outperforms them again. BERT's F1-score is 1.9 points higher than the next most competitive result in the comparison. More remarkably, the recall obtained by BERT is about 5 points above.",
+   "The results of the two MEDDOCAN scenarios \u2013detection and classification\u2013 are shown in Table . These results follow the same pattern as in the previous experiments, with the CRF classifier being the most precise of all, and BERT outperforming both the CRF and spaCy classifiers thanks to its greater recall. We also show the results of mao2019hadoken who, despite of having used a BERT-based system, achieve lower scores than our models. The reason why it should be so remain unclear."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "non-targeted profanity and swearing, targeted insults such as cyberbullying, offensive content related to ethnicity, gender or sexual orientation, political affiliation, religious belief, and anything belonging to hate speech",
+  "sources": [
+   "The data included in OLID has been collected from Twitter. We retrieved the data using the Twitter API by searching for keywords and constructions that are often included in offensive messages, such as `she is' or `to:BreitBartNews'. We carried out a first round of trial annotation of 300 instances with six experts. The goal of the trial annotation was to 1) evaluate the proposed tagset; 2) evaluate the data retrieval method; and 3) create a gold standard with instances that could be used as test questions in the training and test setting annotation which was carried out using crowdsourcing. The breakdown of keywords and their offensive content in the trial data of 300 tweets is shown in Table TABREF14 . We included a left (@NewYorker) and far-right (@BreitBartNews) news accounts because there tends to be political offense in the comments. One of the best offensive keywords was tweets that were flagged as not being safe by the Twitter `safe' filter (the `-' indicates `not safe'). The vast majority of content on Twitter is not offensive so we tried different strategies to keep a reasonable number of tweets in the offensive class amounting to around 30% of the dataset including excluding some keywords that were not high in offensive content such as `they are` and `to:NewYorker`. Although `he is' is lower in offensive content we kept it as a keyword to avoid gender bias. In addition to the keywords in the trial set, we searched for more political keywords which tend to be higher in offensive content, and sampled our dataset such that 50% of the the tweets come from political keywords and 50% come from non-political keywords. In addition to the keywords `gun control', and `to:BreitbartNews', political keywords used to collect these tweets are `MAGA', `antifa', `conservative' and `liberal'. We computed Fliess' INLINEFORM0 on the trial set for the five annotators on 21 of the tweets. INLINEFORM1 is .83 for Layer A (OFF vs NOT) indicating high agreement. As to normalization and anonymization, no user metadata or Twitter IDs have been stored, and URLs and Twitter mentions have been substituted to placeholders. We follow prior work in related areas (burnap2015cyber,davidson2017automated) and annotate our data using crowdsourcing using the platform Figure Eight. We ensure data quality by: 1) we only received annotations from individuals who were experienced in the platform; and 2) we used test questions to discard annotations of individuals who did not reach a certain threshold. Each instance in the dataset was annotated by multiple annotators and inter-annotator agreement has been calculated. We first acquired two annotations for each instance. In case of 100% agreement, we considered these as acceptable annotations, and in case of disagreement, we requested more annotations until the agreement was above 66%. After the crowdsourcing annotation, we used expert adjudication to guarantee the quality of the annotation. The breakdown of the data into training and testing for the labels from each level is shown in Table TABREF15 ."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Answer with content missing: (Data section) Chinese with version 11.3 of the Chinese Penn Treebank (CTB)",
+  "sources": [
+   "Experimental Setup"
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "It depends on the dataset. Experimental results over two datasets reveal that textual and visual features are complementary.",
+  "sources": [
+   "We randomly sampled 5,000 articles from each quality class and removed all redirect pages, resulting in a dataset of 29,794 articles. As the wikitext contained in each document contains markup relating to the document category such as {Featured Article} or {geo-stub}, which reveals the label, we remove such information. We additionally randomly partitioned this dataset into training, development, and test splits based on a ratio of 8:1:1. Details of the dataset are summarized in Table 1 .",
+   "The Wikipedia dataset consists of articles from English Wikipedia, with quality class labels assigned by the Wikipedia community. Wikipedia articles are labelled with one of six quality classes, in descending order of quality: Featured Article (\u201cFA\u201d), Good Article (\u201cGA\u201d), B-class Article (\u201cB\u201d), C-class Article (\u201cC\u201d), Start Article (\u201cStart\u201d), and Stub Article (\u201cStub\u201d). A description of the criteria associated with the different classes can be found in the Wikipedia grading scheme page. The quality class of a Wikipedia article is assigned by Wikipedia reviewers or any registered user, who can discuss through the article's talk page to reach consensus. We constructed the dataset by first crawling all articles from each quality class repository, e.g., we get FA articles by crawling pages from the FA repository: https://en.wikipedia.org/wiki/Category:Featured_articles. This resulted in around 5K FA, 28K GA, 212K B, 533K C, 2.6M Start, and 3.2M Stub articles."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "classic RNN model, avgRNN model, attentionRNN model and multiattention RNN model with and without a projected layer",
+  "sources": [
+   "In this paper we present our work, which is a part of the SociaL Media And Harassment Competition of the ECML PKDD 2019 Conference. The topic of the competition is the classification of different types of harassment and it is divided in two tasks. The first one is the classification of the tweets in harassment and non-harassment categories, while the second one is the classification in specific harassment categories like indirect harassment, physical and sexual harassment as well. We are using the dataset of the competition, which includes text from tweets having the aforementioned categories. Our approach is based on the Recurrent Neural Networks and particularly we are using a deep, classi\ufb01cation specific attention mechanism. Moreover, we present a comparison between different variations of this attention-based approach like multi-attention and single attention models. The next Section includes a short description of the related work, while the third Section includes a description of the dataset. After that, we describe our methodology. Finally, we describe the experiments and we present the results and our conclusion."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Answer with content missing: (LVL1, LVL2, LVL3) \n- Stanford CoreNLP\n- Optical Character Recognition (OCR) system, ParsCIT \n- further abridge the input text from level 1 preprocessed documents to the following: title, headers, abstract, introduction, related work, background and conclusion.",
+  "sources": [
+   "In this study, we concentrate our effort on re-assessing keyphrase extraction performance on three increasingly sophisticated levels of document preprocessing described below."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "Average success rate is higher by 7.1 percent points.",
+  "sources": [
+   "Table TABREF18 shows the results of the cross-model evaluation after 4000 training dialogues. The policies trained with the NUS achieved an average success rate (SR) of 94.0% and of 96.6% when tested on the ABUS and the NUS, respectively. By comparison, the policies trained with the ABUS achieved average SRs of 99.5% and 45.5% respectively. Thus, training with the NUS leads to policies that can perform well on both USs, which is not the case for training with the ABUS. Furthermore, the best SRs when tested on the ABUS are similar at 99.9% (ABUS) and 99.8% (NUS). When tested on the NUS the best SRs were 71.5% (ABUS) and 98.0% (NUS). This shows that the behaviour of the Neural User Simulator is realistic and diverse enough to train policies that can also perform very well on the Agenda-Based User Simulator."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "They measured the under-translated words with low word importance score as calculated by Attribution.\nmethod",
+  "sources": [
+   "Formally, let $\\textbf {x} = (x_1, ..., x_M)$ be the input sentence and $\\textbf {x}^{\\prime }$ be a baseline input. $F$ is a well-trained NMT model, and $F(\\textbf {x})_n$ is the model output (i.e., $P(y_n|\\textbf {y}_{<n},\\textbf {x})$) at time step $n$. Integrated gradients is then defined as the integral of gradients along the straightline path from the baseline $\\textbf {x}^{\\prime }$ to the input $\\textbf {x}$. In detail, the contribution of the $m^{th}$ word in $\\textbf {x}$ to the prediction of $F(\\textbf {x})_n$ is defined as follows.",
+   "where $\\frac{\\partial {F(\\textbf {x})_n}}{\\partial {\\textbf {x}_m}}$ is the gradient of $F(\\textbf {x})_n$ w.r.t. the embedding of the $m^{th}$ word. In this paper, as suggested, the baseline input $\\textbf {x}^{\\prime }$ is set as a sequence of zero embeddings that has the same sequence length $M$. In this way, we can compute the contribution of a specific input word to a designated output word. Since the above formula is intractable for deep neural models, we approximate it by summing the gradients along a multi-step path from baseline $\\textbf {x}^{\\prime }$ to the input x."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Extract features from the LDA model and use them in a binary classification task",
+  "sources": [
+   "We use one public dataset Social Honeypot dataset and one self-collected dataset Weibo dataset to validate the effectiveness of our proposed features.",
+   "Preprocessing: Before directly performing the experiments on the employed datasets, we first delete some accounts with few posts in the two employed since the number of tweets is highly indicative of spammers. For the English Honeypot dataset, we remove stopwords, punctuations, non-ASCII words and apply stemming. For the Chinese Weibo dataset, we perform segmentation with \"Jieba\", a Chinese text segmentation tool. After preprocessing steps, the Weibo dataset contains 2197 legitimate users and 802 spammers, and the honeypot dataset contains 2218 legitimate users and 2947 spammers. It is worth mentioning that the Honeypot dataset has been slashed because most of the Twitter accounts only have limited number of posts, which are not enough to show their interest inclination."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Salience features positional features, occurrence frequency and the internal POS structure of the entity and the sentence it occurs in.\nThe relative authority of entity features:   comparative relevance of the news article to the different entities occurring in it.",
+  "sources": [
+   "An important feature when suggesting an article INLINEFORM0 to an entity INLINEFORM1 is the novelty of INLINEFORM2 w.r.t the already existing entity profile INLINEFORM3 . Studies BIBREF17 have shown that on comparable collections to ours (TREC GOV2) the number of duplicates can go up to INLINEFORM4 . This figure is likely higher for major events concerning highly authoritative entities on which all news media will report.",
+   "Given an entity INLINEFORM0 and the already added news references INLINEFORM1 up to year INLINEFORM2 , the novelty of INLINEFORM3 at year INLINEFORM4 is measured by the KL divergence between the language model of INLINEFORM5 and articles in INLINEFORM6 . We combine this measure with the entity overlap of INLINEFORM7 and INLINEFORM8 . The novelty value of INLINEFORM9 is given by the minimal divergence value. Low scores indicate low novelty for the entity profile INLINEFORM10 ."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "A hybrid model consisting of best performing popularity-based approach with the best similarity-based approach",
+  "sources": [
+   "Data used to generate recommendations. We employ two sources of e-book annotation data: (i) editor tags, and (ii) Amazon search terms. For editor tags, we collect data of 48,705 e-books from 13 publishers, namely Kunstmann, Delius-Klasnig, VUR, HJR, Diogenes, Campus, Kiwi, Beltz, Chbeck, Rowohlt, Droemer, Fischer and Neopubli. Apart from the editor tags, this data contains metadata fields of e-books such as the ISBN, the title, a description text, the author and a list of BISACs, which are identifiers for book categories.",
+   "Data used to evaluate recommendations. For evaluation, we use a third set of e-book annotations, namely Amazon review keywords. These review keywords are extracted from the Amazon review texts and are typically provided in the review section of books on Amazon. Our idea is to not favor one or the other data source (i.e., editor tags and Amazon search terms) when evaluating our approaches against expected tags. At the same time, we consider Amazon review keywords to be a good mixture of editor tags and search terms as they describe both the content and the users' opinions on the e-books (i.e., the readers' vocabulary). As shown in Table TABREF3 , we collect Amazon review keywords for 2,896 e-books (publishers: Kiwi, Rowohlt, Fischer, and Droemer), which leads to 33,663 distinct review keywords and on average 30 keyword assignments per e-book."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Logistic Regression, Multinomial Naive Bayes, Random Forest, AdaBoost, Linear SVM, SVM with ADWSK and Pattern-based",
+  "sources": [
+   "We considered a dataset of 100 employees, where for each employee multiple peer comments were recorded. Also, for each employee, a manual summary was generated by an HR personnel. The summaries generated by our ILP-based approach were compared with the corresponding manual summaries using the ROUGE BIBREF22 unigram score. For comparing performance of our ILP-based summarization algorithm, we explored a few summarization algorithms provided by the Sumy package. A common parameter which is required by all these algorithms is number of sentences keep in the final summary. ILP-based summarization requires a similar parameter K, which is automatically decided based on number of total candidate phrases. Assuming a sentence is equivalent to roughly 3 phrases, for Sumy algorithms, we set number of sentences parameter to the ceiling of K/3. Table TABREF51 shows average and standard deviation of ROUGE unigram f1 scores for each algorithm, over the 100 summaries. The performance of ILP-based summarization is comparable with the other algorithms, as the two sample t-test does not show statistically significant difference. Also, human evaluators preferred phrase-based summary generated by our approach to the other sentence-based summaries."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Organic: mention of political parties names in the profile attributes, specific mentions of political handles in the profile attributes.\nInorganic:  adding Chowkidar to the profile attributes, the effect of changing the profile attribute in accordance with Prime Minister's campaign, the addition of election campaign related keywords to the profile.",
+  "sources": [
+   "INSIGHT 1: Political handles are more likely to engage in profile changing behavior as compared to their followers.",
+   "In Figure FIGREF15, we plot the number of changes in given attributes over all the snapshots for the users in set $S$. From this plot, we find that not all the attributes are modified at an equal rate. Profile image and Location are the most changed profile attributes and account for nearly $34\\%$ and $25\\%$ respectively of the total profile changes in our dataset. We analyze the trends in Figure FIGREF12 and find that the political handles do not change their usernames at all. This is in contrast to the trend in Figure FIGREF15 where we see that there are a lot of handles that change their usernames multiple times. The most likely reason for the same is that most of the follower handles are not verified and would not loose their verified status on changing their username.",
+   "INSIGHT 3: Political handles tend to make new changes related to previous attribute values. However, the followers make comparatively less related changes to previous attribute values."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "They compute the gradient of the output at each time step with respect to the input words to decide the importance.",
+  "sources": [
+   "In this experiment, we propose to use the estimated word importance to detect the under-translated words by NMT models. Intuitively, under-translated input words should contribute little to the NMT outputs, yielding much smaller word importance. Given 500 Chinese$\\Rightarrow $English sentence pairs translated by the Transformer model (BLEU 23.57), we ask ten human annotators to manually label the under-translated input words, and at least two annotators label each input-hypothesis pair. These annotators have at least six years of English study experience, whose native language is Chinese. Among these sentences, 178 sentences have under-translation errors with 553 under-translated words in total.",
+   "Table TABREF32 lists the accuracy of detecting under-translation errors by comparing words of least importance and human-annotated under-translated words. As seen, our Attribution method consistently and significantly outperforms both Erasure and Attention approaches. By exploiting the word importance calculated by Attribution method, we can identify the under-translation errors automatically without the involvement of human interpreters. Although the accuracy is not high, it is worth noting that our under-translation method is very simple and straightforward. This is potentially useful for debugging NMT models, e.g., automatic post-editing with constraint decoding BIBREF26, BIBREF27."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "BERT had 85.2 F1 macro score on x-stance dataset.",
+  "sources": [
+   "To put the supervised score into context we list scores that variants of Bert have achieved on other stance detection datasets in Table TABREF46. It seems that the supervised part of x-stance has a similar difficulty as the SemEval-2016 BIBREF0 or MPCHI BIBREF22 datasets on which Bert has previously been evaluated."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "In case of read speech datasets,  their best model got the highest nov93 score of 16.1 and the highest nov92 score of 13.3.\nIn case of Conversational Speech, their best model got the highest SWB of 11.3 and the highest CHM of 19.3.",
+  "sources": [
+   "We trained a smaller Jasper 10x3 model with SGD with momentum optimizer for 400 epochs on a combined WSJ dataset (80 hours): LDC93S6A (WSJ0) and LDC94S13A (WSJ1). The results are provided in Table TABREF29 .",
+   "We also evaluate the Jasper model's performance on a conversational English corpus. The Hub5 Year 2000 (Hub5'00) evaluation (LDC2002S09, LDC2005S13) is widely used in academia. It is divided into two subsets: Switchboard (SWB) and Callhome (CHM). The training data for both the acoustic and language models consisted of the 2000hr Fisher+Switchboard training data (LDC2004S13, LDC2005S13, LDC97S62). Jasper DR 10x5 was trained using SGD with momentum for 50 epochs. We compare to other models trained using the same data and report Hub5'00 results in Table TABREF31 ."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "pays attentions to adjacent characters and casts a localness relationship between the characters as a fixed Gaussian weight assuming the weight relies on the distance between characters",
+  "sources": [
+   "Tables TABREF25 and TABREF26 reports the performance of recent models and ours in terms of closed test setting. Without the assistance of unsupervised segmentation features userd in BIBREF20, our model outperforms all the other models in MSR and AS except BIBREF18 and get comparable performance in PKU and CITYU. Note that all the other models for this comparison adopt various $n$-gram features while only our model takes unigram ones."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "31,700 queries, including 22,500 in-scope queries covering 150 intents, which can be grouped into 10 general domains and 1,200 out-of-scope queries.",
+  "sources": [
+   "We introduce a new crowdsourced dataset of 23,700 queries, including 22,500 in-scope queries covering 150 intents, which can be grouped into 10 general domains. The dataset also includes 1,200 out-of-scope queries. Table TABREF2 shows examples of the data."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "A homographic and heterographic benchmark datasets by BIBREF9.",
+  "sources": [
+   "The contexts have the characteristic that each context contains a maximum of one pun BIBREF9 . In other words, there exists only one pun if the given sentence is detected as the one containing a pun. Otherwise, there is no pun residing in the text. To capture this interesting property, we propose a new tagging scheme consisting of three tags, namely { INLINEFORM0 }.",
+   "INLINEFORM0 tag indicates that the current word appears before the pun in the given context.",
+   "INLINEFORM0 tag highlights the current word is a pun.",
+   "INLINEFORM0 tag indicates that the current word appears after the pun."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "By calculating Macro F1 metric at the document level.",
+  "sources": [
+   "Formally, we define neighbor mentions as INLINEFORM0 adjacent mentions before and after current mention INLINEFORM1 : INLINEFORM2 , where INLINEFORM3 is the pre-defined window size. Thus, the topical coherence at document level shall be achieved in a chain-like way. As shown in Figure FIGREF10 ( INLINEFORM4 ), mentions Hussain and Essex, a cricket player and the cricket club, provide adequate disambiguation clues to induce the underlying topic \u201ccricket\" for the current mention England, which impacts positively on identifying the mention surrey as another cricket club via the common neighbor mention Essex."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "In pass-through, the recognizer passes on the possibly misspelled word, backoff to neutral word backs off to a word with similar distribution across classes and backoff to background model backs off to a more generic word recognition model trained with larger and less specialized corpus.",
+  "sources": [
+   "For sentiment classification, we systematically study the effect of character-level adversarial attacks on two architectures and four different input formats. The first architecture encodes the input sentence into a sequence of embeddings, which are then sequentially processed by a BiLSTM. The first and last states of the BiLSTM are then used by the softmax layer to predict the sentiment of the input. We consider three input formats for this architecture: (1) Word-only: where the input words are encoded using a lookup table; (2) Char-only: where the input words are encoded using a separate single-layered BiLSTM over their characters; and (3) Word $+$ Char: where the input words are encoded using a concatenation of (1) and (2) .",
+   "We also consider the task of paraphrase detection. Here too, we make use of the fine-tuned BERT BIBREF26 , which is trained and evaluated on the Microsoft Research Paraphrase Corpus (MRPC) BIBREF27 ."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Unidirectional LSTM networks with 2, 6, 7, 10, and  9 layers.",
+  "sources": [
+   "There is a high real time requirement in real world application, especially in online voice search system. Shenma voice search is one of the most popular mobile search engines in China, and it is a streaming service that intermediate recognition results displayed while users are still speaking. Unidirectional LSTM network is applied, rather than bidirectional one, because it is well suited to real-time streaming speech recognition."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "Low data: SST-5, TREC, IMDB around 1-2 accuracy points better than baseline\nImbalanced labels: the improvement over the base model increases as the data gets more imbalanced, ranging from around 6 accuracy points on 100:1000 to over 27 accuracy points on 20:1000",
+  "sources": [
+   "Table TABREF26 shows the manipulation results on text classification. For data augmentation, our approach significantly improves over the base model on all the three datasets. Besides, compared to both the conventional synonym substitution and the approach that keeps the augmentation network fixed, our adaptive method that fine-tunes the augmentation network jointly with model training achieves superior results. Indeed, the heuristic-based synonym approach can sometimes harm the model performance (e.g., SST-5 and IMDB), as also observed in previous work BIBREF19, BIBREF18. This can be because the heuristic rules do not fit the task or datasets well. In contrast, learning-based augmentation has the advantage of adaptively generating useful samples to improve model training.",
+   "Table TABREF29 shows the classification results on SST-2 with varying imbalance ratios. We can see our data weighting performs best across all settings. In particular, the improvement over the base model increases as the data gets more imbalanced, ranging from around 6 accuracy points on 100:1000 to over 20 accuracy points on 20:1000. Our method is again consistently better than BIBREF4, validating that the parametric treatment is beneficial. The proportion-based data weighting provides only limited improvement, showing the advantage of adaptive data weighting. The base model trained on the joint training-validation data for fixed steps fails to perform well, partly due to the lack of a proper mechanism for selecting steps."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "1163 million tokens for English and 989 million tokens for Russian",
+  "sources": [
+   "For the experiments described below, we trained our own ELMo models from scratch. For English, the training corpus consisted of the English Wikipedia dump from February 2017. For Russian, it was a concatenation of the Russian Wikipedia dump from December 2018 and the full Russian National Corpus (RNC). The RNC texts were added to the Russian Wikipedia dump so as to make the Russian training corpus more comparable in size to the English one (Wikipedia texts would comprise only half of the size). As Table TABREF3 shows, the English Wikipedia is still two times larger, but at least the order is the same."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "The Reuters-8 dataset (with stop words removed)",
+  "sources": [
+   "To tackle this problem, we introduce the novel concept of word subspace. It is mathematically defined as a low dimensional linear subspace in a word vector space with high dimensionality. Given that words from texts of the same class belong to the same context, it is possible to model word vectors of each class as word subspaces and efficiently compare them in terms of similarity by using canonical angles between the word subspaces. Through this representation, most of the variability of the class is retained. Consequently, a word subspace can effectively and compactly represent the context of the corresponding text. We achieve this framework through the mutual subspace method (MSM) BIBREF9 ."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Advanced neural architectures and contextualized embedding models learn how to handle spelling and morphology variations.",
+  "sources": [
+   "For the experiments described below, we trained our own ELMo models from scratch. For English, the training corpus consisted of the English Wikipedia dump from February 2017. For Russian, it was a concatenation of the Russian Wikipedia dump from December 2018 and the full Russian National Corpus (RNC). The RNC texts were added to the Russian Wikipedia dump so as to make the Russian training corpus more comparable in size to the English one (Wikipedia texts would comprise only half of the size). As Table TABREF3 shows, the English Wikipedia is still two times larger, but at least the order is the same."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "reduced the dataset by eliminating features, apply feature selection to select highest ranked features to train and test the model and rank the performance of incrementally adding features.",
+  "sources": [
+   "Specifically, we conducted a feature ablation study to assess the informativeness of each feature group and a feature elimination study to determine the optimal feature sets for classifying Twitter tweets. We leveraged an existing, annotated Twitter dataset that was constructed based on a hierarchical model of depression-related symptoms BIBREF12 , BIBREF13 . The dataset contains 9,473 annotations for 9,300 tweets. Each tweet is annotated as no evidence of depression (e.g., \u201cCitizens fear an economic depression\") or evidence of depression (e.g., \u201cdepressed over disappointment\"). If a tweet is annotated evidence of depression, then it is further annotated with one or more depressive symptoms, for example, depressed mood (e.g., \u201cfeeling down in the dumps\"), disturbed sleep (e.g., \u201canother restless night\"), or fatigue or loss of energy (e.g., \u201cthe fatigue is unbearable\") BIBREF10 . For each class, every annotation (9,473 tweets) is binarized as the positive class e.g., depressed mood=1 or negative class e.g., not depressed mood=0."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "it has 0.024 improvement in accuracy comparing to ELMO Only and  0.006 improvement in F1 score  comparing to ELMO Only too",
+  "sources": [
+   "Our testing dataset takes MIMIC-III BIBREF18 and PubMed as data sources. Here we are referring to all the notes data from MIMIC-III (NOTEEVENTS table ) and Case Reports articles from PubMed, as these contents are close to medical notes. To create the test set, we first followed the approach by BIBREF6 who applied an auto-generating method. Initially, we built a term-sense dictionary from the training dataset. Then we did matching for the sense words or phrases in the MIMIC-III notes dataset, and once there is a match, we replaced the words or phrases with the abbreviation term . We then asked two researchers with a medical background to check the matched samples manually with the following judgment: given this sentence and the abbreviation term and its sense, do you think the content is enough for you to guess the sense and whether this is the right sense? To estimate the agreement on the annotations, we selected a subset which contains 120 samples randomly and let the two annotators annotate individually. We got a Kappa score BIBREF27 of 0.96, which is considered as a near perfect agreement. We then distributed the work to the two annotators, and each of them labeled a half of the dataset, which means each sample was only labeled by a single annotator. For some rare term-sense pairs, we failed to find samples from MIMIC-III. The annotators then searched these senses via PubMed data source manually, aiming to find clinical notes-like sentences. They picked good sentences from these results as testing samples where the keywords exist and the content is informative. For those senses that are extremely rare, we let the annotators create sentences in the clinical note style as testing samples according to their experiences. Eventually, we have a balanced testing dataset, where each term-sense pair has around 15 samples for testing (on average, each pair has 14.56 samples and the median sample number is 15), and a comparison with training dataset is shown in Figure FIGREF11. Due to the difficulty for collecting the testing dataset, we decided to only collect for a random selection of 30 terms. On average, it took few hours to generate testing samples for each abbreviation term per researcher."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Social Honeypot dataset (public) and Weibo dataset (self-collected); yes",
+  "sources": [
+   "Using the LDA model, each person in the dataset is with a topic probability vector $X_i$ . Assume $x_{ik}\\in X_{i}$ denotes the likelihood that the $\\emph {i}^{th}$ tweet account favors $\\emph {k}^{th}$ topic in the dataset. Our topic based features can be calculated as below.",
+   "Global Outlier Standard Score measures the degree that a user's tweet content is related to a certain topic compared to the other users. Specifically, the \"GOSS\" score of user $i$ on topic $k$ can be calculated as Eq.( 12 ):",
+   "Local Outlier Standard Score measures the degree of interest someone shows to a certain topic by considering his own homepage content only. For instance, the \"LOSS\" score of account $i$ on topic $k$ can be calculated as Eq.( 13 ):",
+   "Three baseline classification methods: Support Vector Machines (SVM), Adaboost, and Random Forests are adopted to evaluate our extracted features. We test each classification algorithm with scikit-learn BIBREF9 and run a 10-fold cross validation. On each dataset, the employed classifiers are trained with individual feature first, and then with the combination of the two features. From 1 , we can see that GOSS+LOSS achieves the best performance on F1-score among all others. Besides, the classification by combination of LOSS and GOSS can increase accuracy by more than 3% compared with raw topic distribution probability."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "Answer with content missing: (Parent subsections) combine precisions for n-gram orders 2-4",
+  "sources": [
+   "We show that existing automatic metrics, including BLEU, correlate poorly with human judgments when the evaluation sets contain divergent references (\u00a7 SECREF36 ). For many table-to-text generation tasks, the tables themselves are in a pseudo-natural language format (e.g., WikiBio, WebNLG BIBREF6 , and E2E-NLG BIBREF10 ). In such cases we propose to compare the generated text to the underlying table as well to improve evaluation. We develop a new metric, PARENT (Precision And Recall of Entailed N-grams from the Table) (\u00a7 SECREF3 ). When computing precision, PARENT effectively uses a union of the reference and the table, to reward correct information missing from the reference. When computing recall, it uses an intersection of the reference and the table, to ignore extra incorrect information in the reference. The union and intersection are computed with the help of an entailment model to decide if a text n-gram is entailed by the table. We show that this method is more effective than using the table as an additional reference. Our main contributions are:",
+   "PARENT evaluates each instance INLINEFORM0 separately, by computing the precision and recall of INLINEFORM1 against both INLINEFORM2 and INLINEFORM3 ."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "Once split into 4 subsets (A-H), the test set used are blocks D+H and blocks F+H",
+  "sources": [
+   "In order to achieve these configuration the TIMIT data was split. Fig. FIGREF12 illustrates the split of the data into 8 subsets (A\u2013H). The TIMIT dataset contains speech from 462 speakers in training and 168 speakers in the test set, with 8 utterances for each speaker. The TIMIT training and test set are split into 8 blocks, where each block contains 2 utterances per speaker, randomly chosen. Thus each block A,B,C,D contains data from 462 speakers with 924 utterances taken from the training sets, and each block E,F,G,H contains speech from 168 test set speakers with 336 utterances.",
+   "For Task a training of embeddings and the classifier is identical, namely consisting of data from blocks (A+B+C+E+F+G). The test data is the remainder, namely blocks (D+H). For Task b the training of embeddings and classifiers uses (A+B+E+F) and (C+G) respectively, while again using (D+H) for test. Task c keeps both separate: embeddings are trained on (A+B+C+D), classifiers on (E+G) and tests are conducted on (F+H). Note that H is part of all tasks, and that Task c is considerably easier as the number of speakers to separate is only 168, although training conditions are more difficult."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "The cost function for any one of the words of concept word-groups is modified by the introduction of an additive term to the cost function. . Each embedding vector dimension is first associated with a concept. For a word belonging to any one of the word-groups representing these concepts, the modified cost term favors an increase for the value of this word's embedding vector dimension corresponding to the concept that the particular word belongs to,",
+  "sources": [
+   "One of the main goals of this study is to improve the interpretability of dense word embeddings by aligning the dimensions with predefined concepts from a suitable lexicon. A quantitative measure is required to reliably evaluate the achieved improvement. One of the methods proposed to measure the interpretability is the word intrusion test BIBREF41 . But, this method is expensive to apply since it requires evaluations from multiple human evaluators for each embedding dimension. In this study, we use a semantic category-based approach based on the method and category dataset (SEMCAT) introduced in BIBREF27 to quantify interpretability. Specifically, we apply a modified version of the approach presented in BIBREF40 in order to consider possible sub-groupings within the categories in SEMCAT. Interpretability scores are calculated using Interpretability Score (IS) as given below:"
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "1264 instances from simulated data, 1280 instances by adding two out-of-distribution symptoms and 944 instances manually delineated from the symptom checking portions of real-word dialogues",
+  "sources": [
+   "We used recordings of nurse-initiated telephone conversations for congestive heart failure patients undergoing telemonitoring, post-discharge from the hospital. The clinical data was acquired by the Health Management Unit at Changi General Hospital. This research study was approved by the SingHealth Centralised Institutional Review Board (Protocol 1556561515). The patients were recruited during 2014-2016 as part of their routine care delivery, and enrolled into the telemonitoring health management program with consent for use of anonymized versions of their data for research.",
+   "To analyze the linguistic structure of the inquiry-response pairs in the entire 41-hour dataset, we randomly sampled a seed dataset consisting of 1,200 turns and manually categorized them to different types, which are summarized in Table TABREF14 along with the corresponding occurrence frequency statistics. Note that each given utterance could be categorized to more than one type. We elaborate on each utterance type below."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "The dataset from the SociaL Media And Harassment Competition of the ECML PKDD 1195 Conference.",
+  "sources": [
+   "In this paper we present our work, which is a part of the SociaL Media And Harassment Competition of the ECML PKDD 2019 Conference. The topic of the competition is the classification of different types of harassment and it is divided in two tasks. The first one is the classification of the tweets in harassment and non-harassment categories, while the second one is the classification in specific harassment categories like indirect harassment, physical and sexual harassment as well. We are using the dataset of the competition, which includes text from tweets having the aforementioned categories. Our approach is based on the Recurrent Neural Networks and particularly we are using a deep, classi\ufb01cation specific attention mechanism. Moreover, we present a comparison between different variations of this attention-based approach like multi-attention and single attention models. The next Section includes a short description of the related work, while the third Section includes a description of the dataset. After that, we describe our methodology. Finally, we describe the experiments and we present the results and our conclusion."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "Answer with content missing: (Subscript 1: \"We did not participate in subtask 4 (E-c)\") Authors participated in EI-Reg, EI-Oc, V-Reg and V-Oc subtasks.",
+  "sources": [
+   "Our submissions ranked second (EI-Reg), second (EI-Oc), fourth (V-Reg) and fifth (V-Oc), demonstrating that the proposed method is accurate in automatically determining the intensity of emotions and sentiment of Spanish tweets. This paper will first focus on the datasets, the data generation procedure, and the techniques and tools used. Then we present the results in detail, after which we perform a small error analysis on the largest mistakes our model made. We conclude with some possible ideas for future work."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "Adversarial misspellings are a real-world problem",
+  "sources": [
+   "While BIBREF7 demonstrate strong word recognition performance, a drawback of their evaluation setup is that they only attack and evaluate on the subset of words that are a part of their training vocabulary. In such a setting, the word recognition performance is unreasonably dependent on the chosen vocabulary size. In principle, one can design models to predict (correctly) only a few chosen words, and ignore the remaining majority and still reach 100% accuracy. For the adversarial setting, rare and unseen words in the wild are particularly critical, as they provide opportunities for the attackers. A reliable word-recognizer should handle these cases gracefully. Below, we explore different ways to back off when the ScRNN predicts UNK (a frequent outcome for rare and unseen words):",
+   "Pass-through: word-recognizer passes on the (possibly misspelled) word as is.",
+   "Backoff to neutral word: Alternatively, noting that passing $\\colorbox {gray!20}{\\texttt {UNK}}$ -predicted words through unchanged exposes the downstream model to potentially corrupted text, we consider backing off to a neutral word like `a', which has a similar distribution across classes.",
+   "Backoff to background model: We also consider falling back upon a more generic word recognition model trained upon a larger, less-specialized corpus whenever the foreground word recognition model predicts UNK. Figure 1 depicts this scenario pictorially."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "In case of Freebase knowledge base, LiLi model had better F1 score than the single model by 0.20 , 0.01, 0.159 for kwn, unk, and all test Rel type.  The values for WordNet are 7.25, 0.1, 0.2.",
+  "sources": [
+   "Baselines. As none of the existing KBC methods can solve the OKBC problem, we choose various versions of LiLi as baselines.",
+   "Single: Version of LiLi where we train a single prediction model INLINEFORM0 for all test relations.",
+   "Sep: We do not transfer (past learned) weights for initializing INLINEFORM0 , i.e., we disable LL.",
+   "F-th): Here, we use a fixed prediction threshold 0.5 instead of relation-specific threshold INLINEFORM0 .",
+   "BG: The missing or connecting links (when the user does not respond) are filled with \u201c@-RelatedTo-@\" blindly, no guessing mechanism.",
+   "w/o PTS: LiLi does not ask for additional clues via past task selection for skillset improvement.",
+   "Evaluation-I: Strategy Formulation Ability. Table 5 shows the list of inference strategies formulated by LiLi for various INLINEFORM0 and INLINEFORM1 , which control the strategy formulation of LiLi. When INLINEFORM2 , LiLi cannot interact with user and works like a closed-world method. Thus, INLINEFORM3 drops significantly (0.47). When INLINEFORM4 , i.e. with only one interaction per query, LiLi acquires knowledge well for instances where either of the entities or relation is unknown. However, as one unknown entity may appear in multiple test triples, once the entity becomes known, LiLi doesn\u2019t need to ask for it again and can perform inference on future triples causing significant increase in INLINEFORM5 (0.97). When INLINEFORM6 , LiLi is able to perform inference on all instances and INLINEFORM7 becomes 1. For INLINEFORM8 , LiLi uses INLINEFORM9 only once (as only one MLQ satisfies INLINEFORM10 ) compared to INLINEFORM11 . In summary, LiLi\u2019s RL-model can effectively formulate query-specific inference strategies (based on specified parameter values). Evaluation-II: Predictive Performance. Table 6 shows the comparative performance of LiLi with baselines. To judge the overall improvements, we performed paired t-test considering +ve F1 scores on each relation as paired data. Considering both KBs and all relation types, LiLi outperforms Sep with INLINEFORM12 . If we set INLINEFORM13 (training with very few clues), LiLi outperforms Sep with INLINEFORM14 on Freebase considering MCC. Thus, the lifelong learning mechanism is effective in transferring helpful knowledge. Single model performs better than Sep for unknown relations due to the sharing of knowledge (weights) across tasks. However, for known relations, performance drops because, as a new relation arrives to the system, old weights get corrupted and catastrophic forgetting occurs. For unknown relations, as the relations are evaluated just after training, there is no chance for catastrophic forgetting. The performance improvement ( INLINEFORM15 ) of LiLi over F-th on Freebase signifies that the relation-specific threshold INLINEFORM16 works better than fixed threshold 0.5 because, if all prediction values for test instances lie above (or below) 0.5, F-th predicts all instances as +ve (-ve) which degrades its performance. Due to the utilization of contextual similarity (highly correlated with class labels) of entity-pairs, LiLi\u2019s guessing mechanism works better ( INLINEFORM17 ) than blind guessing (BG). The past task selection mechanism of LiLi also improves its performance over w/o PTS, as it acquires more clues during testing for poorly performed tasks (evaluated on validation set). For Freebase, due to a large number of past tasks [9 (25% of 38)], the performance difference is more significant ( INLINEFORM18 ). For WordNet, the number is relatively small [3 (25% of 14)] and hence, the difference is not significant."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "Answer with content missing: (list)\nLiLi should have the following capabilities:\n1. to formulate an inference strategy for a given query that embeds processing and interactive actions.\n2. to learn interaction behaviors (deciding what to ask and when to ask the user).\n3. to leverage the acquired knowledge in the current and future inference process.\n4. to perform 2, 2 and 3 in a lifelong manner for continuous knowledge learning.",
+  "sources": [
+   "We solve the OKBC problem by mimicking how humans acquire knowledge and perform reasoning in an interactive conversation. Whenever we encounter an unknown concept or relation while answering a query, we perform inference using our existing knowledge. If our knowledge does not allow us to draw a conclusion, we typically ask questions to others to acquire related knowledge and use it in inference. The process typically involves an inference strategy (a sequence of actions), which interleaves a sequence of processing and interactive actions. A processing action can be the selection of related facts, deriving inference chain, etc., that advances the inference process. An interactive action can be deciding what to ask, formulating a suitable question, etc., that enable us to interact. The process helps grow the knowledge over time and the gained knowledge enables us to communicate better in the future. We call this lifelong interactive learning and inference (LiLi). Lifelong learning is reflected by the facts that the newly acquired facts are retained in the KB and used in inference for future queries, and that the accumulated knowledge in addition to the updated KB including past inference performances are leveraged to guide future interaction and learning. LiLi should have the following capabilities:"
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "0.8% F1 better than the best state-of-the-art",
+  "sources": [
+   "(1) We propose extended middle context, a new context representation for CNNs for relation classification. The extended middle context uses all parts of the sentence (the relation arguments, left of the relation arguments, between the arguments, right of the arguments) and pays special attention to the middle part.",
+   "One of our contributions is a new input representation especially designed for relation classification. The contexts are split into three disjoint regions based on the two relation arguments: the left context, the middle context and the right context. Since in most cases the middle context contains the most relevant information for the relation, we want to focus on it but not ignore the other regions completely. Hence, we propose to use two contexts: (1) a combination of the left context, the left entity and the middle context; and (2) a combination of the middle context, the right entity and the right context. Due to the repetition of the middle context, we force the network to pay special attention to it. The two contexts are processed by two independent convolutional and max-pooling layers. After pooling, the results are concatenated to form the sentence representation. Figure FIGREF3 depicts this procedure. It shows an examplary sentence: \u201cHe had chest pain and <e1>headaches</e1> from <e2>mold</e2> in the bedroom.\u201d If we only considered the middle context \u201cfrom\u201d, the network might be tempted to predict a relation like Entity-Origin(e1,e2). However, by also taking the left and right context into account, the model can detect the relation Cause-Effect(e2,e1). While this could also be achieved by integrating the whole context into the model, using the whole context can have disadvantages for longer sentences: The max pooling step can easily choose a value from a part of the sentence which is far away from the mention of the relation. With splitting the context into two parts, we reduce this danger. Repeating the middle context increases the chance for the max pooling step to pick a value from the middle context."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "They use four-layered 3D CNN and two fully connected hidden layers on the channel covariance matrix to compute the spatial aspect.",
+  "sources": [
+   "In order to decode spatial connections between the electrodes from the channel covariance matrix, we use a CNN BIBREF19 , in particular a four-layered 2D CNN stacking two convolutional and two fully connected hidden layers. The INLINEFORM0 feature map at a given CNN layer with input INLINEFORM1 , weight matrix INLINEFORM2 and bias INLINEFORM3 is obtained as: INLINEFORM4 . At this first level of hierarchy, the network is trained with the corresponding labels as target outputs, optimizing a cross-entropy cost function. In parallel, we apply a four-layered recurrent neural network on the channel covariance matrices to explore the hidden temporal features of the electrodes. Namely, we exploit an LSTM BIBREF20 consisting of two fully connected hidden layers, stacked with two LSTM layers and trained in a similar manner as CNN."
+  ],
+  "supported": false,
+  "kind": "number_changed"
+ },
+ {
+  "claim": "LSA, TextRank, LexRank and ILP-based summary.",
+  "sources": [
+   "We randomly selected 2000 sentences from the supervisor assessment corpus and manually tagged them (dataset D1). This labelled dataset contained 705, 103, 822 and 370 sentences having the class labels STRENGTH, WEAKNESS, SUGGESTION or OTHER respectively. We trained several multi-class classifiers on this dataset. Table TABREF10 shows the results of 5-fold cross-validation experiments on dataset D1. For the first 5 classifiers, we used their implementation from the SciKit Learn library in Python (scikit-learn.org). The features used for these classifiers were simply the sentence words along with their frequencies. For the last 2 classifiers (in Table TABREF10 ), we used our own implementation. The overall accuracy for a classifier is defined as INLINEFORM0 , where the denominator is 2000 for dataset D1. Note that the pattern-based approach is unsupervised i.e., it did not use any training data. Hence, the results shown for it are for the entire dataset and not based on cross-validation."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ },
+ {
+  "claim": "F-1 score on the OntoNotes is 88%, and it is 53% on Wiki (gold).",
+  "sources": [
+   "In this paper, we present a deep neural network model for the task of fine-grained named entity classification using ELMo embeddings and Wikidata. The proposed model learns representations for entity mentions based on its context and incorporates the rich structure of Wikidata to augment these labels into finer-grained subtypes. We can see comparisons of our model made on Wiki(gold) in Table TABREF20 . We note that the model performs similarly to existing systems without being trained or tuned on that particular dataset. Future work may include refining the clustering method described in Section 2.2 to extend to types other than person, location, organization, and also to include disambiguation of entity types."
+  ],
+  "supported": false,
+  "kind": "other_question_evidence"
+ }
+]
