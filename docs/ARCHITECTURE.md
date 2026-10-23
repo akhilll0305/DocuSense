@@ -269,9 +269,10 @@ load either from a directory: `EMBEDDING_MODEL=models/minilm-qasper`,
 `RERANKER_MODEL=models/reranker-qasper`. `models/` is not in git.
 
 The fine-tuned reranker was measured on test and did not earn its place (+0.0062 MRR,
-p = 0.47), so the shipped reranker is still MS MARCO's. The fine-tuned embedder is
-ahead on dev (MRR@10 0.128 → 0.160) and has not yet been measured on test, so it is not
-the default either. See [BENCHMARKS.md](BENCHMARKS.md#fine-tuning-the-retrieval-models).
+p = 0.47), so the shipped reranker is still MS MARCO's. The fine-tuned embedder did:
++0.059 MRR on test in hybrid search (p = 0.0002), level once the cross-encoder reranks.
+The deployment uses it; the local default stays stock only because `models/` is not in
+git. See [BENCHMARKS.md](BENCHMARKS.md#fine-tuning-the-retrieval-models).
 
 ### `storage/`
 SQLite via `chunk_store.py` (documents, chunks, images) and `conversation_store.py`

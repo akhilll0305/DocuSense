@@ -563,22 +563,57 @@ That is +25% MRR and +34% Recall@10 on papers it has never seen. The ONNX export
 reproduces the torch model to a cosine of 1.000000, through the same fastembed path
 production uses.
 
-**Not yet measured on test.** The test-split run (re-ingesting the 80 papers with the
-new embedder) was stopped before it finished, and a dev number is the number the
-checkpoint was *chosen* on, so it is optimistic by construction. Until the test run
-exists the shipped default stays the stock model. To produce it:
+**On test.** A dev number is the number the checkpoint was *chosen* on, so it is
+optimistic by construction. The test run re-ingests the same 80 papers into a separate
+collection with the fine-tuned embedder and asks the same 259 questions, so each arm is
+compared pairwise against its stock counterpart (`scripts/compare_reports.py`, 10,000
+bootstrap resamples; it refuses two reports that did not ask the same questions):
+
+| test, 259 questions | stock MRR | fine-tuned MRR | delta | 95% CI | p |
+|---|---|---|---|---|---|
+| Vector only | 0.1867 | **0.2468** | +0.0602 | [+0.0308, +0.0916] | 0.0002 |
+| Hybrid (+ BM25, RRF) | 0.2244 | **0.2834** | +0.0590 | [+0.0291, +0.0908] | 0.0002 |
+| Hybrid + rerank | 0.2824 | 0.2895 | +0.0071 | [-0.0140, +0.0282] | 0.52 |
+
+| test, fine-tuned | MRR | NDCG@10 | P@1 | Recall@5 | Recall@10 | MAP | ms/query |
+|---|---|---|---|---|---|---|---|
+| Vector only | 0.2468 | 0.2580 | 0.1544 | 0.2993 | 0.3853 | 0.1972 | 22 |
+| Hybrid | 0.2834 | 0.2930 | 0.1853 | 0.3376 | 0.4184 | 0.2327 | 26 |
+| Hybrid + rerank | 0.2895 | 0.2951 | 0.1931 | 0.3410 | 0.4275 | 0.2308 | 2190 |
+
+The dev gain held: **+32% MRR for vector search and +26% for hybrid**, both
+significant. Three things follow.
+
+- **With the reranker on, the gain mostly disappears.** +0.007 MRR, p = 0.52; NDCG@10
+  is +0.018 (p = 0.05) and Recall@10 +4.6 points, but MRR and P@1 do not move. The
+  cross-encoder re-scores the top 20 itself, so a better first stage matters only for
+  what it brings into that 20, and the stock first stage was already bringing most of
+  it.
+- **The reranker's own gain shrinks to nothing on top of the fine-tuned first stage.**
+  Hybrid to hybrid + rerank is +0.0062 MRR, p = 0.76, where on the stock embedder it
+  was +0.058, p = 0.0044.
+- **Fine-tuned hybrid matches stock hybrid + rerank, at a hundredth of the cost.**
+  0.2834 against 0.2824 MRR (paired p = 0.97), with Recall@10 0.418 against 0.382, at
+  26 ms a query instead of 2,190. On a machine where the cross-encoder is too slow,
+  the fine-tuned embedder buys back what turning it off would cost.
+
+The fine-tuned embedder ships in the deployment, where it is never worse and is the
+better first stage. The reranker stays on there; it no longer adds measurably to
+accuracy, but nothing says removing it is free on other questions either, and the
+deployment has the CPU for it. The local default stays the stock model only because
+`models/` is not in git: run `scripts/finetune_embedder.py` and set
+`EMBEDDING_MODEL=models/minilm-qasper`.
+
+To reproduce:
 
 ```bash
 QDRANT_COLLECTION_NAME=qasper_ft EMBEDDING_MODEL=models/minilm-qasper \
     python scripts/benchmark.py --papers 80 --arms vector,hybrid,hybrid_rerank \
     --out data/benchmarks/finetuned_ablation_report.json
 python scripts/compare_reports.py \
-    data/benchmarks/qasper_ablation_report.json hybrid_rerank \
-    data/benchmarks/finetuned_ablation_report.json hybrid_rerank
+    data/benchmarks/qasper_ablation_report.json hybrid \
+    data/benchmarks/finetuned_ablation_report.json hybrid
 ```
-
-`compare_reports.py` refuses to compare two reports that did not ask the same questions
-in the same order.
 
 ### The reranker: trained, measured, and not shipped
 

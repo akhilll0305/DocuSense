@@ -58,6 +58,7 @@ A clean re-run reproduces every figure to four decimal places.
 | Cross-encoder rerank | a further +25.8% MRR, p = 0.0044; doubles P@1 |
 | ONNX instead of torch | identical metrics to four decimals, 326MB resident instead of 758MB |
 | Claim verification | NLI judge validated on QASPER dev before use: ROC-AUC 0.750 |
+| Embedder fine-tuned on QASPER train | on test, **+32% MRR** for vector search and **+26%** for hybrid, both p = 0.0002. Fine-tuned hybrid alone matches stock hybrid + rerank (0.283 vs 0.282 MRR) at 26 ms a query instead of 2.2 s. Deployed |
 
 ### Measured and switched off
 
@@ -73,7 +74,6 @@ A clean re-run reproduces every figure to four decimal places.
 
 | Component | Status |
 |---|---|
-| Embedder fine-tuned on QASPER train | **+25% MRR@10, +34% Recall@10 on dev** (892 questions, papers never seen). Not yet measured on test, so not the default |
 | QASPER Answer-F1 / Evidence-F1 end to end | the official metric is implemented and cross-checked against AllenAI's evaluator; the full run is pending |
 
 Methodology, significance tests, every negative result, and the two ways the benchmark
@@ -164,7 +164,7 @@ that matter:
 |---|---|---|
 | `LLM_PROVIDER` | `ollama` | `groq` for deployments, where a 3B local model does not fit |
 | `MODEL_RUNTIME` | `onnx` | Or `torch`. Same weights, same numbers; ONNX costs 326MB against 758MB |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Or `models/minilm-qasper` once fine-tuned; re-ingest after switching |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | `models/minilm-qasper` after `scripts/finetune_embedder.py` (+26% hybrid MRR on test; the deployment uses it). Re-ingest after switching |
 | `USE_RERANKING` | `true` | +25.8% MRR, and most of the query time. Needs a real vCPU |
 | `RERANK_CANDIDATES` | 4 × top_k | How many candidates the cross-encoder scores; the main latency lever |
 | `ENABLE_CLAIM_VERIFICATION` | `true` | Check each answer sentence against the sources (NLI, ~500MB resident) |
