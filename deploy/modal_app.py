@@ -67,23 +67,41 @@ REPO = Path(__file__).resolve().parent.parent
 # The claim verifier's NLI model is downloaded at build time for the same
 # reason as the other two.
 #
-# The embedder is still the stock MiniLM. The QASPER-fine-tuned one
-# (scripts/finetune_embedder.py) is ahead on dev but has not yet been measured
-# on the test split, and nothing ships here on a dev number alone. To deploy
-# it once it has: copy models/minilm-qasper into the image with add_local_dir
-# and set EMBEDDING_MODEL to its path.
+# The embedder is MiniLM fine-tuned on QASPER train (scripts/finetune_embedder.py).
+# On the test split it is +0.059 MRR over the stock model in hybrid search
+# (p = 0.0002), and level with it once the cross-encoder reranks
+# (docs/BENCHMARKS.md). Only its ONNX export and tokenizer are copied: the
+# torch weights and training checkpoints are three quarters of the directory
+# and nothing here reads them. It is loaded at build time like the others, to
+# fail the build rather than the first query if a file is missing.
+#
+# models/ is not in git, so a fresh clone has no fine-tuned model until the
+# script is run; it then deploys the stock MiniLM rather than failing.
+FINETUNED_LOCAL = REPO / "models" / "minilm-qasper"
+HAS_FINETUNED = (FINETUNED_LOCAL / "onnx" / "model.onnx").is_file()
+EMBEDDER = "/root/models/minilm-qasper" if HAS_FINETUNED else "all-MiniLM-L6-v2"
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("libmagic1", "tesseract-ocr")
     .pip_install_from_requirements(str(REPO / "requirements.txt"))
     .add_local_dir(REPO / "docusense", "/root/docusense", copy=True)
+)
+if HAS_FINETUNED:
+    image = image.add_local_dir(
+        FINETUNED_LOCAL,
+        EMBEDDER,
+        copy=True,
+        ignore=["checkpoints/**", "model.safetensors", "README.md"],
+    )
+image = (
+    image
     .run_commands(
         "cd /root && python -c \""
         "from docusense.embeddings.backends import "
         "load_embedding_backend, load_cross_encoder_backend; "
         "from docusense.generation.claim_verifier import NLIModel; "
-        "load_embedding_backend('all-MiniLM-L6-v2'); "
+        f"load_embedding_backend('{EMBEDDER}'); "
         "load_cross_encoder_backend('cross-encoder/ms-marco-MiniLM-L-6-v2'); "
         "NLIModel()\""
     )
@@ -91,6 +109,7 @@ image = (
         {
             # Hosted generation. Local runs stay on Ollama; a free tier cannot.
             "LLM_PROVIDER": "groq",
+            "EMBEDDING_MODEL": EMBEDDER,
             # Refuses to start without a signing key, rather than minting a
             # throwaway one and dropping every session on the next restart.
             "ENVIRONMENT": "prod",
