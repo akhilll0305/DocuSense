@@ -465,6 +465,37 @@ between a 12-word span and a 1050-character paragraph is low almost by construct
 would stay low for a perfect answer. A rise or fall across future runs is informative;
 the absolute value is not.
 
+### QASPER's own metric
+
+ROUGE was the wrong instrument. `scripts/qasper_answers.py` measures the task the way the
+QASPER paper does: every question in the sampled papers (unanswerable ones included),
+retrieval scoped to the question's own paper, the configured LLM asked for an answer in
+QASPER's short form, and the paragraphs the cross-encoder ranks highest inside the top
+chunks submitted as evidence. It is scored with **Answer-F1 and Evidence-F1**, the
+official metric, reproduced in `docusense/evaluation/qasper_official.py` and re-checked
+against AllenAI's own `qasper_evaluator.py` on every run; the script refuses to report
+if they disagree.
+
+The reference points, from the QASPER paper (Dasigi et al., 2021, test set):
+
+| | Answer-F1 | Evidence-F1 |
+|---|---|---|
+| LED-base, full text | 32.80 | |
+| LED-base, full text + evidence scaffold | 33.63 | 29.85 |
+| LED-large | | 39.37 |
+| TF-IDF evidence | | 9.20 |
+| Human (lower bound) | 60.92 | 71.62 |
+
+The full run over 80 papers has not been done for this report, only an 8-question smoke
+test of the plumbing, which is too small to quote. A comparison would also need care:
+the published numbers cover the whole test set with a model trained on QASPER, while
+this system's generator is a general 3B model reading five retrieved chunks.
+
+```bash
+python scripts/qasper_answers.py --papers 80 --scope paper     # QASPER's setting
+python scripts/qasper_answers.py --papers 80 --scope corpus    # find the paper too
+```
+
 ### What is *not* measured here
 
 **Citation accuracy cannot be measured on QASPER, and is not reported.** The metric
@@ -496,6 +527,146 @@ verifies every generated citation against the retrieved sources by author and ye
 deletes the unsupported ones. That mechanism was visibly active during this run,
 removing invented citations such as `(Devlin et al., 2018)` from answers grounded in
 papers that have no such author.
+
+---
+
+## Fine-tuning the retrieval models
+
+Both retrieval models are off-the-shelf: MiniLM was trained on general sentence pairs and
+the reranker on MS MARCO web queries. QASPER's train split (888 papers, 2,593 questions)
+is disjoint from the test papers above, so it can be used to adapt both without touching
+what they are measured on.
+
+**Data.** Every train paper is chunked by the real preprocessor and chunker, and each
+answerable question's evidence is grounded to chunks with the same `ground_evidence()`
+that builds the test ground truth: 2,101 questions, 2,624 (question, evidence chunk)
+pairs. Each pair also carries same-paper hard negatives, the chunks BM25 ranks 2-4 for
+the question. Rank 1 is skipped on purpose: annotators cite the paragraph they used, not
+every one that would do, so the most similar non-evidence chunk is disproportionately an
+unlabelled positive. See `docusense/training/qasper_pairs.py`.
+
+**Selection.** Checkpoints are chosen on the *dev* split (281 papers), never on test.
+
+### The embedder
+
+`scripts/finetune_embedder.py`: MultipleNegativesRankingLoss (in-batch negatives plus
+the hard negative), 3 epochs, batch 64, lr 5e-5, about 10 minutes on an RTX 4060. Scored
+on dev with every dev chunk pooled (892 questions over 3,738 chunks), the same
+cross-paper setting as the test benchmark:
+
+| dev, pooled | MRR@10 | NDCG@10 | Acc@1 | Recall@10 | MAP@10 |
+|---|---|---|---|---|---|
+| all-MiniLM-L6-v2 | 0.1282 | 0.1333 | 0.0863 | 0.1993 | 0.1037 |
+| fine-tuned | **0.1604** | **0.1727** | **0.1031** | **0.2663** | **0.1330** |
+
+That is +25% MRR and +34% Recall@10 on papers it has never seen. The ONNX export
+reproduces the torch model to a cosine of 1.000000, through the same fastembed path
+production uses.
+
+**Not yet measured on test.** The test-split run (re-ingesting the 80 papers with the
+new embedder) was stopped before it finished, and a dev number is the number the
+checkpoint was *chosen* on, so it is optimistic by construction. Until the test run
+exists the shipped default stays the stock model. To produce it:
+
+```bash
+QDRANT_COLLECTION_NAME=qasper_ft EMBEDDING_MODEL=models/minilm-qasper \
+    python scripts/benchmark.py --papers 80 --arms vector,hybrid,hybrid_rerank \
+    --out data/benchmarks/finetuned_ablation_report.json
+python scripts/compare_reports.py \
+    data/benchmarks/qasper_ablation_report.json hybrid_rerank \
+    data/benchmarks/finetuned_ablation_report.json hybrid_rerank
+```
+
+`compare_reports.py` refuses to compare two reports that did not ask the same questions
+in the same order.
+
+### The reranker: trained, measured, and not shipped
+
+`scripts/finetune_reranker.py` reads the same pairs as labelled examples (evidence 1,
+hard negatives 0) and trains with BCE on the logit. Checkpoints are chosen by MRR@10
+when reranking a realistic first stage on dev: BM25's top 20 over all dev chunks pooled,
+positives not forced in. The stock reranker scores **0.1900** there.
+
+| run | dev MRR@10 |
+|---|---|
+| lr 2e-5, 2 epochs, positives weighted x3 | 0.1884 |
+| lr 5e-6, 1 epoch, unweighted | 0.1709 |
+| lr 1e-5, 1 epoch, unweighted | 0.1712 |
+| lr 5e-6, 1 epoch, weighted | 0.1715 |
+| lr 2e-5, weighted, evaluated every 20 steps | **0.2054** at step 20, then 0.16-0.18 |
+
+Every full run finished *below* the model it started from. Evaluating every 20 steps
+shows why: the first checkpoint is the best one and every later one is worse. Pointwise
+training on noisy same-paper negatives helps for a few hundred examples and then unlearns
+MS MARCO. The early checkpoint was taken to test:
+
+| test, 259 questions | MRR | NDCG@10 | P@1 | Recall@10 | MAP |
+|---|---|---|---|---|---|
+| hybrid + stock reranker | 0.2824 | 0.2771 | 0.2046 | 0.3816 | 0.2223 |
+| hybrid + fine-tuned reranker | 0.2886 | 0.2825 | 0.2124 | 0.3843 | 0.2278 |
+
+Paired delta MRR = +0.0062, 95% CI [-0.0098, +0.0225], p = 0.47. A +8% gain on dev
+became an interval that spans zero on test. That is not a demonstrated improvement, so
+the stock reranker stays, by the same rule that turned off section routing and query
+rewriting. Every run's report is in `data/benchmarks/reranker_sweep/`, including the
+ones that lost.
+
+---
+
+## Checking claims, not just citations
+
+Citation validation deletes a citation that names a paper which is not among the
+sources. It cannot catch the right paper cited for the wrong number. The claim verifier
+(`docusense/generation/claim_verifier.py`) checks every sentence of an answer against
+the retrieved text with an NLI model, and the UI shows which ones nothing entails.
+
+A faithfulness score is only as good as its judge, so the judge was measured first, on
+QASPER dev, with labels by construction rather than hand labels or an LLM judge
+(`scripts/validate_claim_verifier.py`):
+
+- **supported**: an annotator's free-form answer (six words or more) against the
+  evidence that annotator cited. 258 claims, often abstractive, so harder than copying
+  a sentence out of the source;
+- **unsupported**: the same answer against the evidence for a *different* question about
+  the same paper (143), or with one number changed (84).
+
+| NLI model | ROC-AUC | unsupported flagged at 0.5 | supported flagged at 0.5 |
+|---|---|---|---|
+| nli-deberta-v3-xsmall (120-claim sample) | 0.705 | 99% | **74%** |
+| DeBERTa-v3-base MNLI+FEVER+ANLI, int8 | **0.750** | 64% | 31% |
+
+The xsmall model was tried first and would have put a warning on nearly every answer.
+The base model is the default. The threshold stays at 0.5 rather than the 0.8 that
+maximises balanced accuracy (0.697), because 0.8 flags 47% of supported claims. Flag
+precision is about 0.64, so a flag says "no retrieved passage was found to entail
+this", not "this is false", and the UI is worded that way.
+
+What this does not measure: how faithful the product's own prose answers are.
+`benchmark.py --answers N` now records the verifier's faithfulness per answer through
+`rag.ask()`; that run has not been done for this report.
+
+---
+
+## When the corpus is wrong, every number is wrong
+
+Two ways the benchmark measured a different corpus than it reported, both found while
+re-running it for the comparisons above, both without an error anywhere:
+
+- **A fresh collection kept the old documents.** Deleting a document deletes its
+  vectors first and keeps its rows if that fails, so a delete can be retried. A
+  collection that did not exist made that step raise, so pointing the run at a new
+  collection left every previous benchmark document in place, and in the BM25 index.
+  The corpus held 2,096 chunks instead of 1,048. Vector-only, served by the new
+  collection, reproduced 0.1867 exactly; hybrid fell to 0.2137.
+- **Orphaned vectors survived the reset.** Vectors were deleted through their document
+  rows, so vectors whose rows were already gone stayed searchable. With every chunk in
+  the index twice, vector-only MRR fell to **0.1130** and the reranker's gain vanished
+  (+0.003, p = 0.87): duplicates filled half of every top 10.
+
+Neither was a change in the pipeline. `benchmark.py` now refuses to measure unless the
+tenant holds exactly one document per paper and one vector per chunk, and the reset
+purges vectors by tenant as well as by document. With both in place the clean re-run
+reproduces the published ablation to four decimal places.
 
 ---
 
