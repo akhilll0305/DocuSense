@@ -492,9 +492,10 @@ Tracked honestly rather than hidden — see the README for current status.
   `OnnxCrossEncoder.predict` sorts before handing them over, which recovers it on
   mixed-length candidates (3162ms to 1787ms on 40 of them) and does nothing on a
   corpus of uniform chunks.
-- **Answer quality is bounded by a 3B local model.** Retrieval is measured over 259
-  questions; generation quality is measured over 30 and is limited by `llama3.2:3b`,
-  which answers tersely.
+- **Answer quality is bounded by a 3B local model.** End to end it scores Answer-F1
+  31.9 on 284 QASPER test questions, level with a QASPER-trained LED-base, but 12.4
+  on abstractive questions, where `llama3.2:3b` answers with a phrase where a sentence
+  of synthesis is wanted.
 
 ## Fixed in the benchmark pass
 

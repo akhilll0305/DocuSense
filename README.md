@@ -58,6 +58,7 @@ A clean re-run reproduces every figure to four decimal places.
 | Cross-encoder rerank | a further +25.8% MRR, p = 0.0044; doubles P@1 |
 | ONNX instead of torch | identical metrics to four decimals, 326MB resident instead of 758MB |
 | Claim verification | NLI judge validated on QASPER dev before use: ROC-AUC 0.750 |
+| End-to-end answers, QASPER's official metric | **Answer-F1 31.9, Evidence-F1 31.9** on 284 test questions with a local 3B model: level with the QASPER paper's fine-tuned LED-base (32.8–33.6 / 29.85). Searching the whole shelf instead of the question's paper halves Answer-F1 |
 | Embedder fine-tuned on QASPER train | on test, **+32% MRR** for vector search and **+26%** for hybrid, both p = 0.0002. Fine-tuned hybrid alone matches stock hybrid + rerank (0.283 vs 0.282 MRR) at 26 ms a query instead of 2.2 s. Deployed |
 
 ### Measured and switched off
@@ -69,12 +70,6 @@ A clean re-run reproduces every figure to four decimal places.
 | Query expansion, intent classification | nothing downstream reads their output |
 | Fine-tuned reranker | +8% on dev, then **+0.0062 MRR on test, p = 0.47**: not a demonstrated gain |
 | xsmall NLI model | flagged 74% of *supported* claims; replaced by DeBERTa-v3-base |
-
-### In progress
-
-| Component | Status |
-|---|---|
-| QASPER Answer-F1 / Evidence-F1 end to end | the official metric is implemented and cross-checked against AllenAI's evaluator; the full run is pending |
 
 Methodology, significance tests, every negative result, and the two ways the benchmark
 was caught measuring the wrong corpus: **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)**.

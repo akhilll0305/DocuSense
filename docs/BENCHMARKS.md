@@ -486,14 +486,51 @@ The reference points, from the QASPER paper (Dasigi et al., 2021, test set):
 | TF-IDF evidence | | 9.20 |
 | Human (lower bound) | 60.92 | 71.62 |
 
-The full run over 80 papers has not been done for this report, only an 8-question smoke
-test of the plumbing, which is too small to quote. A comparison would also need care:
-the published numbers cover the whole test set with a model trained on QASPER, while
-this system's generator is a general 3B model reading five retrieved chunks.
+**Measured:** all 284 questions of the 80 sampled test papers, unanswerable ones
+included, with the fine-tuned embedder, hybrid search, the cross-encoder, and
+`llama3.2:3b` through Ollama at temperature 0. Every question was answered, and
+AllenAI's script agreed with the in-repo scorer on both runs.
+
+| test, 284 questions | Answer-F1 | Evidence-F1 | extractive | abstractive | yes/no | unanswerable |
+|---|---|---|---|---|---|---|
+| **Scoped to the question's paper** (QASPER's setting) | **31.88** | **31.92** | 36.6 | 12.4 | 58.6 | 18.2 |
+| Whole corpus (must also find the paper) | 15.37 | 36.54 | 12.2 | 6.0 | 51.7 | 22.7 |
+
+In QASPER's own setting the system is **level with LED-base on answers (31.9 against
+32.8–33.6) and ahead of it on evidence (31.9 against 29.85)**. That is a general 3B
+model, never trained on QASPER, reading five retrieved chunks, against a model
+fine-tuned on QASPER that reads the whole paper. It is not a like-for-like comparison:
+the published rows cover the full test set, and this run covers 80 of its papers.
+
+Three things to read from it.
+
+- **Abstractive questions are the weak spot**: 12.4 Answer-F1, against 36.6 for
+  extractive ones. A 3B model asked for "the shortest answer that is complete"
+  produces a phrase where the reference is a sentence of synthesis. LED has the same
+  ordering, at a smaller gap.
+- **Searching the whole shelf halves Answer-F1** (31.9 to 15.4). With 80 papers in the
+  index, the top five chunks often come from the wrong paper, and an answer built
+  from another paper scores close to 0. In the product this is why a question can be
+  scoped to one document.
+- **Corpus scope's higher Evidence-F1 is an artefact of the metric, not a better
+  system.** QASPER scores an empty evidence list as perfect against a reference with
+  no evidence, which most unanswerable questions have. In corpus scope, 150 of 284
+  questions submitted no evidence, because none of the top chunks were from the right
+  paper, and they collected that credit: 0.76 Evidence-F1 on the 25 questions whose
+  references have no evidence, against 0.08 when scoped. On the 259 questions that do
+  have gold evidence, the two scopes are level (0.342 scoped, 0.327 corpus).
+
+Each run takes about 10 minutes locally (2 s a question). On Groq's free tier it does
+not fit at all: 284 questions with five chunks each are about 850k tokens, against a
+200k-token daily limit. The first attempt there recorded 28 rate-limited generations
+as empty answers before it was stopped. The script now waits out a rate limit, stops
+rather than score one, and checkpoints every answer so a rerun resumes.
 
 ```bash
-python scripts/qasper_answers.py --papers 80 --scope paper     # QASPER's setting
-python scripts/qasper_answers.py --papers 80 --scope corpus    # find the paper too
+QDRANT_COLLECTION_NAME=qasper_ft EMBEDDING_MODEL=models/minilm-qasper \
+    python scripts/qasper_answers.py --papers 80 --scope paper  --provider ollama
+QDRANT_COLLECTION_NAME=qasper_ft EMBEDDING_MODEL=models/minilm-qasper \
+    python scripts/qasper_answers.py --papers 80 --scope corpus --provider ollama
 ```
 
 ### What is *not* measured here
