@@ -293,18 +293,6 @@
   white-space: nowrap;
 }
 
-/* Theme toggle shows the mode you'd switch *to* */
-.icon-moon { display: none; }
-[data-theme='dark'] .icon-sun { display: none; }
-[data-theme='dark'] .icon-moon { display: block; }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .icon-sun { display: none; }
-  :root:not([data-theme='light']) .icon-moon { display: block; }
-  :root[data-theme='light'] .icon-sun { display: block; }
-  :root[data-theme='light'] .icon-moon { display: none; }
-}
-
 /* ---------- Messages ---------- */
 .chat__messages {
   flex: 1;
@@ -432,7 +420,58 @@
   gap: var(--space-2);
 }
 
-.message--bot .message__bubble li { list-style: decimal outside; }
+.message--bot .message__bubble ol > li { list-style: decimal outside; }
+.message--bot .message__bubble ul > li { list-style: disc outside; }
+.message--bot .message__bubble li::marker { color: var(--ink-faint); }
+
+/* Headings inside an answer: section labels, not page titles */
+.message__h {
+  font-family: var(--sans);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: var(--space-5) 0 var(--space-2);
+}
+
+.message__h:first-child { margin-top: 0; }
+
+/* Comparison tables, which the model writes for "compare" questions */
+.message__table {
+  overflow-x: auto;
+  margin: 0 0 var(--space-4);
+}
+
+.message__table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--sans);
+  font-size: var(--t-sm);
+  line-height: var(--lead-normal);
+}
+
+.message__table th,
+.message__table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  vertical-align: top;
+}
+
+.message__table th {
+  font-weight: 700;
+  color: var(--ink-soft);
+  border-bottom-color: var(--rule-strong);
+}
+
+/* A statement the claim check could not find in the papers */
+.message--bot .message__bubble .is-unverified {
+  text-decoration: underline dotted var(--warn);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.22em;
+  cursor: help;
+}
 
 .message--bot .message__bubble code {
   font-family: var(--mono);
@@ -467,56 +506,96 @@
   .message, .chat__welcome { animation: none; }
 }
 
-/* Reference list — a footnote block under the column */
-.message__refs {
+/* Footer under an answer: the claim check and the sources, one line,
+   each expandable. Opened, a panel takes the full width under the line. */
+.message__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2) var(--space-4);
   margin-top: var(--space-5);
-  padding-top: var(--space-4);
+  padding-top: var(--space-3);
   border-top: 1px solid var(--rule);
+  font-family: var(--sans);
+  font-size: var(--t-xs);
+  line-height: var(--lead-normal);
+  color: var(--ink-faint);
+}
+
+.message__footer details[open] { flex-basis: 100%; order: 1; }
+
+.message__footer summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  border-radius: var(--r-sm);
+  transition: color var(--dur-fast) var(--ease-soft);
+}
+
+.message__footer summary::-webkit-details-marker { display: none; }
+
+.message__footer summary::after {
+  content: '';
+  width: 0.4em; height: 0.4em;
+  margin-left: 0.1em;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-0.12em) rotate(45deg);
+  transition: transform var(--dur-fast) var(--ease-soft);
+}
+
+.message__footer details[open] > summary::after { transform: translateY(0.08em) rotate(-135deg); }
+.message__footer summary:hover { color: var(--ink); }
+
+.message__refs {
   display: grid;
   gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 .message__ref {
   display: grid;
   grid-template-columns: 1.75rem minmax(0, 1fr);
   gap: var(--space-2);
-  font-family: var(--sans);
-  font-size: var(--t-xs);
-  line-height: var(--lead-normal);
   color: var(--ink-soft);
 }
 
 .message__ref-num { color: var(--gold); font-family: var(--mono); }
 
-/* Claim check -- one quiet line under the answer, expandable when it flags */
-.message__check {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-  font-family: var(--sans);
-  font-size: var(--t-xs);
-  color: var(--ink-soft);
-}
+/* Claim check */
+.message__check { display: inline-flex; align-items: center; gap: var(--space-2); }
+details.message__check { display: block; }
 
 .message__check-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 1.15rem; height: 1.15rem;
+  border-radius: 50%;
   font-family: var(--mono);
+  font-size: 0.68rem;
   font-weight: 700;
 }
 
-.message__check--ok .message__check-mark { color: var(--ok); }
-.message__check--warn .message__check-mark { color: var(--warn); }
-
-.message__check-details {
-  margin-top: var(--space-2);
-  font-family: var(--sans);
-  font-size: var(--t-xs);
-  color: var(--ink-soft);
+.message__check--ok { cursor: help; }
+.message__check--ok .message__check-mark {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
 }
 
-.message__check-details summary {
-  cursor: pointer;
+.message__check--warn summary { color: var(--warn); }
+.message__check--warn .message__check-mark {
   color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+}
+
+.message__check-body { margin-top: var(--space-3); }
+
+.message__check-note {
+  margin: 0 0 var(--space-3);
+  color: var(--ink-soft);
 }
 
 .message__check-claim {
@@ -525,14 +604,11 @@
   border-left: 2px solid var(--warn);
 }
 
-.message__check-text {
-  margin: 0;
-  color: var(--ink);
-}
+.message__check-text { margin: 0; color: var(--ink); }
 
 .message__check-evidence {
   margin: var(--space-1) 0 0;
-  line-height: var(--lead-normal);
+  color: var(--ink-soft);
 }
 
 .message__check-evidence span {

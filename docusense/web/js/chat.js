@@ -215,7 +215,6 @@
     $('#new-chat-btn').addEventListener('click', startNewChat);
     $('#logout-btn')?.addEventListener('click', () => API.logout());
     setupAccountDialog();
-    initTheme();
 
     // File upload
     uploadZone.addEventListener('click', () => fileInput.click());
@@ -251,51 +250,6 @@
         handleSend();
       });
     });
-  }
-
-  // ── Theme ──
-  /**
-   * Light and dark reading. The choice is remembered per browser; with no
-   * stored choice the CSS follows the system setting on its own.
-   */
-  function initTheme() {
-    const toggle = $('#mode-toggle');
-    if (!toggle) return;
-
-    const stored = safeGet('docusense_theme');
-    if (stored === 'light' || stored === 'dark') {
-      document.documentElement.setAttribute('data-theme', stored);
-    }
-
-    const label = () => {
-      const dark = currentTheme() === 'dark';
-      toggle.setAttribute('aria-label', dark ? 'Switch to light reading' : 'Switch to dark reading');
-    };
-
-    label();
-
-    toggle.addEventListener('click', () => {
-      const next = currentTheme() === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      safeSet('docusense_theme', next);
-      label();
-    });
-  }
-
-  /** The theme in effect, whether chosen explicitly or inherited from the OS. */
-  function currentTheme() {
-    const explicit = document.documentElement.getAttribute('data-theme');
-    if (explicit) return explicit;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-
-  // Storage throws in private mode and when site data is blocked.
-  function safeGet(key) {
-    try { return localStorage.getItem(key); } catch { return null; }
-  }
-
-  function safeSet(key, value) {
-    try { localStorage.setItem(key, value); } catch { /* preference is per-session */ }
   }
 
   // ── Sidebar ──
@@ -338,7 +292,7 @@
         <div class="sidebar__item-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
         </div>
-        <span class="sidebar__item-text">${escHtml(c.title || 'Untitled')}</span>
+        <span class="sidebar__item-text" title="${escHtml(c.title || 'Untitled')}">${escHtml(c.title || 'Untitled')}</span>
         <span class="sidebar__item-meta">${timeAgo(c.updated_at || c.created_at)}</span>
       </div>
     `).join('');
@@ -450,58 +404,108 @@
     return el.querySelector('.message__bubble');
   }
 
-  /** Append the reference list once the stream completes. */
+  /** Replace the streamed text with the final rendering and its footer. */
   function finishBotMessage(bubble, data) {
     bubble.classList.remove('message__bubble--streaming');
-    bubble.innerHTML = formatAnswer(data.answer || bubble.textContent || '');
-    bubble.insertAdjacentHTML('beforeend', referencesHtml(data));
-    bubble.insertAdjacentHTML('beforeend', verificationHtml(data));
+    bubble.innerHTML = renderMarkdown(data.answer || bubble.textContent || '');
+    bubble.insertAdjacentHTML('beforeend', answerFooterHtml(data));
+    markUnverified(bubble, data);
     scrollToBottom();
   }
 
   /**
-   * The claim check under an answer: how many of its sentences a retrieved
-   * passage entails, and -- for the ones none does -- the claim and the
+   * Everything under an answer, on one line: whether its statements were
+   * found in the papers, and its sources, collapsed until asked for. Both
+   * used to be printed in full under every answer, which made a short answer
+   * look like a form.
+   */
+  function answerFooterHtml(data) {
+    const check = verificationHtml(data);
+    const refs = referencesHtml(data);
+    if (!check && !refs) return '';
+    return `<div class="message__footer">${check}${refs}</div>`;
+  }
+
+  /**
+   * The claim check. Every sentence of the answer is scored against the
+   * retrieved passages by an entailment model.
+   *
+   * When everything is found it is one quiet mark, not a sentence to read:
+   * the useful signal is the exception. When something is not found, the
+   * statement is marked in the answer itself and listed here with the
    * closest passage, so the reader can judge it rather than take the flag
-   * on trust. Nothing is shown when the server did not run the check.
+   * on trust. The wording is "not found", never "false": about a third of
+   * flags are statements that are right but paraphrased past what the model
+   * recognises (docs/BENCHMARKS.md). Nothing is shown when the check did not
+   * run.
    */
   function verificationHtml(data) {
     const v = data && data.verification;
     if (!v || !v.num_claims) return '';
 
-    const supported = v.num_claims - v.num_unsupported;
-    const all = v.num_unsupported === 0;
-    const summary = all
-      ? `All ${v.num_claims} claims verified against the sources`
-      : `${supported} of ${v.num_claims} claims verified against the sources`;
+    if (v.num_unsupported === 0) {
+      return `<span class="message__check message__check--ok"
+                    title="Each statement in this answer was matched to a passage from your papers by an entailment model.">
+                <span class="message__check-mark" aria-hidden="true">✓</span>
+                Checked against your papers
+              </span>`;
+    }
 
     const flagged = (v.claims || []).filter(c => !c.supported);
-    const details = flagged.length
-      ? `<details class="message__check-details">
-           <summary>Show ${flagged.length === 1 ? 'the claim' : `the ${flagged.length} claims`} the checker could not verify</summary>
-           ${flagged.map(c => `
-             <div class="message__check-claim">
-               <p class="message__check-text">${escHtml(c.claim)}</p>
-               ${c.evidence ? `<p class="message__check-evidence"><span>Closest passage</span>${escHtml(c.evidence)}</p>` : ''}
-             </div>`).join('')}
-         </details>`
-      : '';
+    const n = flagged.length || v.num_unsupported;
+    return `<details class="message__check message__check--warn">
+              <summary>
+                <span class="message__check-mark" aria-hidden="true">!</span>
+                ${n === 1 ? '1 statement' : `${n} statements`} not found in your papers
+              </summary>
+              <div class="message__check-body">
+                <p class="message__check-note">
+                  No retrieved passage supports ${n === 1 ? 'this statement' : 'these statements'}.
+                  ${n === 1 ? 'It' : 'They'} may still be right, phrased differently
+                  from the paper, so check before relying on ${n === 1 ? 'it' : 'them'}.
+                </p>
+                ${flagged.map(c => `
+                  <div class="message__check-claim">
+                    <p class="message__check-text">${escHtml(c.claim)}</p>
+                    ${c.evidence ? `<p class="message__check-evidence"><span>Closest passage</span>${escHtml(c.evidence)}</p>` : ''}
+                  </div>`).join('')}
+              </div>
+            </details>`;
+  }
 
-    return `<div class="message__check ${all ? 'message__check--ok' : 'message__check--warn'}"
-                 title="Each sentence is checked against the retrieved passages by an entailment model">
-              <span class="message__check-mark" aria-hidden="true">${all ? '✓' : '!'}</span>
-              <span>${summary}</span>
-            </div>${details}`;
+  /**
+   * Mark the paragraphs and list items that hold an unverified statement,
+   * so the reader sees *where* in the answer the flag applies. Matched on a
+   * normalised prefix of the claim, since the checker reads plain text and
+   * the answer is rendered markdown.
+   */
+  function markUnverified(bubble, data) {
+    const v = data && data.verification;
+    if (!v || !v.num_unsupported) return;
+
+    const norm = (t) => t.toLowerCase().replace(/[*_`#]/g, '').replace(/\s+/g, ' ').trim();
+    const blocks = [...bubble.querySelectorAll('p, li, td')]
+      .filter(b => !b.closest('.message__footer'));
+
+    (v.claims || []).filter(c => !c.supported).forEach(c => {
+      const probe = norm(c.claim).slice(0, 48);
+      if (probe.length < 12) return;
+      const hit = blocks.find(b => norm(b.textContent).includes(probe));
+      if (hit) {
+        hit.classList.add('is-unverified');
+        hit.title = 'Not found in your papers. See the note under this answer.';
+      }
+    });
   }
 
   function referencesHtml(data) {
     const raw = data.reference_list;
-    if (!raw) return '';
+    if (!raw || (Array.isArray(raw) && !raw.length)) return '';
 
     const lines = Array.isArray(raw) ? raw : String(raw).split(/\r?\n/);
 
     const refs = lines
-      .map(l => l.trim())
+      .map(l => String(l).trim())
       .filter(Boolean)
       // Drop the block's own heading, which would otherwise be numbered as [1].
       .filter(l => !/^references:?$/i.test(l))
@@ -517,45 +521,27 @@
 
     if (!refs.length) return '';
 
-    return `<div class="message__refs">${
-      refs.map((r, i) =>
-        `<div class="message__ref">
-           <span class="message__ref-num">[${r.num || i + 1}]</span>
-           <span>${escHtml(r.text)}</span>
-         </div>`
-      ).join('')
-    }</div>`;
+    return `<details class="message__sources">
+              <summary>${refs.length === 1 ? '1 source' : `${refs.length} sources`}</summary>
+              <div class="message__refs">${
+                refs.map((r, i) =>
+                  `<div class="message__ref">
+                     <span class="message__ref-num">[${r.num || i + 1}]</span>
+                     <span>${escHtml(r.text)}</span>
+                   </div>`
+                ).join('')
+              }</div>
+            </details>`;
   }
 
   function addBotMessage(data) {
+    hideWelcome();
     const el = document.createElement('div');
     el.className = 'message message--bot';
-
-    let answerHtml = formatAnswer(data.answer || '');
-
-    // References
-    let refsHtml = '';
-    if (data.reference_list && data.reference_list.length) {
-      refsHtml = `<div class="message__refs">${
-        data.reference_list.map((ref, i) =>
-          `<div class="message__ref"><span class="message__ref-num">[${i+1}]</span><span>${escHtml(ref)}</span></div>`
-        ).join('')
-      }</div>`;
-    }
-
-    el.innerHTML = `
-      <div class="message__avatar">
-        <svg width="18" height="18" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="8" fill="url(#blg)"/>
-        <path d="M8 9h8a3 3 0 013 3v0a3 3 0 01-3 3H8V9z" fill="white" opacity="0.9"/>
-        <path d="M8 15h10a3 3 0 013 3v0a3 3 0 01-3 3H8v-6z" fill="white" opacity="0.6"/>
-        <defs><linearGradient id="blg" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#6c5ce7"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs></svg>
-      </div>
-      <div class="message__bubble">
-        ${answerHtml}
-        ${refsHtml}
-        ${verificationHtml(data)}
-      </div>
-    `;
+    el.innerHTML = `${botAvatarHtml()}<div class="message__bubble"></div>`;
+    const bubble = el.querySelector('.message__bubble');
+    bubble.innerHTML = renderMarkdown(data.answer || '') + answerFooterHtml(data);
+    markUnverified(bubble, data);
     messages.appendChild(el);
     scrollToBottom();
   }
@@ -597,12 +583,7 @@
     el.className = 'typing-indicator';
     el.id = 'typing';
     el.innerHTML = `
-      <div class="message__avatar" style="background:var(--bg-tertiary);border:1px solid var(--border-medium)">
-        <svg width="18" height="18" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="8" fill="url(#tlg)"/>
-        <path d="M8 9h8a3 3 0 013 3v0a3 3 0 01-3 3H8V9z" fill="white" opacity="0.9"/>
-        <path d="M8 15h10a3 3 0 013 3v0a3 3 0 01-3 3H8v-6z" fill="white" opacity="0.6"/>
-        <defs><linearGradient id="tlg" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#6c5ce7"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs></svg>
-      </div>
+      ${botAvatarHtml()}
       <div class="typing-dots"><span></span><span></span><span></span></div>
       <span class="typing-label" id="typing-label"></span>
     `;
@@ -647,6 +628,7 @@
       // answer as it streams rather than leaving the user staring at a dot.
       let bubble = null;
       let answer = '';
+      let failed = false;
 
       await API.chatStream(currentConversationId, query, {}, {
         onStatus: (msg) => setTypingLabel(msg),
@@ -656,25 +638,28 @@
             bubble = beginBotMessage();
           }
           answer += text;
-          bubble.innerHTML = formatAnswer(answer);
+          bubble.innerHTML = renderMarkdown(answer);
           scrollToBottom();
         },
         onDone: (data) => {
           hideTyping();
           if (bubble) finishBotMessage(bubble, data);
-          else addBotMessage(data);   // no tokens streamed (e.g. no results)
+          // No tokens streamed (e.g. nothing retrieved). After an error the
+          // stream still closes with an empty "done", which is not an answer.
+          else if (!failed && data.answer) addBotMessage(data);
         },
         onError: (err) => {
+          failed = true;
           hideTyping();
-          addSystemMessage('Error: ' + err.message);
+          addSystemMessage(friendlyError(err));
         }
       });
-
-      if (isNewChat) loadChats();  // refresh sidebar with the new conversation
     } catch (e) {
       hideTyping();
-      addSystemMessage('Error: ' + e.message);
+      addSystemMessage(friendlyError(e));
     } finally {
+      // The conversation exists once started, whether or not the answer did.
+      if (isNewChat) loadChats();
       isProcessing = false;
       sendBtn.disabled = false;
       queryInput.focus();
@@ -686,7 +671,7 @@
     const validTypes = ['.pdf', '.docx', '.txt', '.md'];
     const ext = '.' + file.name.split('.').pop().toLowerCase();
     if (!validTypes.includes(ext)) {
-      alert('Unsupported file type. Please upload PDF, DOCX, TXT, or MD files.');
+      addSystemMessage(`${file.name} is not a supported type. Add a PDF, DOCX, TXT or Markdown file.`);
       return;
     }
 
@@ -694,7 +679,7 @@
     uploadZone.style.display = 'none';
     uploadProg.style.display = 'flex';
     uploadFill.style.width = '0%';
-    uploadText.textContent = 'Ingesting...';
+    uploadText.textContent = `Reading ${file.name}…`;
 
     // Animate progress
     let progress = 0;
@@ -710,16 +695,15 @@
       const result = await API.ingest(file);
       clearInterval(interval);
       uploadFill.style.width = '100%';
-      uploadText.textContent = '✓ Ingested!';
+      uploadText.textContent = 'Added to your shelf';
 
-      // Bot confirmation
+      // renderMarkdown escapes, so the filename and title go in raw.
+      const title = result.is_research_paper && result.paper_title
+        ? `*${result.paper_title}*, ` : '';
       addBotMessage({
-        answer: `Successfully ingested **${escHtml(result.filename)}**!\n\n` +
-          `• ${result.num_chunks} chunks created\n` +
-          `• ${result.num_embeddings} embeddings generated\n` +
-          (result.is_research_paper ? `• Research paper detected: *${escHtml(result.paper_title || 'Untitled')}*\n` : '') +
-          `• Processing time: ${result.processing_time?.toFixed(1)}s\n\n` +
-          `You can now ask questions about this paper!`
+        answer: `**${result.filename}** is on your shelf: ${title}` +
+          `${result.num_chunks} passages indexed in ${result.processing_time?.toFixed(1)}s.\n\n` +
+          `Ask anything about it below.`
       });
 
       // Refresh documents
@@ -733,8 +717,8 @@
     } catch (e) {
       clearInterval(interval);
       uploadFill.style.width = '0%';
-      uploadText.textContent = 'Failed!';
-      addSystemMessage('Upload failed: ' + e.message);
+      uploadText.textContent = 'Could not add it';
+      addSystemMessage(`Could not add ${file.name}: ${friendlyError(e)}`);
       setTimeout(() => {
         uploadProg.style.display = 'none';
         uploadZone.style.display = 'flex';
@@ -765,7 +749,7 @@
         <div class="sidebar__item-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         </div>
-        <span class="sidebar__item-text">${escHtml(d.filename || d.document_id)}</span>
+        <span class="sidebar__item-text" title="${escHtml(d.filename || d.document_id)}">${escHtml(d.filename || d.document_id)}</span>
         <button class="sidebar__item-delete" title="Delete" aria-label="Delete ${escHtml(d.filename)}" data-del-id="${d.document_id}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
         </button>
@@ -780,7 +764,7 @@
           await API.deleteDocument(btn.dataset.delId);
           loadDocuments();
         } catch (err) {
-          alert('Delete failed: ' + err.message);
+          addSystemMessage('Could not delete the document: ' + friendlyError(err));
         }
       });
     });
@@ -798,30 +782,127 @@
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  function formatAnswer(text) {
-    // Bold: **text**
+  /**
+   * Inline markdown on already-escaped text: code, bold, italic, and
+   * citations set in the accent colour. Answers carry author-year forms in
+   * two renderings, parenthetical "(Saadi et al., 2025, methodology)" and
+   * narrative "Saadi et al. (2025)"; bare [1] markers are handled too.
+   */
+  function inline(text) {
     text = escHtml(text);
+    text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
     text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    // Italic: *text*
-    text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    // Citations. Answers carry author-year forms, in two renderings:
-    //   parenthetical  "(Saadi et al., 2025, methodology)"
-    //   narrative      "Saadi et al. (2025)"
-    // Both are set in the accent colour; bare [1] markers are handled too.
+    text = text.replace(/(^|[^*])\*(?!\s)(.+?)\*(?!\*)/g, '$1<em>$2</em>');
     text = text.replace(/\[(\d+)\]/g, '<span class="message__cite">[$1]</span>');
     text = text.replace(
-      /\((?:[A-Z][^()]{0,120}?)(?:\d{4}|n\.d\.)[^()]{0,60}?\)/g,
+      /\((?:[A-Z][^()]{0,120}?)(?:\d{4}|n\.d\.)[^()]{0,60}?\)/g,
       m => `<span class="message__cite">${m}</span>`
     );
     text = text.replace(
-      /([A-Z][A-Za-z'-]+(?:\s+(?:et al\.?|and\s+[A-Z][A-Za-z'-]+))?\s*\((?:\d{4}|n\.d\.)[^()]{0,60}?\))/g,
+      /([A-Z][A-Za-z'-]+(?:\s+(?:et al\.?|and\s+[A-Z][A-Za-z'-]+))?\s*\((?:\d{4}|n\.d\.)[^()]{0,60}?\))/g,
       '<span class="message__cite">$1</span>'
     );
-    // Bullet points
-    text = text.replace(/^• (.+)$/gm, '<div style="padding-left:1em">• $1</div>');
-    // Line breaks
-    text = text.replace(/\n/g, '<br>');
     return text;
+  }
+
+  /**
+   * The markdown a model actually writes: paragraphs, headings, bulleted and
+   * numbered lists, and pipe tables. Answers used to be shown with their
+   * markup as literal "###" and "-" and every line break kept, which is most
+   * of why a long answer read as a wall. Escaping happens per inline span,
+   * so nothing in the source becomes HTML. Safe to run on a partial stream.
+   */
+  function renderMarkdown(src) {
+    const lines = String(src || '').replace(/\r\n?/g, '\n').split('\n');
+    const out = [];
+    let para = [];
+    let list = null;
+    let table = null;
+
+    const flushPara = () => {
+      if (para.length) out.push(`<p>${inline(para.join(' '))}</p>`);
+      para = [];
+    };
+    const flushList = () => {
+      if (list) {
+        out.push(`<${list.type}>${list.items.map(i => `<li>${inline(i)}</li>`).join('')}</${list.type}>`);
+      }
+      list = null;
+    };
+    const flushTable = () => {
+      if (table && table.length) {
+        const [head, ...body] = table;
+        out.push(
+          `<div class="message__table"><table><thead><tr>${head.map(c => `<th>${inline(c)}</th>`).join('')}</tr></thead>` +
+          `<tbody>${body.map(r => `<tr>${r.map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+        );
+      }
+      table = null;
+    };
+    const flushAll = () => { flushPara(); flushList(); flushTable(); };
+
+    for (const raw of lines) {
+      const line = raw.trim();
+      let m;
+
+      if (!line) { flushAll(); continue; }
+
+      if (line.startsWith('|')) {
+        flushPara(); flushList();
+        // The |---|---| row separates the header and carries nothing.
+        if (/^\|?[\s:|-]+\|?$/.test(line) && line.includes('-')) continue;
+        const cells = line.replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+        (table = table || []).push(cells);
+        continue;
+      }
+      flushTable();
+
+      if ((m = line.match(/^#{1,6}\s+(.*)$/))) {
+        flushPara(); flushList();
+        out.push(`<h4 class="message__h">${inline(m[1].replace(/#+$/, '').trim())}</h4>`);
+        continue;
+      }
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) { flushPara(); flushList(); continue; }
+
+      if ((m = line.match(/^[-*•]\s+(.*)$/)) || (m = line.match(/^(\d+)[.)]\s+(.*)$/))) {
+        const type = /^\d/.test(line) ? 'ol' : 'ul';
+        const item = type === 'ol' ? m[2] : m[1];
+        flushPara();
+        if (!list || list.type !== type) { flushList(); list = { type, items: [] }; }
+        list.items.push(item);
+        continue;
+      }
+
+      // A wrapped line continues whatever block it sits in.
+      if (list) list.items[list.items.length - 1] += ' ' + line;
+      else para.push(line);
+    }
+    flushAll();
+    return out.join('');
+  }
+
+  /**
+   * Turn a failure into something a reader can act on. The raw text is a
+   * provider's error with its URL in it, which is noise to anyone but the
+   * operator, who has it in the server log.
+   */
+  function friendlyError(err) {
+    const msg = String((err && err.message) || err || '');
+    if (/429|too many requests|rate limit/i.test(msg)) {
+      return 'The answer model is busy right now. Give it a few seconds and ask again.';
+    }
+    if (/timed? ?out|timeout/i.test(msg)) {
+      return 'That took too long to answer. Try again, or ask something narrower.';
+    }
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+      return 'Could not reach the server. Check your connection and try again.';
+    }
+    const clean = msg
+      .replace(/https?:\/\/\S+/g, '')
+      .replace(/For more information check:?/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return clean || 'Something went wrong. Try again.';
   }
 
   function timeAgo(dateStr) {
