@@ -58,6 +58,9 @@ _CITATION = re.compile(
     r"\s*(\[\d+(?:\s*[,-]\s*\d+)*\]|\[Source \d+\]|\((?:[A-Z][^()]*?,\s*(?:\d{4}|n\.d\.)[^()]*)\))"
 )
 _MARKDOWN = re.compile(r"^\s*(#+\s*|[-*]\s+|\d+[.)]\s+|>\s*)")
+# A line that is nothing but bold text, and a bold "Label:" opening a line.
+_BOLD_LINE = re.compile(r"^\*\*[^*]+\*\*:?\s*$")
+_BOLD_LABEL = re.compile(r"^\*\*[^*]{1,60}?:\*\*\s*|^\*\*[^*]{1,60}?\*\*:\s*")
 _PLACEHOLDER = "\u0000"
 
 
@@ -124,6 +127,13 @@ def extract_claims(answer: str, min_words: int = 4) -> List[str]:
     Citation markers are removed (they are checked elsewhere, and an NLI model
     reads "(Smith, 2020)" as content). Headings, a trailing sources list, and
     fragments too short to assert anything are skipped.
+
+    So is structure that only looks like prose. A hosted model formats
+    comparisons as bold labels and lead-ins -- "**Rahmani et al. (2021)**",
+    "The two papers report the following results:" -- and checked as claims
+    those are flagged as unsupported, which is noise: they assert nothing. A
+    bold label at the start of a bullet ("**Jinan benchmark:** the delay
+    fell...") is stripped and the rest checked.
     """
     claims = []
     for line in answer.splitlines():
@@ -132,9 +142,15 @@ def extract_claims(answer: str, min_words: int = 4) -> List[str]:
             break  # everything after is the bibliography
         if stripped.startswith("#"):
             continue
-        for sentence in split_sentences(stripped):
+        body = _MARKDOWN.sub("", stripped)
+        if _BOLD_LINE.match(body):
+            continue  # a label on a line of its own
+        body = _BOLD_LABEL.sub("", body)
+        for sentence in split_sentences(body):
             sentence = _MARKDOWN.sub("", sentence)
             sentence = _CITATION.sub("", sentence).replace("**", "").strip()
+            if sentence.endswith(":"):
+                continue  # a lead-in to a list, not an assertion
             if len(sentence.split()) >= min_words:
                 claims.append(sentence)
     return claims

@@ -134,3 +134,17 @@ def test_prefilter_scores_only_the_best_windows():
     assert len(seen) == 2
     assert result.claims[0].supported
     assert result.claims[0].source_index == 10
+
+
+def test_structure_is_not_checked_as_claims():
+    """Bold labels and list lead-ins assert nothing; seen live from a hosted model."""
+    answer = (
+        "The two papers report the following results for average delay:\n\n"
+        "**Rahmani et al. (2021)**\n"
+        "*   **ARTNet Performance:** The model reduced average delay by 23.4% against fixed-time.\n"
+        "*   **Jinan benchmark**: the gap to MaxPressure was 1.5% on the irregular grid.\n"
+    )
+    assert extract_claims(answer) == [
+        "The model reduced average delay by 23.4% against fixed-time.",
+        "the gap to MaxPressure was 1.5% on the irregular grid.",
+    ]
