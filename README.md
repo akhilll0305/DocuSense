@@ -172,7 +172,7 @@ that matter:
 | `QUERY_LLM_BACKEND` | `off` | LLM query rewriting. Measured to cost 18% MRR |
 | `QDRANT_MODE` | `disk` | Auto-switches to `server` when `QDRANT_URL` and `QDRANT_API_KEY` are set |
 | `MAX_DOCUMENTS_PER_USER` | `0` | Per-account cap; `0` is unlimited. Set a real number on a public instance |
-| `SEED_DEMO` | `false` | Seed a shared demo account on start, for instances with ephemeral storage |
+| `SEED_DEMO` | `false` | Seed a shared demo account on start (idempotent, so safe on persistent storage) |
 
 ---
 

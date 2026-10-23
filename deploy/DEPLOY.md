@@ -123,20 +123,24 @@ Two things to know before starting:
   `scaledown_window=900` keeps a container alive through fifteen minutes of
   idle, so a visitor reading an answer and asking a follow-up does not pay it
   twice.
-- **Storage is ephemeral, and this was verified rather than assumed.** An
-  account was registered on the live instance, the container was killed, and
-  the same credentials came back `401 Incorrect email or password`. The demo
-  account survives only because `SEED_DEMO` recreates it on every start.
+- **Storage persists, on a Modal Volume.** It used to be ephemeral, and that
+  was verified rather than assumed: an account was registered, the container
+  killed, and the same credentials came back `401 Incorrect email or
+  password`. In use that meant anyone who came back after fifteen idle minutes
+  was signed out and found their account and shelf gone, which reads as a
+  login bug rather than a hosting choice. So `/root/data` (SQLite and the
+  on-disk Qdrant store) is now the `docusense-data` Volume, and the demo
+  papers are mounted at `/root/demo` instead, outside it.
 
-  That is the right default for a public demo — open sign-up plus durable
-  storage is a public disk — but it can be changed: uncomment the `Volume` in
-  `deploy/modal_app.py` and mount it at `/root/data`. Two things to know first.
-  Modal commits a Volume every few seconds and again on shutdown, so a hard
-  kill can lose the last few seconds of writes; and Modal's own guidance is
-  that Volumes are for write-once/read-many work, not for database files, with
+  Open sign-up plus durable storage is a public disk, which is why
+  `MAX_DOCUMENTS_PER_USER=5` and `MAX_FILE_SIZE_MB=10` are set. Two more things
+  to know. Modal commits a Volume every few seconds and again on shutdown, so
+  a hard kill can lose the last few seconds of writes; and Modal's own guidance
+  is that Volumes are for write-once/read-many work, not database files, with
   no distributed file locking. `max_containers=1` removes the concurrent-writer
-  half of that risk and must stay if the Volume goes on. If the store is ever
-  corrupted, deleting the Volume and letting the shelf reseed is the repair.
+  half of that risk and must stay. If the store is ever corrupted,
+  `modal volume delete docusense-data` and a redeploy reseed the demo shelf
+  from scratch.
 
 ### Deploy
 

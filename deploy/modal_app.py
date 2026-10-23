@@ -23,11 +23,13 @@ The same FastAPI app as everything else — `docusense.api.app:app` — with
 generation pointed at Groq, because a 3B local model needs ~4GB and ~27s per
 answer on a shared CPU.
 
-Storage is ephemeral, as it is on every free tier here: the container seeds its
-own demo shelf on start, and a restart clears registered accounts and uploads.
-`data/demo/` holds two synthetic papers that disagree with each other, so the
-comparison path has something real to find. To make it persistent instead,
-uncomment the Volume below and drop SEED_DEMO.
+Storage is a Modal Volume mounted at /root/data, so accounts, sessions,
+uploads and conversations survive the container scaling to zero. Without it
+every idle period wiped them: a reader who came back after fifteen minutes
+found their account gone and was sent to sign in, as a stranger. The demo
+shelf is seeded on start and seeding is idempotent, so a warm volume is left
+as it is. `data/demo/` holds two synthetic papers that disagree with each
+other, so the comparison path has something real to find.
 
 DEPLOYING
 ---------
@@ -92,7 +94,7 @@ image = (
             # Refuses to start without a signing key, rather than minting a
             # throwaway one and dropping every session on the next restart.
             "ENVIRONMENT": "prod",
-            # Ephemeral storage, so the shelf is reseeded on every start.
+            # Seeds the demo shelf on a fresh volume; a no-op once it exists.
             "SEED_DEMO": "true",
             # A public upload endpoint with open sign-up is otherwise a public
             # disk.
@@ -110,17 +112,16 @@ image = (
         }
     )
     .add_local_dir(REPO / "scripts", "/root/scripts")
-    .add_local_dir(REPO / "data" / "demo", "/root/data/demo")
+    # Not under /root/data, which the volume mounts over.
+    .add_local_dir(REPO / "data" / "demo", "/root/demo")
 )
 
 app = modal.App("docusense", image=image)
 
-# Persistence, if you want it: mount this at /root/data and drop SEED_DEMO from
-# the env above. Left off by default because a Volume shared by more than one
-# container is a corrupted SQLite file and a corrupted Qdrant store — the
-# max_containers=1 below is what makes it safe, and that is easy to lose track
-# of later.
-# volume = modal.Volume.from_name("docusense-data", create_if_missing=True)
+# SQLite and the on-disk Qdrant store live here. A Volume shared by more than
+# one container is a corrupted SQLite file and a corrupted Qdrant store: the
+# max_containers=1 below is what makes it safe. Do not raise it.
+volume = modal.Volume.from_name("docusense-data", create_if_missing=True)
 
 
 @app.function(
@@ -152,7 +153,7 @@ app = modal.App("docusense", image=image)
     # Retrieval and generation take a few seconds; the *first* request also
     # loads the embedding model and the cross-encoder.
     timeout=600,
-    # volumes={"/root/data": volume},
+    volumes={"/root/data": volume},
 )
 @modal.concurrent(max_inputs=8)
 @modal.asgi_app()
@@ -162,7 +163,7 @@ def web():
 
     This body runs once per container, before any request is served, which is
     where seeding belongs: an instance that comes up with an empty shelf is a
-    broken demo, and the storage here does not survive a restart.
+    broken demo, and a fresh volume starts empty.
     """
     import subprocess
     import sys
@@ -175,7 +176,7 @@ def web():
     # the logs either way.
     try:
         result = subprocess.run(
-            [sys.executable, "scripts/seed_demo.py"],
+            [sys.executable, "scripts/seed_demo.py", "--papers", "/root/demo"],
             cwd="/root",
             capture_output=True,
             text=True,
