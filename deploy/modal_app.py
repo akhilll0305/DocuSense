@@ -61,6 +61,16 @@ REPO = Path(__file__).resolve().parent.parent
 # DocuSense's own loaders because the loader is what sets the tokenizer's
 # truncation and padding to match the torch runtime; a model cached by any
 # other path would be cached with the wrong settings.
+#
+# The claim verifier's NLI model is downloaded at build time for the same
+# reason as the other two.
+#
+# The embedder is still the stock MiniLM. The QASPER-fine-tuned one
+# (scripts/finetune_embedder.py) is ahead on dev but has not yet been measured
+# on the test split, and nothing ships here on a dev number alone. To deploy
+# it once it has: copy models/minilm-qasper into the image with add_local_dir
+# and set EMBEDDING_MODEL to its path.
+
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("libmagic1", "tesseract-ocr")
@@ -70,8 +80,10 @@ image = (
         "cd /root && python -c \""
         "from docusense.embeddings.backends import "
         "load_embedding_backend, load_cross_encoder_backend; "
+        "from docusense.generation.claim_verifier import NLIModel; "
         "load_embedding_backend('all-MiniLM-L6-v2'); "
-        "load_cross_encoder_backend('cross-encoder/ms-marco-MiniLM-L-6-v2')\""
+        "load_cross_encoder_backend('cross-encoder/ms-marco-MiniLM-L-6-v2'); "
+        "NLIModel()\""
     )
     .env(
         {
@@ -120,10 +132,12 @@ app = modal.App("docusense", image=image)
         )
     ],
     cpu=2,
-    # 730MB was the torch figure. On ONNX the same work peaks at about half
-    # that, so this is headroom rather than the requirement — Modal bills for
-    # what is used, and the container filesystem counts against it.
-    memory=1024,
+    # The retrieval models on ONNX peak around 330MB. The claim verifier's
+    # NLI model (DeBERTa-v3-base, int8) adds 505MB resident -- measured with
+    # the model loaded and one answer verified -- which would leave a 1GB
+    # container no headroom for the container filesystem that counts against
+    # the same limit. Modal bills for what is used.
+    memory=2048,
     # State is per-container: SQLite and the on-disk Qdrant live inside it, so a
     # second container is a second, different shelf, and a visitor's next
     # request landing there would find their upload missing. This is a demo,
