@@ -100,7 +100,7 @@ def create_app() -> FastAPI:
 
     # Serve static web UI files
     if WEB_DIR.exists():
-        app.mount("/static", StaticFiles(directory=str(WEB_DIR)), name="static")
+        app.mount("/static", RevalidatingStaticFiles(directory=str(WEB_DIR)), name="static")
         logger.info(f"📁 Serving web UI from {WEB_DIR}")
 
     @app.get("/")
@@ -109,6 +109,22 @@ def create_app() -> FastAPI:
         return RedirectResponse(url="/static/index.html")
 
     return app
+
+
+class RevalidatingStaticFiles(StaticFiles):
+    """
+    Static files that a browser re-checks before reusing.
+
+    With no Cache-Control at all, browsers cache by heuristic, and after a
+    deploy kept serving the old pages and scripts: the new UI only appeared
+    after a hard refresh. `no-cache` still lets the browser keep a copy; it
+    just asks first, and the ETag makes an unchanged file a 304.
+    """
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 app = create_app()

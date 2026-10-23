@@ -413,3 +413,21 @@ class TestInteractiveDocsAreDevOnly:
         r = self._client(monkeypatch, "prod").get("/", follow_redirects=False)
         assert r.status_code == 307
         assert r.headers["location"] == "/static/index.html"
+
+
+class TestStaticCaching:
+    """
+    With no Cache-Control the browser cached the pages by heuristic and kept
+    the old UI after a deploy, until a hard refresh. Every static file is
+    revalidated instead; the ETag keeps an unchanged one a cheap 304.
+    """
+
+    @pytest.mark.parametrize("path", ["/static/index.html", "/static/js/chat.js"])
+    def test_static_files_are_revalidated(self, path):
+        from fastapi.testclient import TestClient
+        from docusense.api.app import create_app
+
+        r = TestClient(create_app()).get(path)
+        assert r.status_code == 200
+        assert r.headers["cache-control"] == "no-cache"
+        assert "etag" in r.headers
