@@ -207,6 +207,12 @@ class RetrievalPipeline:
         logger.info(f"  Hybrid search: {enable_hybrid_search}")
         logger.info(f"  Reranking: {enable_reranking}")
     
+    @staticmethod
+    def _candidate_count(top_k: int) -> int:
+        """Candidates fetched for reranking: RERANK_CANDIDATES, never fewer than top_k."""
+        configured = settings.rerank_candidates
+        return max(top_k, configured) if configured else top_k * 4
+
     def _search(
         self,
         query: str,
@@ -216,12 +222,12 @@ class RetrievalPipeline:
         """
         Run one search with the configured backend.
 
-        Returns candidate results (four times top_k, so the reranker has
-        something to choose from), or an empty list if the backend fails. Both
-        the filtered pass and the widened retry go through here so they cannot
-        drift apart.
+        Returns candidate results (RERANK_CANDIDATES, or four times top_k, so
+        the reranker has something to choose from), or an empty list if the
+        backend fails. Both the filtered pass and the widened retry go through
+        here so they cannot drift apart.
         """
-        candidates = top_k * 4
+        candidates = self._candidate_count(top_k)
 
         if self.hybrid_search and self.enable_hybrid_search:
             try:
@@ -363,7 +369,7 @@ class RetrievalPipeline:
         # "none": the unfiltered pool is merged in behind the filtered hits,
         # which keeps the routing signal where it works and stops it from
         # excluding everything else where it does not.
-        candidate_target = top_k * 4
+        candidate_target = self._candidate_count(top_k)
         if filters and derived_filter_keys and len(search_results) < candidate_target:
             widened_filters = {
                 k: v for k, v in filters.items() if k not in derived_filter_keys

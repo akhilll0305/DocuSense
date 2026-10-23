@@ -176,7 +176,14 @@ class Settings(BaseSettings):
     # Re-ranking (FREE)
     use_reranking: bool = True
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"  # FREE
-    rerank_top_k: int = 20  # Retrieve 20, rerank to top_k
+    # How many fused candidates the cross-encoder scores before cutting to
+    # top_k. Unset means four times top_k (20 for the UI's top 5, 40 for the
+    # benchmark's top 10). Reranking cost is linear in this number and is most
+    # of the query time; see docs/BENCHMARKS.md for what depth buys.
+    #
+    # This replaces RERANK_TOP_K, which was documented and read into settings
+    # but never used: the pipeline hardcoded four times top_k.
+    rerank_candidates: Optional[int] = None
     
     # ==================== Query Processing ====================
     # Which model rewrites the query before it is searched.

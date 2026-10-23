@@ -444,3 +444,16 @@ def test_delete_by_filter_refuses_an_empty_filter():
     with pytest.raises(ValueError):
         store.delete_by_filter({})
     store.client.delete.assert_not_called()
+
+
+def test_rerank_candidates_default_and_override(monkeypatch):
+    from docusense.config.settings import settings
+    from docusense.retrieval.retrieval_pipeline import RetrievalPipeline
+
+    monkeypatch.setattr(settings, "rerank_candidates", None)
+    assert RetrievalPipeline._candidate_count(10) == 40
+
+    monkeypatch.setattr(settings, "rerank_candidates", 20)
+    assert RetrievalPipeline._candidate_count(10) == 20
+    # Never fewer candidates than results asked for.
+    assert RetrievalPipeline._candidate_count(30) == 30
