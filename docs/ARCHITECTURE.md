@@ -42,7 +42,8 @@ AskRequest
             reranker.py          cross-encoder rerank (accurate mode)
        -> AnswerGenerator.generate()      Ollama, context-grounded prompt
        -> CitationFormatter               inline citations, reference list, BibTeX
-  -> PipelineResponse (answer, sources, citations, timings, confidence)
+       -> ClaimVerifier.verify()          each sentence vs. the retrieved text (NLI)
+  -> PipelineResponse (answer, sources, citations, verification, timings, confidence)
 ```
 
 ---
@@ -156,7 +157,8 @@ whose models have moved on is the shape of failure this cost a session to find
 | `answer_generator.py` | Builds the grounded prompt, calls Ollama, and streams or buffers the answer. Modes: `answer`, `compare`, `conflicts`. Also validates citations after generation (below) |
 | `citation_formatter.py` | Inline citations, APA reference lists, BibTeX export |
 | `conversation_manager.py` | Multi-turn memory — history is folded into follow-up queries so "what about its accuracy?" resolves against the prior turn |
-| `generation_pipeline.py` | Retrieval -> generation -> citation assembly, returning `PipelineResponse`; `generate_stream()` yields the same result incrementally |
+| `generation_pipeline.py` | Retrieval -> generation -> citation assembly -> claim check, returning `PipelineResponse`; `generate_stream()` yields the same result incrementally |
+| `claim_verifier.py` | Splits an answer into claims and scores each against windows of the retrieved text with an NLI model (below) |
 
 ### Citation validation
 
@@ -171,6 +173,40 @@ rule deleted valid citations. Both renderings are handled — parenthetical
 "(Saadi et al., 2025)" and narrative "According to Saadi et al. (2025)" — and removing a
 narrative citation takes its lead-in phrase with it so no dangling "According to," is left.
 Ordinary parentheses are untouched.
+
+### Claim verification
+
+Citation validation checks that a citation *points at* a retrieved paper. It cannot
+tell whether the sentence carrying the citation says what that paper says — the right
+paper cited for the wrong number passes it. `claim_verifier.py` asks that question
+directly, after generation, on both the buffered and the streaming path:
+
+```
+answer  -> extract_claims()    sentences; citation markers, headings and the
+                               bibliography stripped; fragments under 4 words dropped
+sources -> source_windows()    overlapping 4-sentence windows of each retrieved chunk
+                               (full text -- the API's sources carry a 200-char preview)
+each claim: top 4 windows by content-word overlap
+         -> NLI (DeBERTa-v3-base, MNLI+FEVER+ANLI, int8 ONNX)
+         -> supported if the best window's entailment >= CLAIM_SUPPORT_THRESHOLD
+```
+
+The result rides on `PipelineResponse.verification` (faithfulness plus each claim, its
+best window and scores), is returned by `/ask`, `/chat` and both streams, is stored with
+a chat message, and is shown under every answer in the UI.
+
+How good the judge is was measured before it was trusted, on QASPER *dev* with labels by
+construction (`scripts/validate_claim_verifier.py`): an annotator's free-form answer
+against the evidence they cited is supported; the same answer against another
+question's evidence, or with one number changed, is not. ROC-AUC 0.750 over 485
+examples. At the default threshold it flags 64% of unsupported claims and 31% of
+supported ones, so a flag means "no passage was found to entail this", not "this is
+false" — and the UI is worded that way. The first model tried, the xsmall
+cross-encoder, flagged 74% of *supported* claims and was replaced.
+
+Verification never withholds an answer: a missing model or a failed check is logged and
+reported as no check. Tests turn it off suite-wide (`tests/conftest.py`) so nothing
+downloads the 240MB model; the tests that cover it inject a fake.
 
 ### Streaming
 
@@ -192,6 +228,7 @@ generation, the assistant message after — so history is identical either way.
 |---|---|
 | `retrieval_metrics.py` | MRR, NDCG, Precision@K, Recall@K, MAP |
 | `answer_metrics.py` | ROUGE, citation accuracy, completeness |
+| `qasper_official.py` | QASPER's own Answer-F1 / Evidence-F1, reproduced from AllenAI's evaluator and cross-checked against it on every run |
 | `qasper_loader.py` | Parses QASPER and rebuilds each paper as ingestible Markdown |
 | `qasper_harness.py` | Ingests QASPER, grounds evidence to chunk ids, runs the ablation arms, paired bootstrap |
 | `evaluator.py` | End-to-end evaluation orchestration |
@@ -212,6 +249,29 @@ and the evaluator's own filters discarded every one of them.
 Benchmark papers are ingested under a dedicated `user_id`, so the existing
 per-user isolation keeps a benchmark corpus out of any real user's documents,
 BM25 index, and search results.
+
+### `training/`
+
+`qasper_pairs.py` turns QASPER's **train** split into (question, evidence chunk,
+hard negative) triples. Each paper goes through the real preprocessor and chunker, so
+the models train on the ~500-token Markdown chunks they will be asked to rank, and
+positives are labelled by `ground_evidence()` — the same function that builds the
+benchmark's ground truth, so a gain cannot come from agreeing with a different labeller.
+Hard negatives are same-paper chunks BM25 ranks 2–4; rank 1 is skipped because QASPER's
+evidence annotation is not exhaustive and the single most similar non-evidence chunk is
+disproportionately an unlabelled positive.
+
+`scripts/finetune_embedder.py` (MultipleNegativesRankingLoss) and
+`scripts/finetune_reranker.py` (BCE, with dev-based early stopping) choose checkpoints on
+the **dev** split and never read test. Both export ONNX with `torch.onnx` and refuse to
+finish unless the export reproduces torch (cosine 0.9999 / logit 1e-3). The backends
+load either from a directory: `EMBEDDING_MODEL=models/minilm-qasper`,
+`RERANKER_MODEL=models/reranker-qasper`. `models/` is not in git.
+
+The fine-tuned reranker was measured on test and did not earn its place (+0.0062 MRR,
+p = 0.47), so the shipped reranker is still MS MARCO's. The fine-tuned embedder is
+ahead on dev (MRR@10 0.128 → 0.160) and has not yet been measured on test, so it is not
+the default either. See [BENCHMARKS.md](BENCHMARKS.md#fine-tuning-the-retrieval-models).
 
 ### `storage/`
 SQLite via `chunk_store.py` (documents, chunks, images) and `conversation_store.py`
@@ -624,3 +684,38 @@ Two more things were found while looking for the memory:
 - **`google.generativeai` was imported at module scope** in the query processor
   and the image processor, for a backend that defaults to off, and it drags PIL
   with it: 60MB, plus a deprecation warning on every start. Imported on use now.
+
+## Fixed in the evaluation pass
+
+Building the fine-tuning and answer-level evaluation surfaced six defects. Three were
+in the product; three made a benchmark measure the wrong corpus without saying so.
+
+- **Metadata filters reached only half of hybrid search.** `HybridSearch` passed
+  `filters` to Qdrant and ran BM25 over the user's whole shelf, then RRF fused the two.
+  A question scoped to one document — or to papers from a year range — came back with
+  out-of-scope BM25 hits among its sources. `chunk_matches_filters()` now applies the
+  same semantics as `build_filter()` (scalar, any-of, ranges, array membership, a
+  missing key fails) before BM25's top-k cut, and BM25 chunks carry `user_id` like the
+  vector payload does.
+- **`RERANK_TOP_K` did nothing.** It was documented, loaded into settings and read by no
+  code; the pipeline hardcoded four times `top_k`. Replaced by `RERANK_CANDIDATES`,
+  defaulting to the measured behaviour.
+- **`model_runtime` was declared twice** in `settings.py`, with its whole comment block.
+  The second silently won.
+- **Deleting a document required its collection to exist.** `delete_document()`
+  deletes vectors first and keeps the rows on failure, so a delete can be retried; a
+  collection that did not exist made the vector delete raise, and the rows were kept for
+  good. Pointing `QDRANT_COLLECTION_NAME` at a fresh collection left every old benchmark
+  document in the BM25 corpus: 2,096 chunks for a 1,048-chunk corpus. Vector search,
+  served by the new collection, reproduced its published 0.1867 exactly; hybrid fell from
+  0.2244 to 0.2137, which is how it surfaced.
+- **Orphaned vectors survived every reset.** The reset deleted vectors through document
+  rows, so a vector whose row was already gone — an interrupted run, or a local-mode
+  collection delete whose metadata never reached disk because the client did not close
+  cleanly — stayed searchable under a chunk id the ground truth does not contain. A
+  collection with every chunk twice took vector-only MRR to 0.1130 and erased the
+  reranker's gain (+0.003, p = 0.87), because duplicates filled half of every top 10.
+  The reset now also purges by tenant, and `benchmark.py` refuses to measure unless
+  there is exactly one stored document per paper and one vector per chunk.
+- **Answer F1 could not be computed.** The QASPER loader dropped `question_id`, which
+  the official evaluator keys predictions by.
